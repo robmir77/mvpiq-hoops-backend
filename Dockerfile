@@ -2,8 +2,8 @@ FROM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /app
 
-COPY target/quarkus-app/ /app/
+COPY target/*-runner.jar app.jar
 
 EXPOSE 8080
 
-CMD ["java","-jar","quarkus-run.jar"]
+CMD ["java", "-jar", "app.jar"]
