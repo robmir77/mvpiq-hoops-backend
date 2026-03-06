@@ -1,21 +1,17 @@
-# ---------- BUILD ----------
-FROM maven:3.9.9-eclipse-temurin-17 AS build
-
+FROM eclipse-temurin:17-jdk-jammy as build
 WORKDIR /build
+COPY . .
+RUN ./mvnw package -DskipTests
 
-COPY pom.xml .
-COPY src ./src
+FROM eclipse-temurin:17-jre-jammy
 
-RUN mvn package -DskipTests
+WORKDIR /work
 
-
-# ---------- RUNTIME ----------
-FROM eclipse-temurin:17-jdk-jammy
-
-WORKDIR /app
-
-COPY --from=build /build/target/*-runner.jar app.jar
+COPY --from=build /build/target/quarkus-app/lib/ /work/lib/
+COPY --from=build /build/target/quarkus-app/*.jar /work/
+COPY --from=build /build/target/quarkus-app/app/ /work/app/
+COPY --from=build /build/target/quarkus-app/quarkus/ /work/quarkus/
 
 EXPOSE 8080
 
-CMD ["java","-jar","app.jar"]
+CMD ["java","-jar","quarkus-run.jar"]

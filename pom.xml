@@ -93,6 +93,14 @@
           <groupId>io.smallrye</groupId>
           <artifactId>smallrye-jwt-build</artifactId>
       </dependency>
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-vertx-http</artifactId>
+      </dependency>
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-cache</artifactId>
+      </dependency>
   </dependencies>
   <build>
     <plugins>
