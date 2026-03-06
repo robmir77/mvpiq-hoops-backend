@@ -31,7 +31,10 @@ public class PlayerCvTeam {
     @JoinColumn(name = "position_id")
     private PositionMetadata position;
 
+    @Column(name = "start_year")
     private Integer startYear;
+
+    @Column(name = "end_year")
     private Integer endYear;
 
     @Column(columnDefinition = "TEXT")

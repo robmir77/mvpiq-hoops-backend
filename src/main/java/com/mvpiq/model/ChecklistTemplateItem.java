@@ -1,11 +1,11 @@
 package com.mvpiq.model;
 
+import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import jakarta.json.bind.annotation.JsonbTransient;
 
 import java.time.OffsetDateTime;
 import java.util.*;
