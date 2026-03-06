@@ -1,5 +1,6 @@
-*
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
-!target/quarkus-app/*
+target
+node_modules
+.git
+.gitignore
+Dockerfile
+README.md
