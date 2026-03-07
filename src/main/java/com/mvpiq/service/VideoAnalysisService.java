@@ -139,5 +139,6 @@ public class VideoAnalysisService {
     }
 
     public AnalysisResultDTO getResult(UUID sessionId) {
+        return null;
     }
 }
