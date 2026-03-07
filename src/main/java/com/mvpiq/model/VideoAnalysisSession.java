@@ -3,6 +3,7 @@ package com.mvpiq.model;
 import jakarta.persistence.*;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -35,5 +36,5 @@ public class VideoAnalysisSession extends PanacheEntityBase {
     public OffsetDateTime createdAt;
 
     @Column(name = "processed_at")
-    public OffsetDateTime processedAt;
+    public Instant processedAt;
 }

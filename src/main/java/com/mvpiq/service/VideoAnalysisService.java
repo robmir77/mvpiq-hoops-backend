@@ -102,13 +102,13 @@ public class VideoAnalysisService {
             result.detectedErrors = detectedErrors;
             result.suggestions = suggestions;
             result.aiResponse = aiResponse;
-            result.createdAt = OffsetDateTime.now();
+            result.createdAt = Instant.now();
 
             resultRepository.persist(result);
 
             // 4 aggiorna sessione
             session.status = "COMPLETED";
-            session.processedAt = OffsetDateTime.now();
+            session.processedAt = Instant.now();
 
             // 5 risposta API
             AnalysisResultDTO dto = new AnalysisResultDTO();

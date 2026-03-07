@@ -1,33 +1,32 @@
 package com.mvpiq.model;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
-
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "video_analysis_results")
-public class VideoAnalysisResult extends PanacheEntityBase {
+public class VideoAnalysisResult {
 
     @Id
+    @GeneratedValue
     public UUID id;
 
-    @OneToOne
-    @JoinColumn(name = "session_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "session_id")
     public VideoAnalysisSession session;
 
     public Integer score;
 
-    @Column(columnDefinition = "jsonb")
+    @Column(name = "detected_errors", columnDefinition = "jsonb")
     public String detectedErrors;
 
-    @Column(columnDefinition = "jsonb")
+    @Column(name = "suggestions", columnDefinition = "jsonb")
     public String suggestions;
 
     @Column(name = "ai_response", columnDefinition = "jsonb")
     public String aiResponse;
 
     @Column(name = "created_at")
-    public OffsetDateTime createdAt;
+    public Instant createdAt;
 }
