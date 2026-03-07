@@ -1,0 +1,48 @@
+package com.mvpiq.service;
+
+import com.mvpiq.model.VideoAnalysisSession;
+import com.mvpiq.repositories.VideoAnalysisSessionRepository;
+import com.mvpiq.service.storage.SupabaseStorageService;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+
+import java.io.File;
+import java.util.UUID;
+
+@ApplicationScoped
+public class VideoAnalysisProcessor {
+
+    @Inject
+    VideoAnalysisSessionRepository sessionRepository;
+
+    @Inject
+    VideoAnalysisFrameService frameService;
+
+    @Inject
+    VideoAnalysisAIService aiService;
+
+    @Inject
+    SupabaseStorageService storageService;
+
+    @Transactional
+    public void processSessionAsync(UUID sessionId) {
+
+        VideoAnalysisSession session = sessionRepository.findById(sessionId);
+
+        session.status = "PROCESSING";
+
+        String videoUrl = session.videoUrl;
+
+        File videoFile = storageService.downloadVideo(videoUrl);
+
+        var frames = frameService.extractFrames(videoFile, session);
+
+        aiService.analyzeFrames(session, frames);
+
+        session.status = "COMPLETED";
+
+        storageService.deleteVideo(videoUrl);
+    }
+}

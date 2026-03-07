@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Getter
@@ -16,5 +17,5 @@ public class AnalysisSessionResponseDTO {
 
     public String analysisCode;
 
-    public Instant createdAt;
+    public OffsetDateTime createdAt;
 }
