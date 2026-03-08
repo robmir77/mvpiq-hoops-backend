@@ -1,13 +1,15 @@
 package com.mvpiq.service;
 
 import com.mvpiq.dto.MediaAssetDTO;
-import com.mvpiq.dto.MediaUploadRequest;
 import com.mvpiq.model.MediaAsset;
+import com.mvpiq.enums.MediaType;
 import com.mvpiq.repositories.MediaAssetRepository;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import java.io.File;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -18,7 +20,11 @@ public class MediaService {
     @Inject
     MediaAssetRepository mediaRepo;
 
+    @Inject
+    SupabaseStorageService storageService;
+
     public List<MediaAssetDTO> getVideosByAthlete(UUID athleteId) {
+
         return mediaRepo.findByOwner(athleteId)
                 .stream()
                 .map(this::toDto)
@@ -26,20 +32,19 @@ public class MediaService {
     }
 
     @Transactional
-    public MediaAssetDTO upload(MediaUploadRequest req) {
+    public MediaAssetDTO uploadVideo(File file, UUID userId) {
+
+        String extension = file.getName()
+                .substring(file.getName().lastIndexOf("."));
+
+        String path = userId + "/" + UUID.randomUUID() + extension;
+
+        String publicUrl = storageService.uploadVideo(file, path);
 
         MediaAsset entity = MediaAsset.builder()
-                .id(null)
-                .ownerId(UUID.fromString(req.getOwnerId()))
-                .title(req.getTitle())
-                .description(req.getDescription())
-                .mediaType(req.getMediaType())
-                .storageUrl(req.getStorageUrl())
-                .thumbnailUrl(req.getThumbnailUrl())
-                .durationSeconds(req.getDurationSeconds())
-                .width(req.getWidth())
-                .height(req.getHeight())
-                .isOfficial(req.getIsOfficial())
+                .ownerId(userId)
+                .storageUrl(publicUrl)
+                .mediaType(MediaType.user_upload.toString())
                 .createdAt(OffsetDateTime.now())
                 .build();
 
@@ -49,6 +54,7 @@ public class MediaService {
     }
 
     private MediaAssetDTO toDto(MediaAsset m) {
+
         return MediaAssetDTO.builder()
                 .id(m.getId())
                 .title(m.getTitle())

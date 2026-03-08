@@ -1,6 +1,5 @@
 package com.mvpiq.model;
 
-import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -24,7 +23,6 @@ public class ChecklistTemplateItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "template_id", nullable = false)
-    @JsonbTransient
     private ChecklistTemplate template;
 
     @Column(name = "label", length = 255, nullable = false)

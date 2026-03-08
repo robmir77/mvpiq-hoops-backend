@@ -15,7 +15,7 @@ public class MediaAssetDTO {
     private UUID id;
     private String title;
     private String description;
-    private MediaType mediaType;
+    private String mediaType;
     private String storageUrl;
     private String thumbnailUrl;
     private Integer durationSeconds;

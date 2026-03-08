@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import jakarta.json.bind.annotation.JsonbTransient;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -24,7 +23,6 @@ public class ChecklistTemplateItemOption {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "template_item_id", nullable = false)
-    @JsonbTransient
     private ChecklistTemplateItem templateItem;
 
     @Column(name = "value_code", length = 100, nullable = false)

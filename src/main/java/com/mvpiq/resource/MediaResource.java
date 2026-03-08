@@ -1,13 +1,15 @@
 package com.mvpiq.resource;
 
 import com.mvpiq.dto.MediaAssetDTO;
-import com.mvpiq.dto.MediaUploadRequest;
+import com.mvpiq.dto.VideoUploadForm;
 import com.mvpiq.service.MediaService;
+
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.annotations.providers.multipart.MultipartForm;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,17 +26,23 @@ public class MediaResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getVideos(@PathParam("athleteId") UUID athleteId) {
 
-        List<MediaAssetDTO> videos = mediaService.getVideosByAthlete(athleteId);
+        List<MediaAssetDTO> videos =
+                mediaService.getVideosByAthlete(athleteId);
+
         return Response.ok(videos).build();
     }
 
     @POST
-    @Path("/videos")
-    @Consumes(MediaType.APPLICATION_JSON)
+    @Path("/videos/upload")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response uploadVideo(MediaUploadRequest request) {
+    public Response uploadVideo(@MultipartForm VideoUploadForm form) {
 
-        MediaAssetDTO saved = mediaService.upload(request);
+        System.out.println("🎥 UPLOAD ENDPOINT HIT");
+
+        MediaAssetDTO saved =
+                mediaService.uploadVideo(form.file, UUID.fromString(form.userId));
+
         return Response.ok(saved).build();
     }
 }
