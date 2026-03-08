@@ -39,6 +39,9 @@ public class VideoAnalysisService {
     @Inject
     JsonWebToken jwt;
 
+    @Inject
+    VideoAnalysisProcessor processor;
+
     @Transactional
     public AnalysisSessionResponseDTO createSession(CreateAnalysisSessionRequestDTO request) {
 
@@ -56,6 +59,9 @@ public class VideoAnalysisService {
         session.createdAt = OffsetDateTime.now();
 
         sessionRepository.persist(session);
+
+        // avvia analisi async
+        processor.processSessionAsync(session.id);
 
         AnalysisSessionResponseDTO response = new AnalysisSessionResponseDTO();
         response.id = session.id;
