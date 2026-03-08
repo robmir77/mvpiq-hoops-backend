@@ -34,6 +34,9 @@ public class VideoAnalysisResource {
     @POST
     @Path("/sessions")
     public AnalysisSessionResponseDTO createSession(CreateAnalysisSessionRequestDTO request) {
+        System.out.println("analysisCode = " + request.getAnalysisCode());
+        System.out.println("videoUrl = " + request.getVideoUrl());
+
         return service.createSession(request);
     }
 

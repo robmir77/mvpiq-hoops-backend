@@ -12,6 +12,7 @@ import java.util.UUID;
 public class VideoAnalysisSession extends PanacheEntityBase {
 
     @Id
+    @GeneratedValue
     public UUID id;
 
     @Column(name = "user_id", nullable = false)

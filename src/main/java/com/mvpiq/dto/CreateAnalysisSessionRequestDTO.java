@@ -1,20 +1,22 @@
 package com.mvpiq.dto;
-
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class CreateAnalysisSessionRequestDTO {
 
-    public UUID userId;
+    private UUID userId;
 
-    public String analysisCode;
+    private String analysisCode;
 
-    public String videoUrl;
+    private String videoUrl;
 
-    public Integer videoSeconds;
+    private Integer videoSeconds;
 
-    public Integer videoSizeMb;
+    private Integer videoSizeMb;
 }

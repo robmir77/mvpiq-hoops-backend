@@ -14,6 +14,7 @@ import com.mvpiq.service.storage.SupabaseStorageService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.io.File;
 import java.time.Instant;
@@ -35,19 +36,22 @@ public class VideoAnalysisService {
     @Inject
     SupabaseStorageService storageService;
 
+    @Inject
+    JsonWebToken jwt;
+
     @Transactional
     public AnalysisSessionResponseDTO createSession(CreateAnalysisSessionRequestDTO request) {
 
-        var type = typeRepository.findByCode(request.analysisCode)
+        var type = typeRepository.findByCode(request.getAnalysisCode())
                 .orElseThrow(() -> new RuntimeException("Analysis type not found"));
 
         VideoAnalysisSession session = new VideoAnalysisSession();
 
-        session.userId = request.userId;
+        session.userId = UUID.fromString(jwt.getSubject());
         session.analysisType = type;
-        session.videoUrl = request.videoUrl;
-        session.videoSeconds = request.videoSeconds;
-        session.videoSizeMb = request.videoSizeMb;
+        session.videoUrl = request.getVideoUrl();
+        session.videoSeconds = request.getVideoSeconds();
+        session.videoSizeMb = request.getVideoSizeMb();
         session.status = "UPLOADED";
         session.createdAt = OffsetDateTime.now();
 
