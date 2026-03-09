@@ -10,8 +10,6 @@ import java.util.UUID;
 @NoArgsConstructor
 public class CreateAnalysisSessionRequestDTO {
 
-    private UUID userId;
-
     private String analysisCode;
 
     private String videoUrl;

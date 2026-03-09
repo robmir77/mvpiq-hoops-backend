@@ -35,12 +35,17 @@ public class MediaService {
     public MediaAssetDTO uploadVideo(File file, UUID userId) {
 
         String fileName = file.getName();
+        System.out.println("Uploaded file name: " + fileName);
 
         String extension = "";
         int dotIndex = fileName.lastIndexOf(".");
 
         if (dotIndex != -1) {
             extension = fileName.substring(dotIndex);
+        }
+
+        if (extension.isEmpty()) {
+            extension = ".mp4";
         }
 
         String path = userId + "/" + UUID.randomUUID() + extension;

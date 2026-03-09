@@ -11,6 +11,7 @@ import java.util.UUID;
 public class VideoAnalysisFrame extends PanacheEntityBase {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     public UUID id;
 
     @ManyToOne
