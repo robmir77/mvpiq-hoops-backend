@@ -34,8 +34,14 @@ public class MediaService {
     @Transactional
     public MediaAssetDTO uploadVideo(File file, UUID userId) {
 
-        String extension = file.getName()
-                .substring(file.getName().lastIndexOf("."));
+        String fileName = file.getName();
+
+        String extension = "";
+        int dotIndex = fileName.lastIndexOf(".");
+
+        if (dotIndex != -1) {
+            extension = fileName.substring(dotIndex);
+        }
 
         String path = userId + "/" + UUID.randomUUID() + extension;
 

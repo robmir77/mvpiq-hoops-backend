@@ -30,6 +30,7 @@ public class SupabaseStorageService {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(supabaseUrl + "/storage/v1/object/" + bucket + "/" + path))
                     .header("Authorization", "Bearer " + serviceKey)
+                    .header("apikey", serviceKey)
                     .header("Content-Type", "video/mp4")
                     .PUT(HttpRequest.BodyPublishers.ofFile(file.toPath()))
                     .build();
