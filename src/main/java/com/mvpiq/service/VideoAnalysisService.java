@@ -63,7 +63,7 @@ public class VideoAnalysisService {
     }
 
     @Transactional
-    private VideoAnalysisSession newVideoAnalysisSession(CreateAnalysisSessionRequestDTO request, VideoAnalysisType type) {
+    VideoAnalysisSession newVideoAnalysisSession(CreateAnalysisSessionRequestDTO request, VideoAnalysisType type) {
         VideoAnalysisSession session = new VideoAnalysisSession();
 
         session.userId = UUID.fromString(jwt.getSubject());
