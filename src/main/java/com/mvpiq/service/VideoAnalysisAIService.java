@@ -25,38 +25,25 @@ public class VideoAnalysisAIService {
     VideoAnalysisResultRepository resultRepository;
 
     @Inject
-    BasketballShotAnalysisService basketballShotAnalysisService;
+    BasketballShotAnalysisService shotAnalysisService;
 
-    /**
-     * Analizza i frame usando il servizio Java locale per rilevare la palla e il canestro.
-     */
     public void analyzeFrames(VideoAnalysisSession session, List<File> frames) {
+
         if (frames == null || frames.isEmpty()) {
             throw new RuntimeException("No frames extracted for analysis");
         }
 
         try {
-            // Analizza i frame e ottieni le posizioni della palla
-            List<Point> ballPositions = basketballShotAnalysisService.analyzeShot(frames);
 
-            // Converti i punti in JSON
-            JsonArrayBuilder positionsArray = Json.createArrayBuilder();
-            for (Point p : ballPositions) {
-                positionsArray.add(Json.createObjectBuilder()
-                        .add("x", p.x())
-                        .add("y", p.y()));
-            }
+            JsonObject aiResponse = shotAnalysisService.analyzeShot(frames);
 
-            // Crea JsonObject simulando il vecchio formato AI
-            JsonObjectBuilder aiResponse = Json.createObjectBuilder()
-                    .add("score", ballPositions.size()) // esempio di punteggio: numero di frame validi
-                    .add("positions", positionsArray);
-
-            saveResult(session, aiResponse.build());
+            saveResult(session, aiResponse);
 
         } catch (Exception e) {
+
             session.status = "FAILED";
             throw new RuntimeException("AI analysis failed", e);
+
         }
     }
 
