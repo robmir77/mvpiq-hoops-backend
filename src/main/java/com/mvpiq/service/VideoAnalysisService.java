@@ -6,6 +6,7 @@ import com.mvpiq.dto.CreateAnalysisSessionRequestDTO;
 import com.mvpiq.dto.VideoAnalysisRequestDTO;
 import com.mvpiq.model.VideoAnalysisSession;
 import com.mvpiq.model.VideoAnalysisResult;
+import com.mvpiq.model.VideoAnalysisType;
 import com.mvpiq.repositories.VideoAnalysisSessionRepository;
 import com.mvpiq.repositories.VideoAnalysisTypeRepository;
 import com.mvpiq.repositories.VideoAnalysisResultRepository;
@@ -42,23 +43,12 @@ public class VideoAnalysisService {
     @Inject
     VideoAnalysisProcessor processor;
 
-    @Transactional
     public AnalysisSessionResponseDTO createSession(CreateAnalysisSessionRequestDTO request) {
 
         var type = typeRepository.findByCode(request.getAnalysisCode())
                 .orElseThrow(() -> new RuntimeException("Analysis type not found"));
 
-        VideoAnalysisSession session = new VideoAnalysisSession();
-
-        session.userId = UUID.fromString(jwt.getSubject());
-        session.analysisType = type;
-        session.videoUrl = request.getVideoUrl();
-        session.videoSeconds = request.getVideoSeconds();
-        session.videoSizeMb = request.getVideoSizeMb();
-        session.status = "UPLOADED";
-        session.createdAt = OffsetDateTime.now();
-
-        sessionRepository.persist(session);
+        VideoAnalysisSession session = newVideoAnalysisSession(request, type);
 
         // avvia analisi async
         processor.processSessionAsync(session.id);
@@ -70,6 +60,22 @@ public class VideoAnalysisService {
         response.createdAt = session.createdAt;
 
         return response;
+    }
+
+    @Transactional
+    private VideoAnalysisSession newVideoAnalysisSession(CreateAnalysisSessionRequestDTO request, VideoAnalysisType type) {
+        VideoAnalysisSession session = new VideoAnalysisSession();
+
+        session.userId = UUID.fromString(jwt.getSubject());
+        session.analysisType = type;
+        session.videoUrl = request.getVideoUrl();
+        session.videoSeconds = request.getVideoSeconds();
+        session.videoSizeMb = request.getVideoSizeMb();
+        session.status = "UPLOADED";
+        session.createdAt = OffsetDateTime.now();
+
+        sessionRepository.persist(session);
+        return session;
     }
 
     @Transactional

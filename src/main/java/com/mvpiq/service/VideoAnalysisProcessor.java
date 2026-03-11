@@ -26,7 +26,6 @@ public class VideoAnalysisProcessor {
     @Inject
     SupabaseStorageService storageService;
 
-    @Transactional
     public void processSessionAsync(UUID sessionId) {
 
         VideoAnalysisSession session = sessionRepository.findById(sessionId);
@@ -37,7 +36,10 @@ public class VideoAnalysisProcessor {
 
         File videoFile = storageService.downloadVideo(videoUrl);
 
-        var frames = frameService.extractFrames(videoFile, session);
+        var frames = frameService.extractFrames(videoFile, session); // estrazione lenta
+
+        // 3️⃣ Persistenza dei frame → dentro transazione breve
+        frameService.persistFrames(session, frames);
 
         aiService.analyzeFrames(session, frames);
 
