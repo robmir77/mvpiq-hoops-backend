@@ -1,9 +1,9 @@
 package com.mvpiq.service;
 
-import com.mvpiq.dto.AnalysisResultDTO;
-import com.mvpiq.dto.AnalysisSessionResponseDTO;
-import com.mvpiq.dto.CreateAnalysisSessionRequestDTO;
-import com.mvpiq.dto.VideoAnalysisRequestDTO;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mvpiq.dto.*;
 import com.mvpiq.model.VideoAnalysisSession;
 import com.mvpiq.model.VideoAnalysisResult;
 import com.mvpiq.model.VideoAnalysisType;
@@ -20,6 +20,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.io.File;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -130,9 +131,10 @@ public class VideoAnalysisService {
             AnalysisResultDTO dto = new AnalysisResultDTO();
             dto.sessionId = sessionId;
             dto.score = score;
-            dto.detectedErrors = detectedErrors;
-            dto.suggestions = suggestions;
 
+            ObjectMapper mapper = new ObjectMapper();
+            dto.setDetectedErrors(mapper.readValue(result.detectedErrors, new TypeReference<List<String>>() {}));
+            dto.setSuggestions(mapper.readValue(result.suggestions, new TypeReference<List<String>>() {}));
             return dto;
 
         } catch (Exception e) {
@@ -154,7 +156,37 @@ public class VideoAnalysisService {
         }
     }
 
+    @Transactional
     public AnalysisResultDTO getResult(UUID sessionId) {
-        return null;
+
+        // 1️⃣ Recupera sessione
+        VideoAnalysisSession session = sessionRepository.findByIdOptional(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        // 2️⃣ Recupera risultato associato
+        VideoAnalysisResult result = resultRepository.find("session", session)
+                .firstResultOptional()
+                .orElseThrow(() -> new RuntimeException("Result not found"));
+
+        // 3️⃣ Costruisci DTO
+        AnalysisResultDTO dto = new AnalysisResultDTO();
+        dto.setSessionId(sessionId);
+        dto.setScore(result.score);
+
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            dto.setDetectedErrors(mapper.readValue(
+                    result.detectedErrors,
+                    new TypeReference<List<String>>() {}
+            ));
+            dto.setSuggestions(mapper.readValue(
+                    result.suggestions,
+                    new TypeReference<List<String>>() {}
+            ));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to parse analysis result JSON", e);
+        }
+
+        return dto;
     }
 }

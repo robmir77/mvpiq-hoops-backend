@@ -4,10 +4,12 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 
+import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 @Entity
+@Getter
 @Table(name = "video_analysis_results")
 public class VideoAnalysisResult {
 
