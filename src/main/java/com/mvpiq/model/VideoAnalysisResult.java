@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 @Entity
 @Table(name = "video_analysis_results")
 public class VideoAnalysisResult {
@@ -18,12 +21,15 @@ public class VideoAnalysisResult {
 
     public Integer score;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "detected_errors", columnDefinition = "jsonb")
     public String detectedErrors;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "suggestions", columnDefinition = "jsonb")
     public String suggestions;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "ai_response", columnDefinition = "jsonb")
     public String aiResponse;
 
