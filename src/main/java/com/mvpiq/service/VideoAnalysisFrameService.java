@@ -8,7 +8,9 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -22,25 +24,42 @@ public class VideoAnalysisFrameService {
     @Inject
     VideoAnalysisFrameRepository frameRepository;
 
-    // Solo estrazione file, fuori da qualsiasi transazione
-    public List<File> extractFrames(File video, VideoAnalysisSession session) {
+    public List<File> extractFrames(File video, VideoAnalysisSession session, double fps) {
         List<File> frames = new ArrayList<>();
+        File tempDir = null;
+
         try {
             LOG.info("🖼 Creating temp frame directory...");
 
-            File tempDir = new File(System.getProperty("java.io.tmpdir"), "frames-" + session.id);
+            tempDir = new File(System.getProperty("java.io.tmpdir"), "frames-" + session.id);
             tempDir.mkdirs();
 
             String outputPattern = tempDir.getAbsolutePath() + "/frame-%03d.jpg";
 
-            LOG.info("🎞 Running ffmpeg...");
+            LOG.info("🎬 Extracting frames from video: " + video.getAbsolutePath());
+            LOG.info("📏 Video size: " + (video.length() / (1024 * 1024)) + " MB");
+            LOG.info("⏱ Using FPS: " + fps);
+
+            // Avvia FFmpeg
             ProcessBuilder pb = new ProcessBuilder(
-                    "ffmpeg", "-i", video.getAbsolutePath(), "-vf", "fps=10", outputPattern
+                    "ffmpeg",
+                    "-i", video.getAbsolutePath(),
+                    "-vf", "fps=" + fps,
+                    outputPattern
             );
             pb.redirectErrorStream(true);
 
             Process process = pb.start();
-            boolean finished = process.waitFor(5, TimeUnit.MINUTES);
+
+            // Leggi i log di FFmpeg in tempo reale
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    LOG.info("[ffmpeg] " + line);
+                }
+            }
+
+            boolean finished = process.waitFor(10, TimeUnit.MINUTES); // Timeout lungo
             if (!finished) {
                 process.destroyForcibly();
                 throw new RuntimeException("FFmpeg timeout");
@@ -53,14 +72,20 @@ public class VideoAnalysisFrameService {
             }
 
             Arrays.sort(files);
-            frames.addAll(Arrays.asList(files));
 
-            LOG.info("✅ Frames extracted: " + frames.size());
+            // Log per ogni frame creato
+            for (File frame : files) {
+                LOG.info("🖼 Frame created: " + frame.getName() + " | Size: " + (frame.length() / 1024) + " KB");
+                frames.add(frame);
+            }
+
+            LOG.info("✅ Total frames extracted: " + frames.size());
 
         } catch (Exception e) {
             LOG.error("❌ Frame extraction failed", e);
             throw new RuntimeException(e);
         }
+
         return frames;
     }
 

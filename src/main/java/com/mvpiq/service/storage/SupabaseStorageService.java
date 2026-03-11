@@ -1,6 +1,8 @@
 package com.mvpiq.service.storage;
 
+import com.mvpiq.service.VideoAnalysisFrameService;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.jboss.logging.Logger;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -13,9 +15,12 @@ public class SupabaseStorageService {
 
     private static final String SUPABASE_URL = "https://gnjwgcronnnzxokmuqlw.supabase.co";
 
+    private static final Logger LOG = Logger.getLogger(VideoAnalysisFrameService.class);
+
     public File downloadVideo(String videoUrl) {
 
         try {
+            LOG.info("🌐 Downloading video from URL: " + videoUrl);
 
             URL url = new URL(videoUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -26,19 +31,20 @@ public class SupabaseStorageService {
             File tempFile = File.createTempFile("analysis-", ".mp4");
 
             try (FileOutputStream outputStream = new FileOutputStream(tempFile)) {
-
                 byte[] buffer = new byte[4096];
                 int bytesRead;
-
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     outputStream.write(buffer, 0, bytesRead);
                 }
-
             }
+
+            LOG.info("🎬 Video downloaded to: " + tempFile.getAbsolutePath());
+            LOG.info("📏 Video size: " + (tempFile.length() / (1024 * 1024)) + " MB");
 
             return tempFile;
 
         } catch (Exception e) {
+            LOG.error("❌ Error downloading video from URL: " + videoUrl, e);
             throw new RuntimeException("Error downloading video", e);
         }
     }
