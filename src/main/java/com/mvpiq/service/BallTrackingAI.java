@@ -33,10 +33,18 @@ public class BallTrackingAI {
                 .optProgress(new ProgressBar())
                 .build();*/
 
-        Criteria<Image, DetectedObjects> criteria = Criteria.builder()
+        /* Criteria<Image, DetectedObjects> criteria = Criteria.builder()
                 .setTypes(Image.class, DetectedObjects.class)
                 .optModelPath(Paths.get("C:/mvpiq-hoops/mvpiq-hoops-backend/target/model/yolov5s.pt"))
                 .optEngine("PyTorch")
+                .optTranslator(YoloV5Translator.builder().build())
+                .optProgress(new ProgressBar())
+                .build(); */
+
+        Criteria<Image, DetectedObjects> criteria = Criteria.builder()
+                .setTypes(Image.class, DetectedObjects.class)
+                .optModelPath(Paths.get("C:/mvpiq-hoops/mvpiq-hoops-backend/src/main/resources/model/yolov5s.onnx"))
+                .optEngine("OnnxRuntime")
                 .optTranslator(YoloV5Translator.builder().build())
                 .optProgress(new ProgressBar())
                 .build();

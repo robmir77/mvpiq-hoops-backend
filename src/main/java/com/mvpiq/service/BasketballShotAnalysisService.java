@@ -40,6 +40,7 @@ public class BasketballShotAnalysisService {
             throw new RuntimeException("No frames for shot analysis");
         }
 
+        /*
         for (File frame : frames) {
             BufferedImage img = ImageIO.read(frame);
             if (img == null) {
@@ -47,7 +48,7 @@ public class BasketballShotAnalysisService {
             } else {
                 System.out.println("Frame ok: " + frame.getName() + " " + img.getWidth() + "x" + img.getHeight());
             }
-        }
+        }*/
 
         LOG.info("Starting shot analysis. Frames received: " + frames.size());
 
