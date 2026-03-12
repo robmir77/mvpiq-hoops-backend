@@ -19,15 +19,10 @@ import org.jboss.logging.Logger;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static org.bytedeco.ffmpeg.global.avcodec.*;
 import static org.bytedeco.ffmpeg.global.avformat.*;
@@ -42,10 +37,15 @@ public class VideoAnalysisFrameService {
     @Inject
     VideoAnalysisFrameRepository frameRepository;
 
-    public List<File> extractFrames(File video, VideoAnalysisSession session, double fps) {
+    public List<File> extractFrames(File video, VideoAnalysisSession session, double targetFps) {
+
         List<File> frames = new ArrayList<>();
+
         File tempDir = new File(System.getProperty("java.io.tmpdir"), "frames-" + session.id);
         tempDir.mkdirs();
+
+        int targetWidth = 960;
+        int targetHeight = 544;
 
         AVFormatContext formatContext = new AVFormatContext(null);
         AVCodecContext codecContext = null;
@@ -56,7 +56,9 @@ public class VideoAnalysisFrameService {
         int videoStreamIndex = -1;
 
         try {
+
             LOG.info("🎬 Opening video: " + video.getAbsolutePath());
+
             if (avformat_open_input(formatContext, video.getAbsolutePath(), null, null) != 0) {
                 throw new RuntimeException("Cannot open video file");
             }
@@ -65,7 +67,6 @@ public class VideoAnalysisFrameService {
                 throw new RuntimeException("Cannot find stream info");
             }
 
-            // Trova il primo stream video
             for (int i = 0; i < formatContext.nb_streams(); i++) {
                 if (formatContext.streams(i).codecpar().codec_type() == AVMEDIA_TYPE_VIDEO) {
                     videoStreamIndex = i;
@@ -78,10 +79,21 @@ public class VideoAnalysisFrameService {
             }
 
             AVStream videoStream = formatContext.streams(videoStreamIndex);
+
+            double sourceFps = av_q2d(videoStream.avg_frame_rate());
+            int frameInterval = (int) Math.round(sourceFps / targetFps);
+
+            if (frameInterval < 1) frameInterval = 1;
+
+            LOG.info("📊 Source FPS: " + sourceFps);
+            LOG.info("📊 Target FPS: " + targetFps);
+            LOG.info("📊 Frame interval: " + frameInterval);
+
             AVCodec codec = avcodec_find_decoder(videoStream.codecpar().codec_id());
             if (codec == null) throw new RuntimeException("Unsupported codec");
 
             codecContext = avcodec_alloc_context3(codec);
+
             if (avcodec_parameters_to_context(codecContext, videoStream.codecpar()) < 0) {
                 throw new RuntimeException("Failed to copy codec parameters");
             }
@@ -90,57 +102,95 @@ public class VideoAnalysisFrameService {
                 throw new RuntimeException("Failed to open codec");
             }
 
-            // Conversione frame in RGB
             SwsContext swsCtx = sws_getContext(
-                    codecContext.width(), codecContext.height(), codecContext.pix_fmt(),
-                    codecContext.width(), codecContext.height(), AV_PIX_FMT_RGB24,
-                    SWS_BILINEAR, null, null, (double[]) null
+                    codecContext.width(),
+                    codecContext.height(),
+                    codecContext.pix_fmt(),
+                    targetWidth,
+                    targetHeight,
+                    AV_PIX_FMT_RGB24,
+                    SWS_BILINEAR,
+                    null,
+                    null,
+                    (double[]) null
             );
 
-            BytePointer buffer = new BytePointer(av_malloc(av_image_get_buffer_size(
-                    AV_PIX_FMT_RGB24, codecContext.width(), codecContext.height(), 1)));
+            int bufferSize = av_image_get_buffer_size(
+                    AV_PIX_FMT_RGB24,
+                    targetWidth,
+                    targetHeight,
+                    1
+            );
+
+            BytePointer buffer = new BytePointer(av_malloc(bufferSize));
 
             av_image_fill_arrays(
-                    rgbFrame.data(), rgbFrame.linesize(),
-                    buffer, AV_PIX_FMT_RGB24,
-                    codecContext.width(), codecContext.height(), 1
+                    rgbFrame.data(),
+                    rgbFrame.linesize(),
+                    buffer,
+                    AV_PIX_FMT_RGB24,
+                    targetWidth,
+                    targetHeight,
+                    1
             );
 
             int frameIndex = 0;
-            long frameInterval = (long) (formatContext.duration() / AV_TIME_BASE * fps);
+            int savedIndex = 0;
 
-            // Leggi i pacchetti
             while (av_read_frame(formatContext, packet) >= 0) {
+
                 if (packet.stream_index() == videoStreamIndex) {
+
                     if (avcodec_send_packet(codecContext, packet) < 0) continue;
 
                     while (avcodec_receive_frame(codecContext, frame) == 0) {
-                        // Converti in RGB
-                        sws_scale(
-                                swsCtx, frame.data(), frame.linesize(),
-                                0, codecContext.height(),
-                                rgbFrame.data(), rgbFrame.linesize()
-                        );
 
-                        // Salva frame come JPEG
-                        File outFile = new File(tempDir, String.format("frame-%03d.jpg", frameIndex++));
-                        saveFrameAsJPEG(rgbFrame, codecContext.width(), codecContext.height(), outFile);
-                        LOG.info("🖼 Frame created: " + outFile.getName() + " | Size: " + (outFile.length() / 1024) + " KB");
-                        frames.add(outFile);
+                        if (frameIndex % frameInterval == 0) {
+
+                            sws_scale(
+                                    swsCtx,
+                                    frame.data(),
+                                    frame.linesize(),
+                                    0,
+                                    codecContext.height(),
+                                    rgbFrame.data(),
+                                    rgbFrame.linesize()
+                            );
+
+                            File outFile = new File(tempDir, String.format("frame-%03d.jpg", savedIndex++));
+
+                            saveFrameAsJPEG(
+                                    rgbFrame,
+                                    targetWidth,
+                                    targetHeight,
+                                    outFile
+                            );
+
+                            frames.add(outFile);
+                        }
+
+                        frameIndex++;
                     }
                 }
+
                 av_packet_unref(packet);
             }
 
-            LOG.info("✅ Total frames extracted: " + frames.size());
+            LOG.info("✅ Frames extracted: " + frames.size());
 
         } catch (Exception e) {
+
             LOG.error("❌ Frame extraction failed", e);
             throw new RuntimeException(e);
+
         } finally {
+
             av_frame_free(frame);
             av_frame_free(rgbFrame);
-            if (codecContext != null) avcodec_free_context(codecContext);
+
+            if (codecContext != null)
+                avcodec_free_context(codecContext);
+
             avformat_close_input(formatContext);
         }
 
