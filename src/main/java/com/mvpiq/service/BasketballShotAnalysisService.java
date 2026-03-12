@@ -11,19 +11,10 @@ import org.jboss.logging.Logger;
 import org.bytedeco.opencv.opencv_core.*;
 import org.bytedeco.opencv.opencv_imgproc.*;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.bytedeco.opencv.global.opencv_cudaarithm.inRange;
-import static org.bytedeco.opencv.global.opencv_imgproc.*;
-import static org.bytedeco.opencv.global.opencv_imgcodecs.imread;
-import org.bytedeco.opencv.opencv_core.Mat;
-import org.bytedeco.opencv.opencv_core.Scalar;
-
-import javax.imageio.ImageIO;
 
 @ApplicationScoped
 public class BasketballShotAnalysisService {
@@ -39,16 +30,6 @@ public class BasketballShotAnalysisService {
             LOG.error("No frames provided for analysis");
             throw new RuntimeException("No frames for shot analysis");
         }
-
-        /*
-        for (File frame : frames) {
-            BufferedImage img = ImageIO.read(frame);
-            if (img == null) {
-                System.out.println("Frame corrotto: " + frame.getName());
-            } else {
-                System.out.println("Frame ok: " + frame.getName() + " " + img.getWidth() + "x" + img.getHeight());
-            }
-        }*/
 
         LOG.info("Starting shot analysis. Frames received: " + frames.size());
 
@@ -88,84 +69,6 @@ public class BasketballShotAnalysisService {
         LOG.info("Shot evaluation completed");
 
         return result;
-    }
-
-    public List<Point> trackBall(List<File> frames) {
-        LOG.info("Starting ball tracking with FIP color adjustment...");
-
-        List<Point> ballPositions = new ArrayList<>();
-
-        for (File frameFile : frames) {
-            LOG.info("Processing frame: " + frameFile.getName());
-
-            if (!frameFile.exists() || !frameFile.canRead()) {
-                LOG.error("File not accessible: " + frameFile.getAbsolutePath());
-                continue;
-            }
-
-            Mat frame;
-            try {
-                frame = imread(frameFile.getAbsolutePath());
-            } catch (Exception e) {
-                LOG.errorf(e, "Exception reading frame: %s", frameFile.getAbsolutePath());
-                continue;
-            }
-
-            if (frame == null || frame.empty()) {
-                LOG.warn("Empty or null frame: " + frameFile.getName());
-                continue;
-            }
-
-            // Converti in HSV
-            Mat hsv = new Mat();
-            cvtColor(frame, hsv, COLOR_BGR2HSV);
-
-            // Range per palla FIP marrone-rossastra
-            Scalar lowerBrown = new Scalar(5, 100, 50, 0);
-            Scalar upperBrown = new Scalar(25, 255, 200, 0);
-            Mat mask = new Mat();
-            inRange(hsv, lowerBrown, upperBrown, mask);
-
-            // Pulizia mask
-            Mat kernel = getStructuringElement(MORPH_ELLIPSE, new Size(5, 5));
-            morphologyEx(mask, mask, MORPH_OPEN, kernel);
-            morphologyEx(mask, mask, MORPH_CLOSE, kernel);
-
-            // Trova contorni
-            MatVector contours = new MatVector();
-            findContours(mask.clone(), contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-
-            Point best = null;
-            double maxArea = 0;
-
-            for (int i = 0; i < contours.size(); i++) {
-                Mat cnt = contours.get(i);
-                double area = contourArea(cnt);
-                if (area < 100 || area > 3000) continue; // scarta contorni troppo piccoli o grandi
-
-                // Verifica approssimazione circolare
-                double perimeter = arcLength(cnt, true);
-                Mat approx = new Mat();
-                approxPolyDP(cnt, approx, 0.02 * perimeter, true);
-                if (approx.rows() >= 6) { // più punti => forma circolare
-                    if (area > maxArea) {
-                        Rect r = boundingRect(cnt);
-                        best = new Point(r.x() + r.width() / 2, r.y() + r.height() / 2);
-                        maxArea = area;
-                    }
-                }
-            }
-
-            if (best != null) {
-                LOG.infof("Ball detected at (%d,%d) in frame %s", best.x(), best.y(), frameFile.getName());
-                ballPositions.add(best);
-            } else {
-                LOG.info("No ball detected in frame: " + frameFile.getName());
-            }
-        }
-
-        LOG.info("Ball tracking completed. Total positions detected: " + ballPositions.size());
-        return ballPositions;
     }
 
     /**
