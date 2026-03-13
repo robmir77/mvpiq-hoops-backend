@@ -20,7 +20,6 @@ import org.jboss.logging.Logger;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,8 +58,7 @@ public class BallTrackingAI {
         }
     }
 
-    public List<Point> trackBallAI(List<File> frames)
-            throws TranslateException {
+    public List<Point> trackBallAI(List<File> frames) throws TranslateException {
 
         List<Point> ballPositions = new ArrayList<>();
 
@@ -75,6 +73,8 @@ public class BallTrackingAI {
 
         int frameIndex = 0;
         int detectionsCount = 0;
+
+        Point lastPoint = null;
 
         for (File frameFile : frames) {
 
@@ -116,24 +116,46 @@ public class BallTrackingAI {
 
                 double probability = obj.getProbability();
 
-                if (probability < 0.4)
+                // threshold più permissivo
+                if (probability < 0.25)
                     continue;
 
                 BoundingBox box = obj.getBoundingBox();
                 Rectangle rect = box.getBounds();
 
-                double cx = (rect.getX() + rect.getWidth() / 2) * img.getWidth();
-                double cy = (rect.getY() + rect.getHeight() / 2) * img.getHeight();
+                double cx = rect.getX() + rect.getWidth() / 2;
+                double cy = rect.getY() + rect.getHeight() / 2;
+
+                // Fix coordinate YOLO normalizzate
+                if (cx <= 1.5 && cy <= 1.5) {
+
+                    cx *= img.getWidth();
+                    cy *= img.getHeight();
+                }
+
+                // filtro outlier
+                if (lastPoint != null) {
+
+                    double dx = Math.abs(cx - lastPoint.getX());
+                    double dy = Math.abs(cy - lastPoint.getY());
+
+                    if (dx > 300 || dy > 300) {
+
+                        LOG.infof("❌ Outlier ball detection ignored frame=%d", frameIndex);
+                        continue;
+                    }
+                }
 
                 Point p = new Point(cx, cy);
 
                 ballPositions.add(p);
+                lastPoint = p;
 
                 detectionsCount++;
                 ballFoundInFrame = true;
 
                 LOG.infof(
-                        "🏀 Ball detected -> frame=%d x=%f y=%f confidence=%.3f",
+                        "🏀 Ball detected -> frame=%d x=%.2f y=%.2f confidence=%.3f",
                         frameIndex,
                         p.getX(),
                         p.getY(),
@@ -141,9 +163,22 @@ public class BallTrackingAI {
                 );
             }
 
+            // se YOLO perde la palla stimiamo posizione
+            if (!ballFoundInFrame && lastPoint != null) {
+
+                ballPositions.add(lastPoint);
+
+                LOG.infof(
+                        "📈 Interpolated ball position frame=%d x=%.2f y=%.2f",
+                        frameIndex,
+                        lastPoint.getX(),
+                        lastPoint.getY()
+                );
+            }
+
             if (!ballFoundInFrame) {
 
-                LOG.debugf("No ball detected in frame %d", frameIndex);
+                LOG.infof("No ball detected in frame %d", frameIndex);
             }
         }
 
