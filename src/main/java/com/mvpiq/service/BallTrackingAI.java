@@ -13,6 +13,7 @@ import ai.djl.repository.zoo.ModelZoo;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
 import ai.djl.translate.TranslateException;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
@@ -30,142 +31,120 @@ public class BallTrackingAI {
 
     private static final Logger LOG = Logger.getLogger(BallTrackingAI.class);
 
+    private Predictor<Image, DetectedObjects> predictor;
+
+    @PostConstruct
+    void init() {
+
+        try {
+
+            LOG.info("🧠 Loading YOLOv5 model...");
+
+            Criteria<Image, DetectedObjects> criteria = Criteria.builder()
+                    .setTypes(Image.class, DetectedObjects.class)
+                    .optModelPath(Paths.get("C:/mvpiq-hoops/mvpiq-hoops-backend/src/main/resources/model/yolov5s.onnx"))
+                    .optEngine("OnnxRuntime")
+                    .optTranslator(YoloV5Translator.builder().build())
+                    .optProgress(new ProgressBar())
+                    .build();
+
+            ZooModel<Image, DetectedObjects> model = ModelZoo.loadModel(criteria);
+
+            predictor = model.newPredictor();
+
+            LOG.info("✅ YOLOv5 model loaded successfully");
+
+        } catch (Exception e) {
+
+            LOG.error("❌ Failed to load YOLO model", e);
+        }
+    }
+
     public List<Point> trackBallAI(List<File> frames)
-            throws IOException, ModelException, TranslateException {
+            throws IOException, TranslateException {
+
+        List<Point> ballPositions = new ArrayList<>();
 
         if (frames == null || frames.isEmpty()) {
+
             LOG.warn("No frames received for ball tracking");
-            return new ArrayList<>();
+            return ballPositions;
         }
 
         LOG.info("🏀 Starting AI ball tracking...");
         LOG.info("📸 Frames received: " + frames.size());
 
-        Criteria<Image, DetectedObjects> criteria = Criteria.builder()
-                .setTypes(Image.class, DetectedObjects.class)
-                .optModelPath(Paths.get("C:/mvpiq-hoops/mvpiq-hoops-backend/src/main/resources/model/yolov5s.onnx"))
-                .optEngine("OnnxRuntime")
-                .optTranslator(YoloV5Translator.builder().build())
-                .optProgress(new ProgressBar())
-                .build();
-
-        List<Point> ballPositions = new ArrayList<>();
         int frameIndex = 0;
         int detectionsCount = 0;
 
-        LOG.info("🧠 Loading YOLOv5 model...");
+        for (File frameFile : frames) {
 
-        try (ZooModel<Image, DetectedObjects> model = ModelZoo.loadModel(criteria);
-             Predictor<Image, DetectedObjects> predictor = model.newPredictor()) {
+            frameIndex++;
 
-            LOG.info("✅ Model loaded successfully");
+            LOG.infof("🔍 Processing frame %d / %d -> %s",
+                    frameIndex,
+                    frames.size(),
+                    frameFile.getName());
 
-            for (File frameFile : frames) {
+            BufferedImage img;
 
-                frameIndex++;
+            try {
+                img = ImageIO.read(frameFile);
+            } catch (Exception e) {
 
-                LOG.infof("🔍 Processing frame %d / %d -> %s",
-                        frameIndex,
-                        frames.size(),
-                        frameFile.getName());
+                LOG.errorf(e, "❌ Failed reading frame %s", frameFile.getName());
+                continue;
+            }
 
-                BufferedImage img;
+            if (img == null) {
 
-                try {
-                    img = ImageIO.read(frameFile);
-                } catch (Exception e) {
-                    LOG.errorf(e, "❌ Failed reading frame %s", frameFile.getName());
+                LOG.warn("⚠️ Frame image is null: " + frameFile.getName());
+                continue;
+            }
+
+            Image image = ImageFactory.getInstance().fromImage(img);
+
+            DetectedObjects detections = predictor.predict(image);
+
+            boolean ballFoundInFrame = false;
+
+            for (int i = 0; i < detections.getNumberOfObjects(); i++) {
+
+                DetectedObjects.DetectedObject obj = detections.item(i);
+
+                if (!obj.getClassName().equalsIgnoreCase("sports ball"))
                     continue;
-                }
 
-                if (img == null) {
-                    LOG.warn("⚠️ Frame image is null: " + frameFile.getName());
+                double probability = obj.getProbability();
+
+                if (probability < 0.4)
                     continue;
-                }
 
-                LOG.debugf("Frame size: %dx%d", img.getWidth(), img.getHeight());
+                BoundingBox box = obj.getBoundingBox();
+                Rectangle rect = box.getBounds();
 
-                Image image = ImageFactory.getInstance().fromImage(img);
+                double cx = (rect.getX() + rect.getWidth() / 2) * img.getWidth();
+                double cy = (rect.getY() + rect.getHeight() / 2) * img.getHeight();
 
-                DetectedObjects detections = predictor.predict(image);
+                Point p = new Point((int) cx, (int) cy);
 
-                LOG.debugf("Objects detected in frame %d: %d",
+                ballPositions.add(p);
+
+                detectionsCount++;
+                ballFoundInFrame = true;
+
+                LOG.infof(
+                        "🏀 Ball detected -> frame=%d x=%d y=%d confidence=%.3f",
                         frameIndex,
-                        detections.getNumberOfObjects());
+                        p.x,
+                        p.y,
+                        probability
+                );
+            }
 
-                boolean ballFoundInFrame = false;
+            if (!ballFoundInFrame) {
 
-                for (int i = 0; i < detections.getNumberOfObjects(); i++) {
-
-                    DetectedObjects.DetectedObject obj = detections.item(i);
-
-                    String className = obj.getClassName();
-                    double probability = obj.getProbability();
-
-                    LOG.debugf(
-                            "Detected object -> class=%s prob=%.3f",
-                            className,
-                            probability
-                    );
-
-                    if (!className.equalsIgnoreCase("sports ball")) {
-                        continue;
-                    }
-
-                    if (probability < 0.4) {
-                        LOG.debug("Ignoring low confidence ball detection");
-                        continue;
-                    }
-
-                    BoundingBox box = obj.getBoundingBox();
-                    Rectangle rect = box.getBounds();
-
-                    LOG.debugf(
-                            "Bounding box raw -> x=%.5f y=%.5f w=%.5f h=%.5f",
-                            rect.getX(),
-                            rect.getY(),
-                            rect.getWidth(),
-                            rect.getHeight()
-                    );
-
-                    double cx;
-                    double cy;
-
-                    if (rect.getWidth() <= 1 && rect.getHeight() <= 1) {
-
-                        // coordinate normalizzate
-                        cx = (rect.getX() + rect.getWidth() / 2) * img.getWidth();
-                        cy = (rect.getY() + rect.getHeight() / 2) * img.getHeight();
-
-                        LOG.debug("Using normalized coordinates conversion");
-
-                    } else {
-
-                        // coordinate in pixel
-                        cx = rect.getX() + rect.getWidth() / 2;
-                        cy = rect.getY() + rect.getHeight() / 2;
-
-                        LOG.debug("Using pixel coordinates conversion");
-                    }
-
-                    Point p = new Point((int) cx, (int) cy);
-                    ballPositions.add(p);
-
-                    detectionsCount++;
-                    ballFoundInFrame = true;
-
-                    LOG.infof(
-                            "🏀 Ball detected -> frame=%d x=%d y=%d confidence=%.3f",
-                            frameIndex,
-                            p.x,
-                            p.y,
-                            probability
-                    );
-                }
-
-                if (!ballFoundInFrame) {
-                    LOG.debugf("No ball detected in frame %d", frameIndex);
-                }
+                LOG.debugf("No ball detected in frame %d", frameIndex);
             }
         }
 
@@ -173,23 +152,6 @@ public class BallTrackingAI {
         LOG.info("📊 Frames processed: " + frameIndex);
         LOG.info("📊 Ball detections: " + detectionsCount);
         LOG.info("📊 Trajectory points collected: " + ballPositions.size());
-
-        if (ballPositions.isEmpty()) {
-            LOG.warn("⚠️ No ball trajectory detected!");
-        } else {
-
-            for (int i = 0; i < ballPositions.size(); i++) {
-
-                Point p = ballPositions.get(i);
-
-                LOG.debugf(
-                        "Trajectory point %d -> x=%d y=%d",
-                        i,
-                        p.x,
-                        p.y
-                );
-            }
-        }
 
         return ballPositions;
     }

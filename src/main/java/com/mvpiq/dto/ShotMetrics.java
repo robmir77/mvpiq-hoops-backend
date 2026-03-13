@@ -7,10 +7,21 @@ import lombok.Setter;
 @Setter
 public class ShotMetrics {
 
-    public double releaseAngle;
-    public double entryAngle;
-    public double releaseSpeed;
-    public double arcHeight;
-    public double trajectoryQuality;
+    // -------------------------
+    // SHOOTING METRICS
+    // -------------------------
+
+    private double releaseAngle;
+    private double entryAngle;
+    private double releaseSpeed;
+    private double arcHeight;
+    private double trajectoryQuality;
+
+    // -------------------------
+    // SHOT RESULT
+    // -------------------------
+
+    private boolean make;
+    private String missType;
 
 }

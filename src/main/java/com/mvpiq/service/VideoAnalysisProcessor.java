@@ -36,7 +36,7 @@ public class VideoAnalysisProcessor {
 
         File videoFile = storageService.downloadVideo(videoUrl);
 
-        var frames = frameService.extractFrames(videoFile, session, 2.0);
+        var frames = frameService.extractFrames(videoFile, session, 5.0);
 
         // 3️⃣ Persistenza dei frame → dentro transazione breve
         frameService.persistFrames(session, frames);
