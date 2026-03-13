@@ -1,13 +1,21 @@
 package com.mvpiq.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import org.bytedeco.opencv.opencv_imgproc.Vec3fVector;
+import org.bytedeco.javacpp.BytePointer;
 import org.jboss.logging.Logger;
-import org.bytedeco.opencv.opencv_core.Mat;
-import org.bytedeco.opencv.opencv_core.Size;
-import org.bytedeco.opencv.global.opencv_imgcodecs;
-import org.bytedeco.opencv.global.opencv_imgproc;
+import org.bytedeco.opencv.opencv_core.*;
+import org.bytedeco.opencv.opencv_imgproc.Vec3fVector;
 
+import org.bytedeco.opencv.global.opencv_core;
+import org.bytedeco.opencv.global.opencv_imgproc;
+import org.bytedeco.opencv.global.opencv_imgcodecs;
+
+import javax.imageio.ImageIO;
+import javax.imageio.spi.IIORegistry;
+import com.twelvemonkeys.imageio.plugins.jpeg.JPEGImageReaderSpi;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferByte;
 import java.io.File;
 
 @ApplicationScoped
@@ -16,67 +24,193 @@ public class HoopDetectorAI {
     private static final Logger LOG = Logger.getLogger(HoopDetectorAI.class);
 
     public Hoop detectHoop(File frameFile) {
-
-        LOG.info("Detecting hoop with OpenCV");
-
-        if (frameFile == null || !frameFile.exists()) {
-            LOG.error("Frame file does not exist: " + frameFile);
-            return null;
-        }
-
-        LOG.info("Frame path: " + frameFile.getAbsolutePath());
-        LOG.info("Frame size: " + frameFile.length());
-
-        // Carica immagine
-        Mat image = opencv_imgcodecs.imread(frameFile.getAbsolutePath());
-        if (image.empty()) {
-            LOG.error("Failed to load frame image");
-            return null;
-        }
-
-        // Converti in scala di grigi
-        Mat gray = new Mat();
-        opencv_imgproc.cvtColor(image, gray, opencv_imgproc.COLOR_BGR2GRAY);
-
-        // Sfoca per ridurre rumore
-        opencv_imgproc.GaussianBlur(gray, gray, new Size(9, 9), 2, 2, 0);
-
-        // Cerchi trovati
-        Vec3fVector circles = new Vec3fVector();
+        LOG.info("========== HOOP DETECTION START ==========");
 
         try {
+            if (frameFile == null || !frameFile.exists() || frameFile.length() == 0) {
+                LOG.error("Frame file is missing or empty");
+                return null;
+            }
+
+            LOG.infof("Frame path: %s, size=%d bytes", frameFile.getAbsolutePath(), frameFile.length());
+
+            // -------------------------
+            // REGISTER TWELVEMONKEYS JPEG PLUGIN
+            // -------------------------
+            IIORegistry registry = IIORegistry.getDefaultInstance();
+            registry.registerServiceProvider(new JPEGImageReaderSpi());
+
+            // -------------------------
+            // LOAD IMAGE VIA IMAGEIO
+            // -------------------------
+            BufferedImage bufferedImage = ImageIO.read(frameFile);
+            if (bufferedImage == null) {
+                LOG.error("ImageIO could not read image (TwelveMonkeys applied)");
+                return null;
+            }
+            LOG.infof("ImageIO read success -> width=%d height=%d", bufferedImage.getWidth(), bufferedImage.getHeight());
+
+            // -------------------------
+            // CONVERT BufferedImage TO Mat
+            // -------------------------
+            Mat image = bufferedImageToMat(bufferedImage);
+            LOG.infof("Converted BufferedImage to Mat -> cols=%d rows=%d", image.cols(), image.rows());
+            opencv_imgcodecs.imwrite("C:\\Temp\\debug_original.png", image);
+
+            // -------------------------
+            // GRAYSCALE
+            // -------------------------
+            Mat gray = new Mat();
+            opencv_imgproc.cvtColor(image, gray, opencv_imgproc.COLOR_BGR2GRAY);
+            LOG.infof("Grayscale done -> cols=%d rows=%d", gray.cols(), gray.rows());
+            opencv_imgcodecs.imwrite("C:\\Temp\\debug_gray.png", gray);
+
+            // -------------------------
+            // BLUR
+            // -------------------------
+            opencv_imgproc.GaussianBlur(gray, gray, new Size(7, 7), 1.5);
+            LOG.info("Gaussian blur applied");
+            opencv_imgcodecs.imwrite("C:\\Temp\\debug_blur.png", gray);
+
+            // -------------------------
+            // EDGE DETECTION
+            // -------------------------
+            Mat edges = new Mat();
+            opencv_imgproc.Canny(gray, edges, 50, 150);
+            LOG.info("Canny edge detection done");
+            opencv_imgcodecs.imwrite("C:\\Temp\\debug_edges.png", edges);
+
+            // -------------------------
+            // ROI
+            // -------------------------
+            int roiTop = image.rows() / 8;
+            int roiHeight = image.rows() / 3;
+            Rect roiRect = new Rect(0, roiTop, image.cols(), roiHeight);
+            Mat roi = new Mat(edges, roiRect);
+            LOG.infof("ROI extracted -> top=%d height=%d cols=%d rows=%d", roiTop, roiHeight, roi.cols(), roi.rows());
+            opencv_imgcodecs.imwrite("C:\\Temp\\debug_roi.png", roi);
+
+            // -------------------------
+            // HOUGH CIRCLES
+            // -------------------------
+            Vec3fVector circles = new Vec3fVector();
             opencv_imgproc.HoughCircles(
-                    gray,
+                    roi,
                     circles,
                     opencv_imgproc.HOUGH_GRADIENT,
-                    1.0,
-                    gray.rows() / 8.0, // distanza minima tra centri
-                    100.0,  // param1: threshold edge detection
-                    30.0,   // param2: threshold accumulator
-                    10,     // minRadius
-                    200     // maxRadius
+                    1.5,
+                    80,
+                    100,
+                    20,
+                    12,
+                    80
             );
-        } catch (Exception e) {
-            LOG.error("HoughCircles failed", e);
-            return null;
-        }
+            LOG.infof("Circles detected: %d", circles.size());
 
-        LOG.info("Circles detected: " + circles.size());
+            if (circles.size() == 0) {
+                LOG.warn("No circles detected");
+                return null;
+            }
 
-        if (circles.size() > 0) {
-            float[] circle = new float[3];
-            circles.get(0).get(circle);
+            // -------------------------
+            // FIND BEST CIRCLE
+            // -------------------------
+            int bestIndex = -1;
+            float bestRadius = 0;
+            for (int i = 0; i < circles.size(); i++) {
+                float[] c = new float[3];
+                circles.get(i).get(c);
+                LOG.infof("Circle %d -> x=%.1f y=%.1f r=%.1f", i, c[0], c[1], c[2]);
+                if (c[2] > bestRadius) {
+                    bestRadius = c[2];
+                    bestIndex = i;
+                }
+            }
 
-            int x = Math.round(circle[0]);
-            int y = Math.round(circle[1]);
-            int r = Math.round(circle[2]);
+            float[] best = new float[3];
+            circles.get(bestIndex).get(best);
+            int x = Math.round(best[0]);
+            int y = Math.round(best[1] + roiTop);
+            int r = Math.round(best[2]);
 
-            LOG.infof("Hoop detected -> x=%d y=%d radius=%d", x, y, r);
+            LOG.infof("HOOP DETECTED -> x=%d y=%d r=%d", x, y, r);
+            LOG.info("========== HOOP DETECTION END ==========");
 
             return new Hoop(x, y, r);
-        } else {
-            LOG.warn("No hoop detected in this frame");
+
+        } catch (Exception e) {
+            LOG.error("Hoop detection crashed", e);
             return null;
+        }
+    }
+
+    private Mat bufferedImageToMat(BufferedImage bi) {
+
+        LOG.info("---- BufferedImage → Mat conversion START ----");
+
+        if (bi == null) {
+            LOG.error("BufferedImage is NULL");
+            return new Mat();
+        }
+
+        try {
+
+            LOG.infof(
+                    "BufferedImage info -> width=%d height=%d type=%d",
+                    bi.getWidth(),
+                    bi.getHeight(),
+                    bi.getType()
+            );
+
+            // ------------------------------------------------
+            // Convertiamo sempre in TYPE_3BYTE_BGR
+            // (formato più compatibile con OpenCV)
+            // ------------------------------------------------
+            BufferedImage converted = new BufferedImage(
+                    bi.getWidth(),
+                    bi.getHeight(),
+                    BufferedImage.TYPE_3BYTE_BGR
+            );
+
+            converted.getGraphics().drawImage(bi, 0, 0, null);
+
+            DataBuffer buffer = converted.getRaster().getDataBuffer();
+            LOG.info("DataBuffer class: " + buffer.getClass().getName());
+
+            byte[] pixels = ((DataBufferByte) buffer).getData();
+
+            LOG.info("Pixel array length = " + pixels.length);
+
+            // ------------------------------------------------
+            // Creiamo la Mat usando direttamente il buffer
+            // ------------------------------------------------
+            Mat mat = new Mat(
+                    converted.getHeight(),
+                    converted.getWidth(),
+                    opencv_core.CV_8UC3,
+                    new BytePointer(pixels)
+            );
+
+            LOG.infof(
+                    "Mat created -> rows=%d cols=%d channels=%d",
+                    mat.rows(),
+                    mat.cols(),
+                    mat.channels()
+            );
+
+            LOG.info("Cloning Mat to detach from Java buffer");
+
+            Mat result = mat.clone();
+
+            LOG.info("---- BufferedImage → Mat conversion END ----");
+
+            return result;
+
+        } catch (Exception e) {
+
+            LOG.error("BufferedImage → Mat conversion FAILED", e);
+
+            return new Mat();
         }
     }
 }

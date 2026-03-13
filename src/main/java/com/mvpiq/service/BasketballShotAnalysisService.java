@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.json.*;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.io.File;
@@ -23,6 +24,18 @@ public class BasketballShotAnalysisService {
     @Inject
     BallTrackingAI aiTracker;
 
+    @ConfigProperty(name = "mvpiq.video.frame-width")
+    int frameWidth;
+
+    @ConfigProperty(name = "mvpiq.video.frame-height")
+    int frameHeight;
+
+    @ConfigProperty(name = "mvpiq.hoop.fallback-radius")
+    int fallbackRadius;
+
+    @ConfigProperty(name = "mvpiq.hoop.search-frames")
+    int searchFrames;
+
     /**
      * Analizza il tiro a basket da video già scomposto in frames
      */
@@ -38,29 +51,70 @@ public class BasketballShotAnalysisService {
         // -------------------------
         // HOOP DETECTION
         // -------------------------
+
         Hoop hoop = null;
-        LOG.error("Disattiviamo momentaneamente detectHoop");
 
-        /*try {
-            hoop = hoopDetector.detectHoop(frames.get(0));
-        } catch (Exception e) {
-            LOG.error("Hoop detection failed", e);
-        }*/
+        LOG.info("Starting hoop detection");
 
-        int hoopX = 0;
-        int hoopY = 0;
-        int rimRadius = 20;
+        // controlla solo i primi frame configurati
+        int framesToCheck = Math.min(searchFrames, frames.size());
+
+        for (int i = 0; i < framesToCheck; i++) {
+
+            File frame = frames.get(i);
+
+            if (frame == null || !frame.exists()) {
+                LOG.warnf("Skipping invalid frame at index %d", i);
+                continue;
+            }
+
+            try {
+
+                //hoop = hoopDetector.detectHoop(frame);
+
+                if (hoop != null) {
+                    LOG.infof("Hoop detected on frame %d", i);
+                    break;
+                }
+
+            } catch (Exception e) {
+
+                LOG.errorf(e, "Hoop detection failed on frame %d", i);
+
+            }
+        }
+
+        int hoopX;
+        int hoopY;
+        int rimRadius;
 
         if (hoop != null) {
+
             hoopX = hoop.x;
             hoopY = hoop.y;
             rimRadius = hoop.radius;
-            LOG.infof("Hoop detected -> x=%d y=%d radius=%d", hoopX, hoopY, rimRadius);
+
+            LOG.infof(
+                    "Hoop detected -> x=%d y=%d radius=%d",
+                    hoopX,
+                    hoopY,
+                    rimRadius
+            );
+
         } else {
-            LOG.warn("Hoop not detected, using default hoop position for metric calculation");
-            hoopX = 500;   // valore fittizio, orizzontale nel frame
-            hoopY = 100;   // valore fittizio, verticale nel frame
-            rimRadius = 18; // raggio medio del cerchio
+
+            LOG.warn("Hoop not detected. Using fallback hoop position");
+
+            hoopX = frameWidth / 2;
+            hoopY = frameHeight / 6;
+            rimRadius = fallbackRadius;
+
+            LOG.infof(
+                    "Fallback hoop -> x=%d y=%d radius=%d",
+                    hoopX,
+                    hoopY,
+                    rimRadius
+            );
         }
 
         // -------------------------

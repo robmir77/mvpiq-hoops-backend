@@ -15,6 +15,7 @@ import org.bytedeco.ffmpeg.avutil.AVDictionary;
 import org.bytedeco.ffmpeg.avutil.AVFrame;
 import org.bytedeco.ffmpeg.swscale.SwsContext;
 import org.bytedeco.javacpp.BytePointer;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import javax.imageio.ImageIO;
@@ -34,6 +35,12 @@ public class VideoAnalysisFrameService {
 
     private static final Logger LOG = Logger.getLogger(VideoAnalysisFrameService.class);
 
+    @ConfigProperty(name = "mvpiq.video.frame-width")
+    int frameWidth;
+
+    @ConfigProperty(name = "mvpiq.video.frame-height")
+    int frameHeight;
+
     @Inject
     VideoAnalysisFrameRepository frameRepository;
 
@@ -44,8 +51,8 @@ public class VideoAnalysisFrameService {
         File tempDir = new File(System.getProperty("java.io.tmpdir"), "frames-" + session.id);
         tempDir.mkdirs();
 
-        int targetWidth = 960;
-        int targetHeight = 544;
+        int targetWidth = frameWidth;
+        int targetHeight = frameHeight;
 
         AVFormatContext formatContext = new AVFormatContext(null);
         AVCodecContext codecContext = null;

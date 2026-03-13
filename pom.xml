@@ -110,24 +110,12 @@
           <groupId>io.quarkus</groupId>
           <artifactId>quarkus-resteasy-multipart</artifactId>
       </dependency>
-      <!-- Video processing -->
-      <dependency>
-          <groupId>org.bytedeco</groupId>
-          <artifactId>opencv-platform</artifactId>
-          <version>4.9.0-1.5.10</version>
-      </dependency>
 
       <!-- AI runtime -->
       <dependency>
           <groupId>com.microsoft.onnxruntime</groupId>
           <artifactId>onnxruntime</artifactId>
           <version>1.18.0</version>
-      </dependency>
-
-      <dependency>
-          <groupId>org.bytedeco</groupId>
-          <artifactId>ffmpeg-platform</artifactId>
-          <version>8.0.1-1.5.13</version>
       </dependency>
 
       <dependency>
@@ -150,10 +138,23 @@
           <artifactId>onnxruntime-engine</artifactId>
           <version>0.27.0</version>
       </dependency>
+
       <dependency>
-          <groupId>com.microsoft.onnxruntime</groupId>
-          <artifactId>onnxruntime</artifactId>
-          <version>1.18.0</version>
+          <groupId>org.bytedeco</groupId>
+          <artifactId>opencv-platform</artifactId>
+          <version>4.9.0-1.5.10</version>
+      </dependency>
+
+      <dependency>
+          <groupId>com.twelvemonkeys.imageio</groupId>
+          <artifactId>imageio-jpeg</artifactId>
+          <version>3.9.4</version>
+      </dependency>
+
+      <dependency>
+          <groupId>org.bytedeco</groupId>
+          <artifactId>ffmpeg-platform</artifactId>
+          <version>6.1.1-1.5.10</version>
       </dependency>
   </dependencies>
   <build>
