@@ -175,14 +175,17 @@ public class VideoAnalysisService {
 
         ObjectMapper mapper = new ObjectMapper();
         try {
-            dto.setDetectedErrors(mapper.readValue(
-                    result.detectedErrors,
-                    new TypeReference<List<String>>() {}
-            ));
-            dto.setSuggestions(mapper.readValue(
-                    result.suggestions,
-                    new TypeReference<List<String>>() {}
-            ));
+            dto.setDetectedErrors(
+                    result.detectedErrors == null
+                            ? List.of()
+                            : mapper.readValue(result.detectedErrors, new TypeReference<List<String>>() {})
+            );
+
+            dto.setSuggestions(
+                    result.suggestions == null
+                            ? List.of()
+                            : mapper.readValue(result.suggestions, new TypeReference<List<String>>() {})
+            );
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to parse analysis result JSON", e);
         }

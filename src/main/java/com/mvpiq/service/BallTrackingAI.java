@@ -1,6 +1,5 @@
 package com.mvpiq.service;
 
-import ai.djl.ModelException;
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.Image;
 import ai.djl.modality.cv.ImageFactory;
@@ -13,12 +12,12 @@ import ai.djl.repository.zoo.ModelZoo;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
 import ai.djl.translate.TranslateException;
+import ai.djl.modality.cv.output.Point;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
 import javax.imageio.ImageIO;
-import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -61,7 +60,7 @@ public class BallTrackingAI {
     }
 
     public List<Point> trackBallAI(List<File> frames)
-            throws IOException, TranslateException {
+            throws TranslateException {
 
         List<Point> ballPositions = new ArrayList<>();
 
@@ -126,7 +125,7 @@ public class BallTrackingAI {
                 double cx = (rect.getX() + rect.getWidth() / 2) * img.getWidth();
                 double cy = (rect.getY() + rect.getHeight() / 2) * img.getHeight();
 
-                Point p = new Point((int) cx, (int) cy);
+                Point p = new Point(cx, cy);
 
                 ballPositions.add(p);
 
@@ -134,10 +133,10 @@ public class BallTrackingAI {
                 ballFoundInFrame = true;
 
                 LOG.infof(
-                        "🏀 Ball detected -> frame=%d x=%d y=%d confidence=%.3f",
+                        "🏀 Ball detected -> frame=%d x=%f y=%f confidence=%.3f",
                         frameIndex,
-                        p.x,
-                        p.y,
+                        p.getX(),
+                        p.getY(),
                         probability
                 );
             }

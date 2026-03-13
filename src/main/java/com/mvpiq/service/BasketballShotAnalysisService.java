@@ -124,10 +124,10 @@ public class BasketballShotAnalysisService {
 
         try {
 
-            List<java.awt.Point> aiPoints = aiTracker.trackBallAI(frames);
+            List<Point> aiPoints = aiTracker.trackBallAI(frames);
 
-            for (java.awt.Point p : aiPoints) {
-                ballPositions.add(new Point((double) p.x, (double) p.y));
+            for (Point p : aiPoints) {
+                ballPositions.add(new Point(p.getX(), p.getY()));
             }
 
         } catch (Exception e) {
@@ -138,7 +138,7 @@ public class BasketballShotAnalysisService {
         LOG.info("Ball positions detected: " + ballPositions.size());
 
         for (Point p : ballPositions) {
-            LOG.infof("Trajectory point -> x:%d y:%d", p.getX(), p.getY());
+            LOG.infof("Trajectory point -> x:%f y:%f", p.getX(), p.getY());
         }
 
         // -------------------------

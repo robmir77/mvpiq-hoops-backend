@@ -11,12 +11,7 @@ import jakarta.transaction.Transactional;
 import java.io.File;
 import java.util.List;
 
-import org.bytedeco.opencv.opencv_core.Point;
-
-import jakarta.json.Json;
-import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObject;
-import jakarta.json.JsonObjectBuilder;
 
 @ApplicationScoped
 public class VideoAnalysisAIService {
