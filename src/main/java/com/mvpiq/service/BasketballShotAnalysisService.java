@@ -70,7 +70,7 @@ public class BasketballShotAnalysisService {
 
             try {
 
-                //hoop = hoopDetector.detectHoop(frame);
+                hoop = hoopDetector.detectHoop(frame);
 
                 if (hoop != null) {
                     LOG.infof("Hoop detected on frame %d", i);

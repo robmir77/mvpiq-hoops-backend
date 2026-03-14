@@ -15,6 +15,7 @@
         <quarkus.platform.version>3.8.3</quarkus.platform.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.0.0</surefire-plugin.version>
+        <djl.version>0.27.0</djl.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -37,78 +38,95 @@
           <groupId>io.quarkus</groupId>
           <artifactId>quarkus-arc</artifactId>
       </dependency>
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-hibernate-orm-panache</artifactId>
     </dependency>
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-resteasy-jackson</artifactId>
     </dependency>
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-security-jpa</artifactId>
     </dependency>
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-smallrye-openapi</artifactId>
     </dependency>
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-resteasy</artifactId>
     </dependency>
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-hibernate-orm</artifactId>
     </dependency>
+
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-jdbc-postgresql</artifactId>
+      </dependency>
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
       <scope>test</scope>
     </dependency>
+
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-vertx-http</artifactId>
+      </dependency>
+
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-cache</artifactId>
+      </dependency>
+
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-jsonb</artifactId>
+      </dependency>
+
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-resteasy-multipart</artifactId>
+      </dependency>
+
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-smallrye-jwt</artifactId>
+      </dependency>
+
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>rest-assured</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-jdbc-postgresql</artifactId>
-    </dependency>
+
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <version>1.18.38</version>
       <scope>provided</scope>
     </dependency>
+
     <dependency>
       <groupId>org.mindrot</groupId>
       <artifactId>jbcrypt</artifactId>
       <version>0.4</version>
     </dependency>
-      <dependency>
-          <groupId>io.quarkus</groupId>
-          <artifactId>quarkus-smallrye-jwt</artifactId>
-      </dependency>
+
       <dependency>
           <groupId>io.smallrye</groupId>
           <artifactId>smallrye-jwt-build</artifactId>
-      </dependency>
-      <dependency>
-          <groupId>io.quarkus</groupId>
-          <artifactId>quarkus-vertx-http</artifactId>
-      </dependency>
-      <dependency>
-          <groupId>io.quarkus</groupId>
-          <artifactId>quarkus-cache</artifactId>
-      </dependency>
-      <dependency>
-          <groupId>io.quarkus</groupId>
-          <artifactId>quarkus-jsonb</artifactId>
-      </dependency>
-      <dependency>
-          <groupId>io.quarkus</groupId>
-          <artifactId>quarkus-resteasy-multipart</artifactId>
       </dependency>
 
       <!-- AI runtime -->
@@ -116,33 +134,6 @@
           <groupId>com.microsoft.onnxruntime</groupId>
           <artifactId>onnxruntime</artifactId>
           <version>1.18.0</version>
-      </dependency>
-
-      <dependency>
-          <groupId>ai.djl</groupId>
-          <artifactId>api</artifactId>
-          <version>0.27.0</version> <!-- Use the latest stable version -->
-      </dependency>
-      <dependency>
-          <groupId>ai.djl.pytorch</groupId>
-          <artifactId>pytorch-engine</artifactId>
-          <version>0.27.0</version>
-      </dependency>
-      <dependency>
-          <groupId>ai.djl.pytorch</groupId>
-          <artifactId>pytorch-model-zoo</artifactId>
-          <version>0.27.0</version>
-      </dependency>
-      <dependency>
-          <groupId>ai.djl.onnxruntime</groupId>
-          <artifactId>onnxruntime-engine</artifactId>
-          <version>0.27.0</version>
-      </dependency>
-
-      <dependency>
-          <groupId>org.bytedeco</groupId>
-          <artifactId>opencv-platform</artifactId>
-          <version>4.9.0-1.5.10</version>
       </dependency>
 
       <dependency>
@@ -156,6 +147,43 @@
           <artifactId>ffmpeg-platform</artifactId>
           <version>6.1.1-1.5.10</version>
       </dependency>
+
+      <dependency>
+          <groupId>ai.djl</groupId>
+          <artifactId>api</artifactId>
+          <version>${djl.version}</version> <!-- Use the latest stable version -->
+      </dependency>
+
+      <dependency>
+          <groupId>ai.djl.pytorch</groupId>
+          <artifactId>pytorch-engine</artifactId>
+          <version>${djl.version}</version>
+      </dependency>
+
+      <dependency>
+          <groupId>ai.djl.pytorch</groupId>
+          <artifactId>pytorch-model-zoo</artifactId>
+          <version>${djl.version}</version>
+      </dependency>
+
+      <dependency>
+          <groupId>ai.djl.onnxruntime</groupId>
+          <artifactId>onnxruntime-engine</artifactId>
+          <version>${djl.version}</version>
+      </dependency>
+
+      <dependency>
+          <groupId>ai.djl.pytorch</groupId>
+          <artifactId>pytorch-engine</artifactId>
+          <version>${djl.version}</version>
+      </dependency>
+
+      <dependency>
+          <groupId>ai.djl</groupId>
+          <artifactId>model-zoo</artifactId>
+          <version>${djl.version}</version>
+      </dependency>
+
   </dependencies>
   <build>
     <plugins>
