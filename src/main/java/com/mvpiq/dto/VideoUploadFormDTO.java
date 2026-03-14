@@ -6,7 +6,7 @@ import org.jboss.resteasy.annotations.providers.multipart.PartType;
 import jakarta.ws.rs.core.MediaType;
 import java.io.File;
 
-public class VideoUploadForm {
+public class VideoUploadFormDTO {
 
     @FormParam("file")
     @PartType(MediaType.APPLICATION_OCTET_STREAM)

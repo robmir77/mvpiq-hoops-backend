@@ -2,11 +2,15 @@ package com.mvpiq.service.ia;
 
 
 import ai.djl.modality.cv.output.Point;
-import com.mvpiq.dto.ShotMetrics;
+import com.mvpiq.dto.ShotMetricsDTO;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
 import java.util.List;
+
+import org.apache.commons.math3.fitting.PolynomialCurveFitter;
+import org.apache.commons.math3.fitting.WeightedObservedPoints;
+import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
 
 @ApplicationScoped
 public class ShotMetricsService {
@@ -16,13 +20,13 @@ public class ShotMetricsService {
     // -------------------------
     // METRICS
     // -------------------------
-    public ShotMetrics calculateMetrics(List<Point> points,
-                                        int hoopX,
-                                        int hoopY,
-                                        int rimRadius,
-                                        double pixelToCm) {
+    public ShotMetricsDTO calculateMetrics(List<Point> points,
+                                           int hoopX,
+                                           int hoopY,
+                                           int rimRadius,
+                                           double pixelToCm) {
 
-        ShotMetrics m = new ShotMetrics();
+        ShotMetricsDTO m = new ShotMetricsDTO();
         LOG.info("Calculating shot metrics");
 
         if (points == null || points.size() < 2) {
@@ -197,86 +201,131 @@ public class ShotMetricsService {
         return error / points.size();
     }
 
-    public ShotMetrics calculateMetricsVerticalOnly(List<Point> points, double verticalDistance, double pixelToCm, double hoopY, double rimRadius) {
-        ShotMetrics m = new ShotMetrics();
+    public ShotMetricsDTO calculateMetricsVerticalOnly(
+            List<Point> points,
+            double verticalDistance,
+            double pixelToCm,
+            double hoopY,
+            double rimRadius) {
 
-        if (points == null || points.size() < 2) {
-            return m; // troppo pochi punti
+        ShotMetricsDTO m = new ShotMetricsDTO();
+
+        if (points == null || points.size() < 3) {
+            return m;
         }
 
-        // RELEASE POINT
-        Point release = findReleasePoint(points);
-        m.setReleaseHeight(release.getY() * pixelToCm); // altezza reale in cm
+        // -------------------------
+        // Fit parabola (trajectory smoothing)
+        // -------------------------
+        PolynomialFunction parabola = fitTrajectory(points);
 
-        // DISTANCE VERTICALE
+        double a = parabola.getCoefficients()[2];
+        double b = parabola.getCoefficients()[1];
+        double c = parabola.getCoefficients()[0];
+
+        // -------------------------
+        // Release point
+        // -------------------------
+        Point release = findReleasePoint(points);
+
+        m.setReleaseHeight(release.getY() * pixelToCm);
+
+        // -------------------------
+        // Distance (vertical shot distance)
+        // -------------------------
         m.setDistance(verticalDistance);
 
-        // RELEASE SPEED (solo verticale)
+        // -------------------------
+        // RELEASE ANGLE
+        // slope parabola nel punto di rilascio
+        // -------------------------
+        double releaseSlope = 2 * a * release.getX() + b;
+
+        m.setReleaseAngle(Math.toDegrees(Math.atan(-releaseSlope)));
+
+        // -------------------------
+        // ENTRY ANGLE (al ferro)
+        // -------------------------
+        double entrySlope = 2 * a * points.get(points.size() - 1).getX() + b;
+
+        m.setEntryAngle(Math.toDegrees(Math.atan(-entrySlope)));
+
+        // -------------------------
+        // ARC HEIGHT (apex della parabola)
+        // -------------------------
+        if (Math.abs(a) > 1e-6) {
+
+            double apexX = -b / (2 * a);
+            double apexY = a * apexX * apexX + b * apexX + c;
+
+            double arcHeight = (release.getY() - apexY) * pixelToCm;
+
+            m.setArcHeight(Math.abs(arcHeight));
+        }
+
+        // -------------------------
+        // TRAJECTORY QUALITY
+        // -------------------------
+        double err = trajectoryError(points, a, b, c);
+
+        m.setTrajectoryQuality(Math.max(0, 1 - err / 80));
+
+        // -------------------------
+        // RELEASE SPEED (vertical component)
+        // -------------------------
         int idx = points.indexOf(release);
+
         if (idx < points.size() - 1) {
+
             Point next = points.get(idx + 1);
+
             double vy = next.getY() - release.getY();
+
             m.setReleaseSpeed(vy * pixelToCm);
         }
 
-        // ENTRY ANGLE (pendenza verticale)
+        // -------------------------
+        // SHOT RESULT
+        // -------------------------
         Point end = points.get(points.size() - 1);
-        double dy = end.getY() - release.getY();
-        double dx = end.getX() - release.getX();
-        if (dx != 0) {
-            m.setEntryAngle(Math.toDegrees(Math.atan(dy / dx)));
-        }
 
-        // ARC HEIGHT
-        double[] coeff = fitParabola(points);
-        double a = coeff[0], b = coeff[1], c = coeff[2];
-        if (Math.abs(a) > 1e-6) {
-            double xv = -b / (2 * a);
-            double yv = a * xv * xv + b * xv + c;
-            m.setArcHeight(release.getY() - yv);
-        }
+        double finalY = end.getY();
 
-        // Trajectory quality
-        double err = trajectoryError(points, a, b, c);
-        m.setTrajectoryQuality(Math.max(0, 1 - err / 80));
-
-        // Shot result
-        double finalY = end.getY(); // altezza palla all'arrivo
         m.setMake(Math.abs(finalY - hoopY) <= rimRadius);
-        if (finalY > hoopY + rimRadius) m.setMissType("short");
-        else if (finalY < hoopY - rimRadius) m.setMissType("long");
-        else m.setMissType("center");
+
+        if (finalY > hoopY + rimRadius) {
+            m.setMissType("short");
+        } else if (finalY < hoopY - rimRadius) {
+            m.setMissType("long");
+        } else {
+            m.setMissType("center");
+        }
 
         return m;
     }
 
     public int detectReleaseFrame(List<Point> trajectory) {
 
-        if (trajectory.size() < 4) {
+        if (trajectory.size() < 5) {
             return 0;
         }
 
-        double maxAcceleration = 0;
-        int releaseIndex = 0;
-
         for (int i = 2; i < trajectory.size(); i++) {
 
-            Point p0 = trajectory.get(i - 2);
-            Point p1 = trajectory.get(i - 1);
-            Point p2 = trajectory.get(i);
+            double y0 = trajectory.get(i-2).getY();
+            double y1 = trajectory.get(i-1).getY();
+            double y2 = trajectory.get(i).getY();
 
-            double v1 = distance(p0, p1);
-            double v2 = distance(p1, p2);
+            double dy1 = y1 - y0;
+            double dy2 = y2 - y1;
 
-            double acc = Math.abs(v2 - v1);
-
-            if (acc > maxAcceleration) {
-                maxAcceleration = acc;
-                releaseIndex = i - 1;
+            // cambio di direzione → palla lascia la mano
+            if (dy1 > 0 && dy2 < 0) {
+                return i-1;
             }
         }
 
-        return releaseIndex;
+        return trajectory.size()/4;
     }
 
     private double distance(Point a, Point b){
@@ -285,15 +334,39 @@ public class ShotMetricsService {
         return Math.sqrt(dx*dx + dy*dy);
     }
 
-    public double estimateShotSpeed(List<Point> trajectoryCm, int fps) {
+    public double estimateShotSpeed(List<Point> trajectoryCm, int releaseFrame, int fps) {
 
-        if (trajectoryCm.size() < 2) {
+        if (trajectoryCm == null || trajectoryCm.size() < releaseFrame + 2) {
             return 0;
         }
 
+        // -------------------------
+        // Find apex (highest point)
+        // -------------------------
+        int apexIndex = releaseFrame;
+
+        double minY = trajectoryCm.get(releaseFrame).getY();
+
+        for (int i = releaseFrame; i < trajectoryCm.size(); i++) {
+
+            double y = trajectoryCm.get(i).getY();
+
+            if (y < minY) {
+                minY = y;
+                apexIndex = i;
+            }
+        }
+
+        if (apexIndex <= releaseFrame) {
+            apexIndex = Math.min(releaseFrame + 3, trajectoryCm.size() - 1);
+        }
+
+        // -------------------------
+        // Distance between release and apex
+        // -------------------------
         double distance = 0;
 
-        for (int i = 1; i < trajectoryCm.size(); i++) {
+        for (int i = releaseFrame + 1; i <= apexIndex; i++) {
 
             Point prev = trajectoryCm.get(i - 1);
             Point curr = trajectoryCm.get(i);
@@ -304,15 +377,24 @@ public class ShotMetricsService {
             distance += Math.sqrt(dx * dx + dy * dy);
         }
 
-        double timeSeconds = trajectoryCm.size() / (double) fps;
+        // -------------------------
+        // Time
+        // -------------------------
+        double timeSeconds = (apexIndex - releaseFrame) / (double) fps;
 
-        double speedMs = (distance / 100.0) / timeSeconds; // cm → m
-        double speedKmh = speedMs * 3.6;
+        if (timeSeconds == 0) {
+            return 0;
+        }
 
-        return speedKmh;
+        // -------------------------
+        // Speed
+        // -------------------------
+        double speedMs = (distance / 100.0) / timeSeconds;
+
+        return speedMs * 3.6;
     }
 
-    public double calculateShotDifficulty(ShotMetrics m) {
+    public double calculateShotDifficulty(ShotMetricsDTO m) {
 
         double distance = m.getTrajectoryDistance() / 100.0; // cm → m
         double speed = m.getShotSpeed();
@@ -330,5 +412,32 @@ public class ShotMetricsService {
                         arcScore * 0.2;
 
         return difficulty * 100;
+    }
+
+    public PolynomialFunction fitTrajectory(List<Point> trajectory) {
+
+        WeightedObservedPoints obs = new WeightedObservedPoints();
+
+        for (Point p : trajectory) {
+            obs.add(p.getX(), p.getY());
+        }
+
+        PolynomialCurveFitter fitter = PolynomialCurveFitter.create(2);
+
+        double[] coeff = fitter.fit(obs.toList());
+
+        return new PolynomialFunction(coeff);
+    }
+
+    public double computeApexHeight(List<Point> trajectory) {
+
+        PolynomialFunction f = fitTrajectory(trajectory);
+
+        double a = f.getCoefficients()[2];
+        double b = f.getCoefficients()[1];
+
+        double apexX = -b / (2 * a);
+
+        return f.value(apexX);
     }
 }

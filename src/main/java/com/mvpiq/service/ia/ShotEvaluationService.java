@@ -1,7 +1,7 @@
 package com.mvpiq.service.ia;
 
 import ai.djl.modality.cv.output.Point;
-import com.mvpiq.dto.ShotMetrics;
+import com.mvpiq.dto.ShotMetricsDTO;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.json.*;
@@ -130,14 +130,14 @@ public class ShotEvaluationService {
 
         LOG.infof("Ball trajectory points after smoothing: %d", ballPositions.size());
 
-        ShotMetrics metrics;
+        ShotMetricsDTO metrics;
         double realTrajectoryDistance = 0.0;
 
         if (ballPositions.size() < 3) {
 
             LOG.warn("Too few trajectory points for shot analysis");
 
-            metrics = new ShotMetrics();
+            metrics = new ShotMetricsDTO();
 
         } else {
 
@@ -239,7 +239,11 @@ public class ShotEvaluationService {
                     metrics.isMake(),
                     metrics.getMissType());
 
-            double shotSpeed = shotMetricsService.estimateShotSpeed(ballCmPositions, 10);
+            double shotSpeed = shotMetricsService.estimateShotSpeed(
+                    ballCmPositions,
+                    releaseFrame,
+                    10
+            );
 
             metrics.setShotSpeed(shotSpeed);
 
@@ -258,7 +262,7 @@ public class ShotEvaluationService {
         return result;
     }
 
-    public JsonObject evaluateShot(ShotMetrics m){
+    public JsonObject evaluateShot(ShotMetricsDTO m){
 
         JsonArrayBuilder errors = Json.createArrayBuilder();
         JsonArrayBuilder suggestions = Json.createArrayBuilder();
@@ -305,32 +309,48 @@ public class ShotEvaluationService {
     }
 
     public void evaluateShotResult(
-            ShotMetrics metrics,
+            ShotMetricsDTO metrics,
             List<Point> trajectory,
             double hoopX,
             double hoopY,
             double rimRadiusCm) {
 
-        if (trajectory == null || trajectory.isEmpty()) {
+        if (trajectory == null || trajectory.size() < 3) {
             return;
         }
 
-        Point last = trajectory.get(trajectory.size() - 1);
+        boolean make = false;
+        Point closestPoint = null;
+        double minDistance = Double.MAX_VALUE;
 
-        double dx = last.getX() - hoopX;
-        double dy = last.getY() - hoopY;
+        for (Point p : trajectory) {
 
-        double distance = Math.sqrt(dx * dx + dy * dy);
+            double dx = p.getX() - hoopX;
+            double dy = p.getY() - hoopY;
 
-        if (distance <= rimRadiusCm) {
+            double distance = Math.sqrt(dx * dx + dy * dy);
 
-            metrics.setMake(true);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestPoint = p;
+            }
+
+            // se la palla passa dentro il ferro
+            if (distance <= rimRadiusCm * 1.25) {
+                make = true;
+            }
+        }
+
+        metrics.setMake(make);
+
+        if (make) {
             metrics.setMissType(null);
-
             return;
         }
 
-        metrics.setMake(false);
+        // se è miss, classifica il tipo di errore
+        double dx = closestPoint.getX() - hoopX;
+        double dy = closestPoint.getY() - hoopY;
 
         if (Math.abs(dx) > Math.abs(dy)) {
 

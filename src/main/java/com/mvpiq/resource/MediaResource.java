@@ -1,7 +1,7 @@
 package com.mvpiq.resource;
 
 import com.mvpiq.dto.MediaAssetDTO;
-import com.mvpiq.dto.VideoUploadForm;
+import com.mvpiq.dto.VideoUploadFormDTO;
 import com.mvpiq.service.MediaService;
 
 import jakarta.enterprise.context.RequestScoped;
@@ -36,7 +36,7 @@ public class MediaResource {
     @Path("/videos/upload")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response uploadVideo(@MultipartForm VideoUploadForm form) {
+    public Response uploadVideo(@MultipartForm VideoUploadFormDTO form) {
 
         System.out.println("🎥 UPLOAD ENDPOINT HIT");
 

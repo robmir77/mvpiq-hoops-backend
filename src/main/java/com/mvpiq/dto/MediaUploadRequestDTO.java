@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class MediaUploadRequest {
+public class MediaUploadRequestDTO {
 
     private String title;
     private String description;

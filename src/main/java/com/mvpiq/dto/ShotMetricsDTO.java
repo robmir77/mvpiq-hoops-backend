@@ -6,7 +6,7 @@ import java.util.List;
 
 @Getter
 @Setter
-public class ShotMetrics {
+public class ShotMetricsDTO {
 
     // -------------------------
     // BALL TRAJECTORY

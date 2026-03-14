@@ -282,6 +282,11 @@ public class HoopDetectionService {
 
             LOG.infof("Hoop detected -> x=%d y=%d r=%d", centerX, centerY, radius);
 
+            if (radius > 80) {
+                LOG.warn("Hoop radius too large, ignoring detection");
+                return null;
+            }
+
             return new Hoop(centerX, centerY, radius);
 
         } catch (Exception e) {
