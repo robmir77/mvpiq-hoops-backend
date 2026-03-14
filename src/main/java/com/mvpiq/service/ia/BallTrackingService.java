@@ -1,4 +1,4 @@
-package com.mvpiq.service.ai;
+package com.mvpiq.service.ia;
 
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.Image;
