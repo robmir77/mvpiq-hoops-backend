@@ -249,4 +249,86 @@ public class ShotMetricsService {
 
         return m;
     }
+
+    public int detectReleaseFrame(List<Point> trajectory) {
+
+        if (trajectory.size() < 4) {
+            return 0;
+        }
+
+        double maxAcceleration = 0;
+        int releaseIndex = 0;
+
+        for (int i = 2; i < trajectory.size(); i++) {
+
+            Point p0 = trajectory.get(i - 2);
+            Point p1 = trajectory.get(i - 1);
+            Point p2 = trajectory.get(i);
+
+            double v1 = distance(p0, p1);
+            double v2 = distance(p1, p2);
+
+            double acc = Math.abs(v2 - v1);
+
+            if (acc > maxAcceleration) {
+                maxAcceleration = acc;
+                releaseIndex = i - 1;
+            }
+        }
+
+        return releaseIndex;
+    }
+
+    private double distance(Point a, Point b){
+        double dx = a.getX()-b.getX();
+        double dy = a.getY()-b.getY();
+        return Math.sqrt(dx*dx + dy*dy);
+    }
+
+    public double estimateShotSpeed(List<Point> trajectoryCm, int fps) {
+
+        if (trajectoryCm.size() < 2) {
+            return 0;
+        }
+
+        double distance = 0;
+
+        for (int i = 1; i < trajectoryCm.size(); i++) {
+
+            Point prev = trajectoryCm.get(i - 1);
+            Point curr = trajectoryCm.get(i);
+
+            double dx = curr.getX() - prev.getX();
+            double dy = curr.getY() - prev.getY();
+
+            distance += Math.sqrt(dx * dx + dy * dy);
+        }
+
+        double timeSeconds = trajectoryCm.size() / (double) fps;
+
+        double speedMs = (distance / 100.0) / timeSeconds; // cm → m
+        double speedKmh = speedMs * 3.6;
+
+        return speedKmh;
+    }
+
+    public double calculateShotDifficulty(ShotMetrics m) {
+
+        double distance = m.getTrajectoryDistance() / 100.0; // cm → m
+        double speed = m.getShotSpeed();
+        double arc = m.getArcHeight();
+
+        // normalizzazioni
+
+        double distanceScore = Math.min(distance / 14.0, 1.0); // metà campo = max
+        double speedScore = Math.min(speed / 50.0, 1.0);       // 50 km/h max
+        double arcScore = Math.min(arc / 300.0, 1.0);          // 3m arco alto
+
+        double difficulty =
+                distanceScore * 0.6 +
+                        speedScore * 0.2 +
+                        arcScore * 0.2;
+
+        return difficulty * 100;
+    }
 }

@@ -28,7 +28,7 @@ public class ShotEvaluationService {
     TrajectoryService trajectoryService;
 
     @Inject
-    ShotMetricsService  shotMetricsService;
+    ShotMetricsService shotMetricsService;
 
     @ConfigProperty(name = "mvpiq.video.frame-width")
     int frameWidth;
@@ -43,27 +43,36 @@ public class ShotEvaluationService {
     int searchFrames;
 
     public JsonObject analyzeShot(List<File> frames) {
+
         if (frames == null || frames.isEmpty()) {
             throw new RuntimeException("No frames for shot analysis");
         }
 
-        LOG.info("Starting shot analysis. Frames received: " + frames.size());
+        LOG.infof("Starting shot analysis. Frames received: %d", frames.size());
 
         Hoop hoop = null;
         int framesToCheck = Math.min(searchFrames, frames.size());
 
         // -------------------------
-        // Detect hoop nelle prime frame
+        // Hoop detection
         // -------------------------
         for (int i = 0; i < framesToCheck; i++) {
+
             File frame = frames.get(i);
-            if (frame == null || !frame.exists()) continue;
+
+            if (frame == null || !frame.exists()) {
+                continue;
+            }
+
             try {
+
                 hoop = hoopDetector.detectHoop(frame);
+
                 if (hoop != null) {
                     LOG.infof("Hoop detected on frame %d", i);
                     break;
                 }
+
             } catch (Exception e) {
                 LOG.errorf(e, "Hoop detection failed on frame %d", i);
             }
@@ -71,86 +80,139 @@ public class ShotEvaluationService {
 
         int hoopX, hoopY, rimRadius;
 
-        // -------------------------
-        // Fallback se hoop non trovato
-        // -------------------------
         if (hoop != null) {
+
             hoopX = hoop.x;
             hoopY = hoop.y;
             rimRadius = hoop.radius;
+
             LOG.infof("Hoop detected -> x=%d y=%d radius=%d", hoopX, hoopY, rimRadius);
+
         } else {
-            LOG.warn("Hoop not detected. Using fallback");
+
+            LOG.warn("Hoop not detected. Using fallback position");
+
             hoopX = frameWidth / 2;
             hoopY = frameHeight / 6;
             rimRadius = fallbackRadius;
+
             LOG.infof("Fallback hoop -> x=%d y=%d radius=%d", hoopX, hoopY, rimRadius);
         }
 
         // -------------------------
-        // Calcolo pixel->cm
+        // Pixel to cm conversion
         // -------------------------
         double hoopDiameterPx = rimRadius * 2;
-        double hoopDiameterCm = 45.0; // diametro reale canestro in cm
+        double hoopDiameterCm = 45.0;
+
         double pixelToCm = hoopDiameterCm / hoopDiameterPx;
+
         LOG.infof("Pixel scale -> 1px = %.3f cm", pixelToCm);
 
         // -------------------------
         // Ball tracking
         // -------------------------
         List<Point> ballPositions = new ArrayList<>();
-        try {
-            List<Point> aiPoints = aiTracker.trackBallAI(frames);
-            aiPoints = trajectoryService.smoothTrajectory(aiPoints);
-            ballPositions.addAll(aiPoints);
-        } catch (Exception e) {
-            LOG.error("Error during ball tracking", e);
-        }
-        LOG.info("Ball positions detected: " + ballPositions.size());
 
-        // -------------------------
-        // Calcolo metriche tiro (asse verticale Y) + distanza reale
-        // -------------------------
+        try {
+
+            List<Point> aiPoints = aiTracker.trackBallAI(frames);
+
+            LOG.infof("Raw AI ball detections: %d", aiPoints.size());
+
+            aiPoints = trajectoryService.smoothTrajectory(aiPoints);
+
+            ballPositions.addAll(aiPoints);
+
+        } catch (Exception e) {
+            LOG.error("Ball tracking failed", e);
+        }
+
+        LOG.infof("Ball trajectory points after smoothing: %d", ballPositions.size());
+
         ShotMetrics metrics;
         double realTrajectoryDistance = 0.0;
 
         if (ballPositions.size() < 3) {
-            LOG.warn("Too few trajectory points");
+
+            LOG.warn("Too few trajectory points for shot analysis");
+
             metrics = new ShotMetrics();
+
         } else {
-            // Convertiamo pixel->cm
+
+            // -------------------------
+            // Convert trajectory to cm
+            // -------------------------
             List<Point> ballCmPositions = ballPositions.stream()
                     .map(p -> new Point(p.getX() * pixelToCm, p.getY() * pixelToCm))
                     .collect(Collectors.toList());
 
-            // Canestro in cm
+            LOG.info("Trajectory converted to real-world coordinates (cm)");
+
+            // -------------------------
+            // Detect release frame
+            // -------------------------
+            int releaseFrame = shotMetricsService.detectReleaseFrame(ballCmPositions);
+
+            LOG.infof("Estimated release frame: %d", releaseFrame);
+
+            // -------------------------
+            // Hoop position in cm
+            // -------------------------
+            double hoopXCm = hoopX * pixelToCm;
             double hoopYCm = hoopY * pixelToCm;
             double rimRadiusCm = rimRadius * pixelToCm;
 
-            // Distanza verticale dal punto di rilascio al canestro
-            Point releasePoint = ballCmPositions.get(0);
+            // -------------------------
+            // Release point
+            // -------------------------
+            Point releasePoint = ballCmPositions.get(releaseFrame);
+
+            LOG.infof("Release point -> x=%.2f cm y=%.2f cm",
+                    releasePoint.getX(), releasePoint.getY());
+
+            // -------------------------
+            // Vertical distance
+            // -------------------------
             double verticalDistance = Math.abs(releasePoint.getY() - hoopYCm);
 
+            LOG.infof("Vertical distance from hoop: %.2f cm", verticalDistance);
+
             // -------------------------
-            // Stima distanza reale lungo la traiettoria
+            // Horizontal scaling
             // -------------------------
-            Point hoopPoint = new Point(hoopX * pixelToCm, hoopYCm);
-            double horizontalVideoDistance = Math.abs(releasePoint.getX() - hoopPoint.getX());
-            double horizontalRealDistance = 457.0; // distanza tiro libero in cm
+            double horizontalVideoDistance = Math.abs(releasePoint.getX() - hoopXCm);
+
+            double horizontalRealDistance = 457.0;
+
             double scaleFactor = horizontalRealDistance / horizontalVideoDistance;
 
-            // Calcolo distanza reale sommando i segmenti tra punti consecutivi
+            LOG.infof("Horizontal scaling factor: %.2f", scaleFactor);
+
+            // -------------------------
+            // Real trajectory distance
+            // -------------------------
             double sum = 0.0;
+
             for (int i = 1; i < ballCmPositions.size(); i++) {
+
                 Point prev = ballCmPositions.get(i - 1);
                 Point curr = ballCmPositions.get(i);
+
                 double dx = curr.getX() - prev.getX();
                 double dy = curr.getY() - prev.getY();
+
                 sum += Math.sqrt(dx * dx + dy * dy);
             }
+
             realTrajectoryDistance = sum * scaleFactor;
 
-            // Chiamata al servizio con parametri completi
+            LOG.infof("Estimated real trajectory distance: %.2f cm", realTrajectoryDistance);
+
+            // -------------------------
+            // Shot metrics
+            // -------------------------
             metrics = shotMetricsService.calculateMetricsVerticalOnly(
                     ballCmPositions,
                     verticalDistance,
@@ -158,46 +220,125 @@ public class ShotEvaluationService {
                     hoopYCm,
                     rimRadiusCm
             );
+
+            metrics.setReleaseFrame(releaseFrame);
+            metrics.setTrajectoryDistance(realTrajectoryDistance);
+
+            // -------------------------
+            // Shot result evaluation
+            // -------------------------
+            evaluateShotResult(
+                    metrics,
+                    ballCmPositions,
+                    hoopXCm,
+                    hoopYCm,
+                    rimRadiusCm
+            );
+
+            LOG.infof("Shot result -> make=%s missType=%s",
+                    metrics.isMake(),
+                    metrics.getMissType());
+
+            double shotSpeed = shotMetricsService.estimateShotSpeed(ballCmPositions, 10);
+
+            metrics.setShotSpeed(shotSpeed);
+
+            LOG.infof("Estimated shot speed: %.2f km/h", shotSpeed);
+
+            double difficulty = shotMetricsService.calculateShotDifficulty(metrics);
+            metrics.setShotDifficulty(difficulty);
+
+            LOG.infof("Shot difficulty: %.2f / 100", difficulty);
         }
-
-        LOG.infof("Estimated vertical distance: %.2f cm", metrics.getDistance());
-        LOG.infof("Estimated real trajectory distance: %.2f cm", realTrajectoryDistance);
-
-        // Salviamo la distanza reale nelle metriche
-        metrics.setTrajectoryDistance(realTrajectoryDistance);
 
         JsonObject result = evaluateShot(metrics);
 
-        LOG.info("Shot evaluation completed -> Vertical distance: " +
-                (metrics != null ? metrics.getDistance() : "n/a") + " cm");
+        LOG.info("Shot evaluation completed");
 
         return result;
     }
 
     public JsonObject evaluateShot(ShotMetrics m){
 
-        JsonArrayBuilder errors=Json.createArrayBuilder();
-        JsonArrayBuilder suggestions=Json.createArrayBuilder();
+        JsonArrayBuilder errors = Json.createArrayBuilder();
+        JsonArrayBuilder suggestions = Json.createArrayBuilder();
 
-        int score=100;
+        int score = 100;
 
-        if(m.getReleaseAngle()<42){errors.add("Release angle too flat");score-=12;}
-        if(m.getReleaseAngle()>60){errors.add("Release angle too high");score-=8;}
-        if(m.getArcHeight()<80){errors.add("Low arc");score-=10;}
-        if(m.getEntryAngle()<35){errors.add("Flat entry angle");score-=8;}
+        if(m.getReleaseAngle() < 42){
+            errors.add("Release angle too flat");
+            score -= 12;
+        }
+
+        if(m.getReleaseAngle() > 60){
+            errors.add("Release angle too high");
+            score -= 8;
+        }
+
+        if(m.getArcHeight() < 80){
+            errors.add("Low arc");
+            score -= 10;
+        }
+
+        if(m.getEntryAngle() < 35){
+            errors.add("Flat entry angle");
+            score -= 8;
+        }
 
         return Json.createObjectBuilder()
-                .add("score",score)
-                .add("make",m.isMake())
-                .add("missType",m.getMissType()==null?"":m.getMissType())
-                .add("metrics",Json.createObjectBuilder()
-                        .add("releaseAngle",m.getReleaseAngle())
-                        .add("entryAngle",m.getEntryAngle())
-                        .add("releaseSpeed",m.getReleaseSpeed())
-                        .add("arcHeight",m.getArcHeight())
-                        .add("trajectoryQuality",m.getTrajectoryQuality()))
-                .add("errors",errors)
-                .add("suggestions",suggestions)
+                .add("score", score)
+                .add("make", m.isMake())
+                .add("missType", m.getMissType() == null ? "" : m.getMissType())
+                .add("releaseFrame", m.getReleaseFrame())
+                .add("distance", m.getDistance())
+                .add("trajectoryDistance", m.getTrajectoryDistance())
+                .add("metrics", Json.createObjectBuilder()
+                        .add("releaseAngle", m.getReleaseAngle())
+                        .add("entryAngle", m.getEntryAngle())
+                        .add("releaseSpeed", m.getReleaseSpeed())
+                        .add("arcHeight", m.getArcHeight())
+                        .add("trajectoryQuality", m.getTrajectoryQuality()))
+                .add("errors", errors)
+                .add("suggestions", suggestions)
+                .add("shotDifficulty", m.getShotDifficulty())
                 .build();
+    }
+
+    public void evaluateShotResult(
+            ShotMetrics metrics,
+            List<Point> trajectory,
+            double hoopX,
+            double hoopY,
+            double rimRadiusCm) {
+
+        if (trajectory == null || trajectory.isEmpty()) {
+            return;
+        }
+
+        Point last = trajectory.get(trajectory.size() - 1);
+
+        double dx = last.getX() - hoopX;
+        double dy = last.getY() - hoopY;
+
+        double distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= rimRadiusCm) {
+
+            metrics.setMake(true);
+            metrics.setMissType(null);
+
+            return;
+        }
+
+        metrics.setMake(false);
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+
+            metrics.setMissType(dx < 0 ? "LEFT" : "RIGHT");
+
+        } else {
+
+            metrics.setMissType(dy > 0 ? "SHORT" : "LONG");
+        }
     }
 }

@@ -18,6 +18,8 @@ public class ShotMetrics {
     private double trajectoryQuality; // qualità della traiettoria (0-1)
     private double distance;          // distanza del tiro (cm) -> aggiunto
     private double trajectoryDistance;// distanza reale
+    private double shotSpeed;
+    private double shotDifficulty;
 
     // -------------------------
     // RELEASE METRICS
@@ -31,6 +33,9 @@ public class ShotMetrics {
     private double elbowAngle;        // angolo gomito (°)
     private double wristAngle;        // angolo polso (°)
     private double elbowAlignmentError; // errore allineamento braccio
+    private double kneeAngle;         // angolo ginocchia
+    private double bodyExtension;     // per capire se il tiro è fluido
+    private double stabilityScore;    // stabilità del tiro
 
     // -------------------------
     // BODY BALANCE

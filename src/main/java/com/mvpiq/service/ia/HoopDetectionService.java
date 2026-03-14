@@ -21,8 +21,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.Paths;
 
-import org.bytedeco.opencv.opencv_core.*;
-
 import javax.imageio.ImageIO;
 
 @ApplicationScoped
