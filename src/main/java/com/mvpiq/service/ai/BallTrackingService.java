@@ -1,4 +1,4 @@
-package com.mvpiq.service;
+package com.mvpiq.service.ai;
 
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.Image;
@@ -25,9 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @ApplicationScoped
-public class BallTrackingAI {
+public class BallTrackingService {
 
-    private static final Logger LOG = Logger.getLogger(BallTrackingAI.class);
+    private static final Logger LOG = Logger.getLogger(BallTrackingService.class);
 
     private Predictor<Image, DetectedObjects> predictor;
 

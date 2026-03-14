@@ -1,4 +1,4 @@
-package com.mvpiq.service;
+package com.mvpiq.service.ai;
 
 public class Hoop {
 
