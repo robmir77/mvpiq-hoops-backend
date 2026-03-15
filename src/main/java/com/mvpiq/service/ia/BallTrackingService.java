@@ -119,9 +119,7 @@ public class BallTrackingService {
                 expectedY = lastPoint.getY();
             }
 
-            for (Classifications.Classification classification : detections.items()) {
-                DetectedObjects.DetectedObject obj = (DetectedObjects.DetectedObject) classification;
-
+            for (DetectedObjects.DetectedObject obj : detections.<DetectedObjects.DetectedObject>items()) {
                 if (!"sports ball".equalsIgnoreCase(obj.getClassName())) {
                     continue;
                 }

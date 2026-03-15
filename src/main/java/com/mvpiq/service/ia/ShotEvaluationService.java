@@ -232,12 +232,39 @@ public class ShotEvaluationService {
             LOG.infof("Shot arc extracted -> %d points", shotArc.size());
 
             // -------------------------
+            // Shot arc in PIXEL (per overlay)
+            // -------------------------
+            List<Point> ballPixelPositions = ballPositions.stream()
+                    .map(p -> new Point(p.getX(), p.getY()))
+                    .collect(Collectors.toList());
+
+            // FIX: per overlay usiamo tutta la traiettoria pixel (più stabile per il fit)
+            List<Point> shotArcPx = new ArrayList<>(ballPixelPositions);
+
+            LOG.infof("Shot arc pixel points (overlay): %d", shotArcPx.size());
+
+            // -------------------------
             // PARABOLE (REAL vs IDEAL)
             // -------------------------
+            // parabola reale per metriche (cm)
             PolynomialFunction realArc =
                     shotMetricsService.fitTrajectory(shotArc);
 
+            // parabola reale per overlay (pixel)
+            PolynomialFunction realArcPx = null;
+
+            if (shotArcPx.size() >= 3) {
+
+                realArcPx = shotMetricsService.fitTrajectory(shotArcPx);
+
+            } else {
+
+                LOG.warn("Not enough pixel points to fit realArcPx");
+
+            }
+
             Point hoopPoint = new Point(hoopXCm, hoopYCm);
+            Point hoopPointPx = new Point(hoopX, hoopY);
 
             PolynomialFunction idealArc =
                     shotMetricsService.buildIdealArc(
@@ -245,6 +272,22 @@ public class ShotEvaluationService {
                             hoopPoint,
                             120
                     );
+
+            PolynomialFunction idealArcPx = null;
+
+            if (ballPixelPositions.size() > releaseFrame + 2) {
+
+                idealArcPx = shotMetricsService.buildIdealArc(
+                        ballPixelPositions.get(releaseFrame),
+                        hoopPointPx,
+                        120
+                );
+
+            } else {
+
+                LOG.warn("Not enough points to build idealArcPx");
+
+            }
 
             // -------------------------
             // deviazione dalla parabola ideale
@@ -262,6 +305,19 @@ public class ShotEvaluationService {
             // -------------------------
             try {
 
+                // traiettoria in pixel (serve per disegnare sull'immagine)
+                List<Point> pixelTrajectory = ballPositions.stream()
+                        .map(p -> new Point(p.getX(), p.getY()))
+                        .collect(Collectors.toList());
+
+                Point releasePointPx = pixelTrajectory.size() > releaseFrame
+                        ? pixelTrajectory.get(releaseFrame)
+                        : pixelTrajectory.get(0);
+
+                LOG.infof("Drawing overlay using pixel coordinates. ReleasePx -> x=%.2f y=%.2f",
+                        releasePointPx.getX(),
+                        releasePointPx.getY());
+
                 for (int i = releaseFrame; i < frames.size(); i++) {
 
                     File frameFile = frames.get(i);
@@ -274,20 +330,29 @@ public class ShotEvaluationService {
                     }
 
                     List<Point> partialTrajectory =
-                            shotArc.subList(0, Math.min(i, shotArc.size()));
+                            pixelTrajectory.subList(
+                                    0,
+                                    Math.min(i, pixelTrajectory.size())
+                            );
+
+                    LOG.infof("shotArcPx points: %d", shotArcPx.size());
+                    LOG.infof("realArcPx null? %s", realArcPx == null);
+                    LOG.infof("idealArcPx null? %s", idealArcPx == null);
 
                     overlayService.drawOverlay(
                             img,
                             partialTrajectory,
-                            realArc,
-                            idealArc,
-                            releasePoint,
-                            hoopPoint,
-                            rimRadiusCm
+                            realArcPx,
+                            idealArcPx,
+                            releasePointPx,
+                            hoopPointPx,
+                            rimRadius
                     );
 
                     ImageIO.write(img, "jpg", frameFile);
                 }
+
+                LOG.info("Trajectory overlay successfully drawn on frames");
 
             } catch (Exception e) {
 

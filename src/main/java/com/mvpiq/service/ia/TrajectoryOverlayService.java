@@ -20,18 +20,21 @@ public class TrajectoryOverlayService {
             Point hoop,
             double rimRadius) {
 
+        if (ballPoints == null || ballPoints.size() < 2) {
+            return;
+        }
+
         Graphics2D g = img.createGraphics();
 
         g.setRenderingHint(
                 RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_ON);
 
-        int width = img.getWidth();
         int height = img.getHeight();
 
         drawBallPoints(g, ballPoints);
-        drawArc(g, realArc, width, height, Color.GREEN);
-        drawArc(g, idealArc, width, height, Color.BLUE);
+        drawArc(g, realArc, ballPoints, height, Color.GREEN);
+        drawArc(g, idealArc, ballPoints, height, Color.BLUE);
         drawRelease(g, release);
         drawHoop(g, hoop, rimRadius);
 
@@ -40,21 +43,41 @@ public class TrajectoryOverlayService {
 
     private void drawArc(Graphics2D g,
                          PolynomialFunction arc,
-                         int width,
+                         List<Point> trajectory,
                          int height,
                          Color color) {
 
-        if (arc == null) return;
+        if (arc == null || trajectory == null || trajectory.size() < 2) return;
 
         g.setColor(color);
 
-        for (int x = 0; x < width; x++) {
+        // -------------------------
+        // trova minX e maxX
+        // -------------------------
+        int minX = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
 
-            double y = arc.value(x);
+        for (Point p : trajectory) {
+
+            int x = (int) p.getX();
+
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+        }
+
+        int prevX = minX;
+        int prevY = (int) arc.value(minX);
+
+        for (int x = minX + 1; x <= maxX; x++) {
+
+            int y = (int) arc.value(x);
 
             if (y >= 0 && y < height) {
-                g.fillOval(x, (int) y, 3, 3);
+                g.drawLine(prevX, prevY, x, y);
             }
+
+            prevX = x;
+            prevY = y;
         }
     }
 
