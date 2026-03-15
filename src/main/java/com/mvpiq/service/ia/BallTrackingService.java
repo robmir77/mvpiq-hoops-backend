@@ -59,6 +59,7 @@ public class BallTrackingService {
             LOG.error("❌ Failed to load YOLO model", e);
         }
     }
+
     public List<BallPointDTO> trackBallAI(List<File> frames) throws TranslateException {
 
         KalmanBallFilter kalman = new KalmanBallFilter();
@@ -120,7 +121,17 @@ public class BallTrackingService {
             }
 
             for (DetectedObjects.DetectedObject obj : detections.<DetectedObjects.DetectedObject>items()) {
-                if (!"sports ball".equalsIgnoreCase(obj.getClassName())) {
+                LOG.infof("Detected object: %s confidence=%.2f x=%.2f y=%.2f",
+                        obj.getClassName(),
+                        obj.getProbability(),
+                        obj.getBoundingBox().getPoint().getX(),
+                        obj.getBoundingBox().getPoint().getY());
+
+                String cls = obj.getClassName().toLowerCase();
+
+                if (!(cls.contains("ball") ||
+                        cls.contains("racket") ||
+                        cls.contains("frisbee"))) {
                     continue;
                 }
 
@@ -157,7 +168,7 @@ public class BallTrackingService {
 
                 // 2) filtro forma: una palla deve essere circa quadrata
                 double aspectRatio = bw / bh;
-                if (aspectRatio < 0.7 || aspectRatio > 1.3) {
+                if (aspectRatio < 0.6 || aspectRatio > 1.6) {
                     LOG.infof("❌ Candidate ignored (aspect ratio) frame=%d ar=%.2f conf=%.3f",
                             frameIndex, aspectRatio, probability);
                     continue;
@@ -173,7 +184,7 @@ public class BallTrackingService {
                     distance = Math.sqrt(dx * dx + dy * dy);
 
                     // scarto outlier troppo lontani
-                    if (distance > 180) {
+                    if (distance > 250) {
                         LOG.infof("❌ Candidate ignored (too far) frame=%d dist=%.2f conf=%.3f",
                                 frameIndex, distance, probability);
                         continue;

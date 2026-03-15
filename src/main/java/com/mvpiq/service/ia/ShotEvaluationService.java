@@ -335,10 +335,6 @@ public class ShotEvaluationService {
                                     Math.min(i, pixelTrajectory.size())
                             );
 
-                    LOG.infof("shotArcPx points: %d", shotArcPx.size());
-                    LOG.infof("realArcPx null? %s", realArcPx == null);
-                    LOG.infof("idealArcPx null? %s", idealArcPx == null);
-
                     overlayService.drawOverlay(
                             img,
                             partialTrajectory,
