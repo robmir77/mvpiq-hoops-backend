@@ -3,6 +3,7 @@ package com.mvpiq.service;
 import com.mvpiq.model.VideoAnalysisFrame;
 import com.mvpiq.model.VideoAnalysisSession;
 import com.mvpiq.repositories.VideoAnalysisFrameRepository;
+import com.mvpiq.service.ia.TrajectoryOverlayService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -43,6 +44,9 @@ public class VideoAnalysisFrameService {
 
     @Inject
     VideoAnalysisFrameRepository frameRepository;
+
+    @Inject
+    TrajectoryOverlayService overlayService;
 
     public List<File> extractFrames(File video, VideoAnalysisSession session, double targetFps) {
 
@@ -166,6 +170,16 @@ public class VideoAnalysisFrameService {
 
                             File outFile = new File(tempDir, String.format("frame-%03d.jpg", savedIndex++));
 
+                            BufferedImage img = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_3BYTE_BGR);
+
+                            saveFrameAsJPEG(
+                                    rgbFrame,
+                                    targetWidth,
+                                    targetHeight,
+                                    outFile,
+                                    img
+                            );
+
                             saveFrameAsJPEG(
                                     rgbFrame,
                                     targetWidth,
@@ -236,5 +250,38 @@ public class VideoAnalysisFrameService {
             frameRepository.persist(entity);
         }
         LOG.info("✅ Frames persisted: " + frames.size());
+    }
+
+    private void saveFrameAsJPEG(
+            AVFrame frame,
+            int width,
+            int height,
+            File outFile,
+            BufferedImage overlayImage) throws IOException {
+
+        BufferedImage img = overlayImage != null
+                ? overlayImage
+                : new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+
+        BytePointer data = frame.data(0);
+        int linesize = frame.linesize(0);
+
+        for (int y = 0; y < height; y++) {
+
+            for (int x = 0; x < width; x++) {
+
+                int index = x * 3;
+
+                int r = data.get(y * linesize + index) & 0xFF;
+                int g = data.get(y * linesize + index + 1) & 0xFF;
+                int b = data.get(y * linesize + index + 2) & 0xFF;
+
+                int rgb = (r << 16) | (g << 8) | b;
+
+                img.setRGB(x, y, rgb);
+            }
+        }
+
+        ImageIO.write(img, "jpg", outFile);
     }
 }

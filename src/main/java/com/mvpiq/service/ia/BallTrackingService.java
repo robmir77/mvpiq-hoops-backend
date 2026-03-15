@@ -1,6 +1,7 @@
 package com.mvpiq.service.ia;
 
 import ai.djl.inference.Predictor;
+import ai.djl.modality.Classifications;
 import ai.djl.modality.cv.Image;
 import ai.djl.modality.cv.ImageFactory;
 import ai.djl.modality.cv.output.BoundingBox;
@@ -13,6 +14,7 @@ import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
 import ai.djl.translate.TranslateException;
 import com.mvpiq.dto.BallPointDTO;
+import com.mvpiq.dto.KalmanBallFilter;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
@@ -57,13 +59,12 @@ public class BallTrackingService {
             LOG.error("❌ Failed to load YOLO model", e);
         }
     }
-
     public List<BallPointDTO> trackBallAI(List<File> frames) throws TranslateException {
 
+        KalmanBallFilter kalman = new KalmanBallFilter();
         List<BallPointDTO> ballPositions = new ArrayList<>();
 
         if (frames == null || frames.isEmpty()) {
-
             LOG.warn("No frames received for ball tracking");
             return ballPositions;
         }
@@ -73,11 +74,9 @@ public class BallTrackingService {
 
         int frameIndex = 0;
         int detectionsCount = 0;
-
         BallPointDTO lastPoint = null;
 
         for (File frameFile : frames) {
-
             frameIndex++;
 
             LOG.infof("🔍 Processing frame %d / %d -> %s",
@@ -86,98 +85,162 @@ public class BallTrackingService {
                     frameFile.getName());
 
             BufferedImage img;
-
             try {
                 img = ImageIO.read(frameFile);
             } catch (Exception e) {
-
                 LOG.errorf(e, "❌ Failed reading frame %s", frameFile.getName());
                 continue;
             }
 
             if (img == null) {
-
                 LOG.warn("⚠️ Frame image is null: " + frameFile.getName());
                 continue;
             }
 
             Image image = ImageFactory.getInstance().fromImage(img);
-
             DetectedObjects detections = predictor.predict(image);
 
+            // Log utile per debug
+            for (Classifications.Classification obj : detections.items()) {
+                LOG.infof("Detected -> class=%s prob=%.3f",
+                        obj.getClassName(),
+                        obj.getProbability());
+            }
+
             boolean ballFoundInFrame = false;
+            DetectedObjects.DetectedObject bestBall = null;
+            double bestScore = -1.0;
 
-            for (int i = 0; i < detections.getNumberOfObjects(); i++) {
+            Double expectedX = null;
+            Double expectedY = null;
 
-                DetectedObjects.DetectedObject obj = detections.item(i);
+            if (lastPoint != null) {
+                expectedX = lastPoint.getX();
+                expectedY = lastPoint.getY();
+            }
 
-                if (!obj.getClassName().equalsIgnoreCase("sports ball"))
+            for (Classifications.Classification classification : detections.items()) {
+                DetectedObjects.DetectedObject obj = (DetectedObjects.DetectedObject) classification;
+
+                if (!"sports ball".equalsIgnoreCase(obj.getClassName())) {
                     continue;
+                }
 
                 double probability = obj.getProbability();
-
-                // threshold più permissivo
-                if (probability < 0.25)
+                if (probability < 0.25) {
                     continue;
+                }
 
                 BoundingBox box = obj.getBoundingBox();
                 Rectangle rect = box.getBounds();
 
-                double cx = rect.getX() + rect.getWidth() / 2;
-                double cy = rect.getY() + rect.getHeight() / 2;
+                double cx = rect.getX() + rect.getWidth() / 2.0;
+                double cy = rect.getY() + rect.getHeight() / 2.0;
+                double bw = rect.getWidth();
+                double bh = rect.getHeight();
 
-                // Fix coordinate YOLO normalizzate
+                // coordinate normalizzate -> pixel
                 if (cx <= 1.5 && cy <= 1.5) {
-
                     cx *= img.getWidth();
                     cy *= img.getHeight();
                 }
 
-                // filtro outlier
-                if (lastPoint != null) {
-
-                    double dx = Math.abs(cx - lastPoint.getX());
-                    double dy = Math.abs(cy - lastPoint.getY());
-
-                    if (dx > 300 || dy > 300) {
-
-                        LOG.infof("❌ Outlier ball detection ignored frame=%d", frameIndex);
-                        continue;
-                    }
+                if (bw <= 1.5 && bh <= 1.5) {
+                    bw *= img.getWidth();
+                    bh *= img.getHeight();
                 }
 
-                BallPointDTO p = new BallPointDTO(cx, cy, i);
+                // 1) filtro dimensione
+                if (bw < 4 || bh < 4 || bw > 100 || bh > 100) {
+                    LOG.infof("❌ Candidate ignored (size) frame=%d w=%.2f h=%.2f conf=%.3f",
+                            frameIndex, bw, bh, probability);
+                    continue;
+                }
 
+                // 2) filtro forma: una palla deve essere circa quadrata
+                double aspectRatio = bw / bh;
+                if (aspectRatio < 0.7 || aspectRatio > 1.3) {
+                    LOG.infof("❌ Candidate ignored (aspect ratio) frame=%d ar=%.2f conf=%.3f",
+                            frameIndex, aspectRatio, probability);
+                    continue;
+                }
+
+                // 3) distanza dalla posizione attesa
+                double distanceScore = 1.0;
+                double distance = 0.0;
+
+                if (expectedX != null && expectedY != null) {
+                    double dx = cx - expectedX;
+                    double dy = cy - expectedY;
+                    distance = Math.sqrt(dx * dx + dy * dy);
+
+                    // scarto outlier troppo lontani
+                    if (distance > 180) {
+                        LOG.infof("❌ Candidate ignored (too far) frame=%d dist=%.2f conf=%.3f",
+                                frameIndex, distance, probability);
+                        continue;
+                    }
+
+                    // più vicino = punteggio più alto
+                    distanceScore = Math.max(0.0, 1.0 - (distance / 180.0));
+                }
+
+                // 4) punteggio finale
+                double shapeScore = 1.0 - Math.abs(1.0 - aspectRatio); // massimo quando ar≈1
+                double score = (probability * 0.6) + (distanceScore * 0.3) + (shapeScore * 0.1);
+
+                LOG.infof("🟡 Ball candidate frame=%d x=%.2f y=%.2f w=%.2f h=%.2f conf=%.3f dist=%.2f score=%.3f",
+                        frameIndex, cx, cy, bw, bh, probability, distance, score);
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestBall = obj;
+                }
+            }
+
+            // accetto solo se il punteggio finale è abbastanza buono
+            if (bestBall != null && bestScore >= 0.35) {
+                double probability = bestBall.getProbability();
+                BoundingBox box = bestBall.getBoundingBox();
+                Rectangle rect = box.getBounds();
+
+                double cx = rect.getX() + rect.getWidth() / 2.0;
+                double cy = rect.getY() + rect.getHeight() / 2.0;
+
+                if (cx <= 1.5 && cy <= 1.5) {
+                    cx *= img.getWidth();
+                    cy *= img.getHeight();
+                }
+
+                if (!kalman.isInitialized()) {
+                    kalman.init(cx, cy);
+                    LOG.info("🧠 Kalman filter initialized");
+                } else {
+                    kalman.update(cx, cy);
+                }
+
+                BallPointDTO p = new BallPointDTO(kalman.getX(), kalman.getY(), frameIndex);
                 ballPositions.add(p);
                 lastPoint = p;
-
                 detectionsCount++;
                 ballFoundInFrame = true;
 
-                LOG.infof(
-                        "🏀 Ball detected -> frame=%d x=%.2f y=%.2f confidence=%.3f",
-                        frameIndex,
-                        p.getX(),
-                        p.getY(),
-                        probability
-                );
+                LOG.infof("🏀 Ball accepted -> frame=%d x=%.2f y=%.2f confidence=%.3f score=%.3f",
+                        frameIndex, p.getX(), p.getY(), probability, bestScore);
             }
 
-            // se YOLO perde la palla stimiamo posizione
-            if (!ballFoundInFrame && lastPoint != null) {
+            if (!ballFoundInFrame && kalman.isInitialized()) {
+                kalman.predict();
 
-                ballPositions.add(lastPoint);
+                BallPointDTO predicted = new BallPointDTO(kalman.getX(), kalman.getY(), frameIndex);
+                ballPositions.add(predicted);
+                lastPoint = predicted;
 
-                LOG.infof(
-                        "📈 Interpolated ball position frame=%d x=%.2f y=%.2f",
-                        frameIndex,
-                        lastPoint.getX(),
-                        lastPoint.getY()
-                );
+                LOG.infof("🧠 Kalman predicted ball frame=%d x=%.2f y=%.2f",
+                        frameIndex, predicted.getX(), predicted.getY());
             }
 
             if (!ballFoundInFrame) {
-
                 LOG.infof("No ball detected in frame %d", frameIndex);
             }
         }

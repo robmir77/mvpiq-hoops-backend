@@ -50,6 +50,7 @@ public class ShotMetricsDTO {
     // -------------------------
     // FEEDBACK
     // -------------------------
+    double trajectoryDeviation;
     private List<String> suggestions; // suggerimenti per migliorare
 
     // -------------------------

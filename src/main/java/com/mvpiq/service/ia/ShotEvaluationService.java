@@ -6,9 +6,12 @@ import com.mvpiq.dto.ShotMetricsDTO;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.json.*;
+import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +33,9 @@ public class ShotEvaluationService {
 
     @Inject
     ShotMetricsService shotMetricsService;
+
+    @Inject
+    TrajectoryOverlayService overlayService;
 
     @ConfigProperty(name = "mvpiq.video.frame-width")
     int frameWidth;
@@ -91,6 +97,11 @@ public class ShotEvaluationService {
             aiPoints = trajectoryService.smoothTrajectory(aiPoints);
 
             LOG.infof("Trajectory smoothed -> %d points", aiPoints.size());
+
+            // NUOVO: filtro traiettoria
+            aiPoints = trajectoryService.filterTrajectory(aiPoints);
+
+            LOG.infof("Trajectory filtered -> %d points", aiPoints.size());
 
             ballPositions.addAll(aiPoints);
 
@@ -167,16 +178,12 @@ public class ShotEvaluationService {
 
         LOG.infof("Pixel scale -> 1px = %.3f cm", pixelToCm);
 
-        // -------------------------
-        // Metriche
-        // -------------------------
         ShotMetricsDTO metrics;
         double realTrajectoryDistance = 0.0;
 
         if (ballPositions.size() < 3) {
 
             LOG.warn("Too few trajectory points. Cannot compute metrics.");
-
             metrics = new ShotMetricsDTO();
 
         } else {
@@ -197,12 +204,9 @@ public class ShotEvaluationService {
             // -------------------------
             int releaseFrame = shotMetricsService.detectReleaseFrame(ballCmPositions);
 
-            LOG.infof("Estimated release frame: %d", releaseFrame);
+            releaseFrame = trajectoryService.stabilizeReleaseFrame(releaseFrame, ballCmPositions);
 
-            if (releaseFrame < 0 || releaseFrame >= ballCmPositions.size()) {
-                LOG.warn("Invalid release frame detected. Using frame 0.");
-                releaseFrame = 0;
-            }
+            LOG.infof("Estimated release frame: %d", releaseFrame);
 
             // -------------------------
             // Coordinate canestro
@@ -214,13 +218,81 @@ public class ShotEvaluationService {
             LOG.infof("Hoop in cm -> x=%.2f y=%.2f radius=%.2f",
                     hoopXCm, hoopYCm, rimRadiusCm);
 
-            // -------------------------
-            // Punto di rilascio
-            // -------------------------
             Point releasePoint = ballCmPositions.get(releaseFrame);
 
             LOG.infof("Release point -> x=%.2f y=%.2f",
                     releasePoint.getX(), releasePoint.getY());
+
+            // -------------------------
+            // Estrazione arco reale tiro
+            // -------------------------
+            List<Point> shotArc =
+                    trajectoryService.extractShotArc(ballCmPositions, hoopYCm);
+
+            LOG.infof("Shot arc extracted -> %d points", shotArc.size());
+
+            // -------------------------
+            // PARABOLE (REAL vs IDEAL)
+            // -------------------------
+            PolynomialFunction realArc =
+                    shotMetricsService.fitTrajectory(shotArc);
+
+            Point hoopPoint = new Point(hoopXCm, hoopYCm);
+
+            PolynomialFunction idealArc =
+                    shotMetricsService.buildIdealArc(
+                            releasePoint,
+                            hoopPoint,
+                            120
+                    );
+
+            // -------------------------
+            // deviazione dalla parabola ideale
+            // -------------------------
+            double trajectoryDeviation =
+                    shotMetricsService.trajectoryDeviation(
+                            shotArc,
+                            idealArc
+                    );
+
+            LOG.infof("Trajectory deviation from ideal arc: %.2f cm", trajectoryDeviation);
+
+            // -------------------------
+            // Disegno overlay
+            // -------------------------
+            try {
+
+                for (int i = releaseFrame; i < frames.size(); i++) {
+
+                    File frameFile = frames.get(i);
+
+                    BufferedImage img = ImageIO.read(frameFile);
+
+                    if (img == null) {
+                        LOG.warn("Frame image null: " + frameFile.getName());
+                        continue;
+                    }
+
+                    List<Point> partialTrajectory =
+                            shotArc.subList(0, Math.min(i, shotArc.size()));
+
+                    overlayService.drawOverlay(
+                            img,
+                            partialTrajectory,
+                            realArc,
+                            idealArc,
+                            releasePoint,
+                            hoopPoint,
+                            rimRadiusCm
+                    );
+
+                    ImageIO.write(img, "jpg", frameFile);
+                }
+
+            } catch (Exception e) {
+
+                LOG.error("Error drawing trajectory overlay", e);
+            }
 
             // -------------------------
             // distanza verticale
@@ -230,37 +302,14 @@ public class ShotEvaluationService {
             LOG.infof("Vertical release distance: %.2f cm", verticalDistance);
 
             // -------------------------
-            // stima scala orizzontale
-            // -------------------------
-            Point hoopPoint = new Point(hoopXCm, hoopYCm);
-
-            double horizontalVideoDistance =
-                    Math.abs(releasePoint.getX() - hoopPoint.getX());
-
-            double horizontalRealDistance = 457.0;
-
-            double scaleFactor = 1.0;
-
-            if (horizontalVideoDistance > 0.01) {
-
-                scaleFactor = horizontalRealDistance / horizontalVideoDistance;
-
-            } else {
-
-                LOG.warn("Horizontal video distance too small. Using scaleFactor=1");
-            }
-
-            LOG.infof("Scale factor estimated: %.2f", scaleFactor);
-
-            // -------------------------
             // distanza reale traiettoria
             // -------------------------
             double sum = 0.0;
 
-            for (int i = 1; i < ballCmPositions.size(); i++) {
+            for (int i = 1; i < shotArc.size(); i++) {
 
-                Point prev = ballCmPositions.get(i - 1);
-                Point curr = ballCmPositions.get(i);
+                Point prev = shotArc.get(i - 1);
+                Point curr = shotArc.get(i);
 
                 double dx = curr.getX() - prev.getX();
                 double dy = curr.getY() - prev.getY();
@@ -268,7 +317,7 @@ public class ShotEvaluationService {
                 sum += Math.sqrt(dx * dx + dy * dy);
             }
 
-            realTrajectoryDistance = sum * scaleFactor;
+            realTrajectoryDistance = sum;
 
             LOG.infof("Estimated real trajectory distance: %.2f cm", realTrajectoryDistance);
 
@@ -276,7 +325,7 @@ public class ShotEvaluationService {
             // calcolo metriche tiro
             // -------------------------
             metrics = shotMetricsService.calculateMetricsVerticalOnly(
-                    ballCmPositions,
+                    shotArc,
                     verticalDistance,
                     pixelToCm,
                     hoopYCm,
@@ -285,13 +334,14 @@ public class ShotEvaluationService {
 
             metrics.setReleaseFrame(releaseFrame);
             metrics.setTrajectoryDistance(realTrajectoryDistance);
+            metrics.setTrajectoryDeviation(trajectoryDeviation);
 
             // -------------------------
             // risultato tiro
             // -------------------------
             evaluateShotResult(
                     metrics,
-                    ballCmPositions,
+                    shotArc,
                     hoopXCm,
                     hoopYCm,
                     rimRadiusCm
@@ -302,7 +352,7 @@ public class ShotEvaluationService {
                     metrics.getMissType());
 
             double shotSpeed = shotMetricsService.estimateShotSpeed(
-                    ballCmPositions,
+                    shotArc,
                     releaseFrame,
                     10
             );
@@ -357,6 +407,15 @@ public class ShotEvaluationService {
             score -= 8;
         }
 
+        if(m.getTrajectoryDeviation() > 40){
+            errors.add("Arc too flat compared to ideal trajectory");
+            score -= 10;
+        }
+
+        if(m.getTrajectoryDeviation() < 15){
+            suggestions.add("Excellent shooting arc");
+        }
+
         return Json.createObjectBuilder()
                 .add("score", score)
                 .add("make", m.isMake())
@@ -364,6 +423,7 @@ public class ShotEvaluationService {
                 .add("releaseFrame", m.getReleaseFrame())
                 .add("distance", m.getDistance())
                 .add("trajectoryDistance", m.getTrajectoryDistance())
+                .add("trajectoryDeviation", m.getTrajectoryDeviation())
                 .add("metrics", Json.createObjectBuilder()
                         .add("releaseAngle", m.getReleaseAngle())
                         .add("entryAngle", m.getEntryAngle())

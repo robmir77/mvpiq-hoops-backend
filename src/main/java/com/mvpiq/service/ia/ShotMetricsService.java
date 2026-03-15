@@ -6,6 +6,7 @@ import com.mvpiq.dto.ShotMetricsDTO;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
+import java.awt.*;
 import java.util.List;
 
 import org.apache.commons.math3.fitting.PolynomialCurveFitter;
@@ -439,5 +440,74 @@ public class ShotMetricsService {
         double apexX = -b / (2 * a);
 
         return f.value(apexX);
+    }
+
+    public PolynomialFunction buildIdealArc(
+            Point release,
+            Point hoop,
+            double arcHeightCm) {
+
+        if (release == null || hoop == null) {
+            return null;
+        }
+
+        // -------------------------
+        // Vertice parabola ideale
+        // -------------------------
+        double xv = (release.getX() + hoop.getX()) / 2.0;
+
+        // apex sopra il ferro
+        double yv = hoop.getY() - arcHeightCm;
+
+        // -------------------------
+        // Calcolo coefficiente a
+        // usando il punto di rilascio
+        // -------------------------
+        double xr = release.getX();
+        double yr = release.getY();
+
+        double a = (yr - yv) / ((xr - xv) * (xr - xv));
+
+        // conversione forma standard
+        double b = -2 * a * xv;
+        double c = a * xv * xv + yv;
+
+        return new PolynomialFunction(new double[]{c, b, a});
+    }
+
+    public void drawArc(
+            Graphics2D g,
+            PolynomialFunction arc,
+            int width,
+            Color color) {
+
+        if (arc == null) return;
+
+        g.setColor(color);
+
+        for (int x = 0; x < width; x++) {
+
+            double y = arc.value(x);
+
+            if (y >= 0 && y < 2000) {
+                g.fillOval(x, (int) y, 3, 3);
+            }
+        }
+    }
+
+    public double trajectoryDeviation(
+            List<Point> trajectory,
+            PolynomialFunction idealArc){
+
+        double error = 0;
+
+        for(Point p : trajectory){
+
+            double idealY = idealArc.value(p.getX());
+
+            error += Math.abs(p.getY() - idealY);
+        }
+
+        return error / trajectory.size();
     }
 }
