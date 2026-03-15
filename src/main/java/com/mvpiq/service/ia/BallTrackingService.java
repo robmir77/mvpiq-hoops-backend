@@ -12,7 +12,7 @@ import ai.djl.repository.zoo.ModelZoo;
 import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
 import ai.djl.translate.TranslateException;
-import ai.djl.modality.cv.output.Point;
+import com.mvpiq.dto.BallPointDTO;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
@@ -58,9 +58,9 @@ public class BallTrackingService {
         }
     }
 
-    public List<Point> trackBallAI(List<File> frames) throws TranslateException {
+    public List<BallPointDTO> trackBallAI(List<File> frames) throws TranslateException {
 
-        List<Point> ballPositions = new ArrayList<>();
+        List<BallPointDTO> ballPositions = new ArrayList<>();
 
         if (frames == null || frames.isEmpty()) {
 
@@ -74,7 +74,7 @@ public class BallTrackingService {
         int frameIndex = 0;
         int detectionsCount = 0;
 
-        Point lastPoint = null;
+        BallPointDTO lastPoint = null;
 
         for (File frameFile : frames) {
 
@@ -146,7 +146,7 @@ public class BallTrackingService {
                     }
                 }
 
-                Point p = new Point(cx, cy);
+                BallPointDTO p = new BallPointDTO(cx, cy, i);
 
                 ballPositions.add(p);
                 lastPoint = p;

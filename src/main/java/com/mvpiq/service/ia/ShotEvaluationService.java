@@ -1,6 +1,7 @@
 package com.mvpiq.service.ia;
 
 import ai.djl.modality.cv.output.Point;
+import com.mvpiq.dto.BallPointDTO;
 import com.mvpiq.dto.ShotMetricsDTO;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -54,22 +55,20 @@ public class ShotEvaluationService {
         int framesToCheck = Math.min(searchFrames, frames.size());
 
         // -------------------------
-        // Hoop detection
+        // Detect hoop nelle prime frame
         // -------------------------
         for (int i = 0; i < framesToCheck; i++) {
 
             File frame = frames.get(i);
-
-            if (frame == null || !frame.exists()) {
-                continue;
-            }
+            if (frame == null || !frame.exists()) continue;
 
             try {
 
                 hoop = hoopDetector.detectHoop(frame);
 
                 if (hoop != null) {
-                    LOG.infof("Hoop detected on frame %d", i);
+                    LOG.infof("Hoop detected on frame %d -> x=%d y=%d r=%d",
+                            i, hoop.x, hoop.y, hoop.radius);
                     break;
                 }
 
@@ -78,7 +77,66 @@ public class ShotEvaluationService {
             }
         }
 
-        int hoopX, hoopY, rimRadius;
+        // -------------------------
+        // Ball tracking
+        // -------------------------
+        List<BallPointDTO> ballPositions = new ArrayList<>();
+
+        try {
+
+            List<BallPointDTO> aiPoints = aiTracker.trackBallAI(frames);
+
+            LOG.infof("AI tracker detected %d raw points", aiPoints.size());
+
+            aiPoints = trajectoryService.smoothTrajectory(aiPoints);
+
+            LOG.infof("Trajectory smoothed -> %d points", aiPoints.size());
+
+            ballPositions.addAll(aiPoints);
+
+        } catch (Exception e) {
+            LOG.error("Error during ball tracking", e);
+        }
+
+        LOG.infof("Ball positions used for analysis: %d", ballPositions.size());
+
+        // -------------------------
+        // Predict hoop from trajectory se non trovato
+        // -------------------------
+        if (hoop == null && ballPositions.size() >= 3) {
+
+            LOG.info("Hoop not detected visually. Predicting from trajectory...");
+
+            try {
+
+                Hoop predicted = hoopDetector.predictHoopFromTrajectory(ballPositions);
+
+                if (predicted != null) {
+
+                    hoop = predicted;
+
+                    LOG.infof("Hoop predicted from trajectory -> x=%d y=%d r=%d",
+                            hoop.x, hoop.y, hoop.radius);
+
+                } else {
+
+                    LOG.warn("Trajectory prediction returned null");
+
+                }
+
+            } catch (Exception e) {
+
+                LOG.error("Error predicting hoop from trajectory", e);
+
+            }
+        }
+
+        // -------------------------
+        // Se ancora null usa fallback
+        // -------------------------
+        int hoopX;
+        int hoopY;
+        int rimRadius;
 
         if (hoop != null) {
 
@@ -86,11 +144,11 @@ public class ShotEvaluationService {
             hoopY = hoop.y;
             rimRadius = hoop.radius;
 
-            LOG.infof("Hoop detected -> x=%d y=%d radius=%d", hoopX, hoopY, rimRadius);
+            LOG.infof("Using hoop -> x=%d y=%d r=%d", hoopX, hoopY, rimRadius);
 
         } else {
 
-            LOG.warn("Hoop not detected. Using fallback position");
+            LOG.warn("Hoop not detected nor predicted. Using fallback");
 
             hoopX = frameWidth / 2;
             hoopY = frameHeight / 6;
@@ -100,7 +158,7 @@ public class ShotEvaluationService {
         }
 
         // -------------------------
-        // Pixel to cm conversion
+        // Calcolo pixel -> cm
         // -------------------------
         double hoopDiameterPx = rimRadius * 2;
         double hoopDiameterCm = 45.0;
@@ -110,88 +168,92 @@ public class ShotEvaluationService {
         LOG.infof("Pixel scale -> 1px = %.3f cm", pixelToCm);
 
         // -------------------------
-        // Ball tracking
+        // Metriche
         // -------------------------
-        List<Point> ballPositions = new ArrayList<>();
-
-        try {
-
-            List<Point> aiPoints = aiTracker.trackBallAI(frames);
-
-            LOG.infof("Raw AI ball detections: %d", aiPoints.size());
-
-            aiPoints = trajectoryService.smoothTrajectory(aiPoints);
-
-            ballPositions.addAll(aiPoints);
-
-        } catch (Exception e) {
-            LOG.error("Ball tracking failed", e);
-        }
-
-        LOG.infof("Ball trajectory points after smoothing: %d", ballPositions.size());
-
         ShotMetricsDTO metrics;
         double realTrajectoryDistance = 0.0;
 
         if (ballPositions.size() < 3) {
 
-            LOG.warn("Too few trajectory points for shot analysis");
+            LOG.warn("Too few trajectory points. Cannot compute metrics.");
 
             metrics = new ShotMetricsDTO();
 
         } else {
 
             // -------------------------
-            // Convert trajectory to cm
+            // Convertiamo pixel -> cm
             // -------------------------
             List<Point> ballCmPositions = ballPositions.stream()
-                    .map(p -> new Point(p.getX() * pixelToCm, p.getY() * pixelToCm))
+                    .map(p -> new Point(
+                            p.getX() * pixelToCm,
+                            p.getY() * pixelToCm))
                     .collect(Collectors.toList());
 
-            LOG.info("Trajectory converted to real-world coordinates (cm)");
+            LOG.infof("Trajectory converted to cm. Points: %d", ballCmPositions.size());
 
             // -------------------------
-            // Detect release frame
+            // Trova frame rilascio
             // -------------------------
             int releaseFrame = shotMetricsService.detectReleaseFrame(ballCmPositions);
 
             LOG.infof("Estimated release frame: %d", releaseFrame);
 
+            if (releaseFrame < 0 || releaseFrame >= ballCmPositions.size()) {
+                LOG.warn("Invalid release frame detected. Using frame 0.");
+                releaseFrame = 0;
+            }
+
             // -------------------------
-            // Hoop position in cm
+            // Coordinate canestro
             // -------------------------
             double hoopXCm = hoopX * pixelToCm;
             double hoopYCm = hoopY * pixelToCm;
             double rimRadiusCm = rimRadius * pixelToCm;
 
+            LOG.infof("Hoop in cm -> x=%.2f y=%.2f radius=%.2f",
+                    hoopXCm, hoopYCm, rimRadiusCm);
+
             // -------------------------
-            // Release point
+            // Punto di rilascio
             // -------------------------
             Point releasePoint = ballCmPositions.get(releaseFrame);
 
-            LOG.infof("Release point -> x=%.2f cm y=%.2f cm",
+            LOG.infof("Release point -> x=%.2f y=%.2f",
                     releasePoint.getX(), releasePoint.getY());
 
             // -------------------------
-            // Vertical distance
+            // distanza verticale
             // -------------------------
             double verticalDistance = Math.abs(releasePoint.getY() - hoopYCm);
 
-            LOG.infof("Vertical distance from hoop: %.2f cm", verticalDistance);
+            LOG.infof("Vertical release distance: %.2f cm", verticalDistance);
 
             // -------------------------
-            // Horizontal scaling
+            // stima scala orizzontale
             // -------------------------
-            double horizontalVideoDistance = Math.abs(releasePoint.getX() - hoopXCm);
+            Point hoopPoint = new Point(hoopXCm, hoopYCm);
+
+            double horizontalVideoDistance =
+                    Math.abs(releasePoint.getX() - hoopPoint.getX());
 
             double horizontalRealDistance = 457.0;
 
-            double scaleFactor = horizontalRealDistance / horizontalVideoDistance;
+            double scaleFactor = 1.0;
 
-            LOG.infof("Horizontal scaling factor: %.2f", scaleFactor);
+            if (horizontalVideoDistance > 0.01) {
+
+                scaleFactor = horizontalRealDistance / horizontalVideoDistance;
+
+            } else {
+
+                LOG.warn("Horizontal video distance too small. Using scaleFactor=1");
+            }
+
+            LOG.infof("Scale factor estimated: %.2f", scaleFactor);
 
             // -------------------------
-            // Real trajectory distance
+            // distanza reale traiettoria
             // -------------------------
             double sum = 0.0;
 
@@ -211,7 +273,7 @@ public class ShotEvaluationService {
             LOG.infof("Estimated real trajectory distance: %.2f cm", realTrajectoryDistance);
 
             // -------------------------
-            // Shot metrics
+            // calcolo metriche tiro
             // -------------------------
             metrics = shotMetricsService.calculateMetricsVerticalOnly(
                     ballCmPositions,
@@ -225,7 +287,7 @@ public class ShotEvaluationService {
             metrics.setTrajectoryDistance(realTrajectoryDistance);
 
             // -------------------------
-            // Shot result evaluation
+            // risultato tiro
             // -------------------------
             evaluateShotResult(
                     metrics,
@@ -255,9 +317,15 @@ public class ShotEvaluationService {
             LOG.infof("Shot difficulty: %.2f / 100", difficulty);
         }
 
+        LOG.infof("Estimated vertical distance: %.2f cm", metrics.getDistance());
+        LOG.infof("Estimated real trajectory distance: %.2f cm", realTrajectoryDistance);
+
+        metrics.setTrajectoryDistance(realTrajectoryDistance);
+
         JsonObject result = evaluateShot(metrics);
 
-        LOG.info("Shot evaluation completed");
+        LOG.infof("Shot evaluation completed. Score=%s",
+                result.getInt("score"));
 
         return result;
     }
