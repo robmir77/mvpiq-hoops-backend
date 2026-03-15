@@ -305,28 +305,82 @@ public class ShotMetricsService {
         return m;
     }
 
+    // Viene scartato il palleggio
     public int detectReleaseFrame(List<Point> trajectory) {
 
-        if (trajectory.size() < 5) {
+        if (trajectory == null || trajectory.size() < 8) {
             return 0;
         }
 
-        for (int i = 2; i < trajectory.size(); i++) {
+        int n = trajectory.size();
 
-            double y0 = trajectory.get(i-2).getY();
-            double y1 = trajectory.get(i-1).getY();
-            double y2 = trajectory.get(i).getY();
+        // ignoriamo la prima parte (palleggio)
+        int start = n / 3;
 
-            double dy1 = y1 - y0;
-            double dy2 = y2 - y1;
+        int bestIndex = start;
+        double bestScore = Double.NEGATIVE_INFINITY;
 
-            // cambio di direzione → palla lascia la mano
-            if (dy1 > 0 && dy2 < 0) {
-                return i-1;
+        for (int i = start; i < n - 4; i++) {
+
+            Point p0 = trajectory.get(i - 2);
+            Point p1 = trajectory.get(i - 1);
+            Point p2 = trajectory.get(i);
+            Point p3 = trajectory.get(i + 1);
+            Point p4 = trajectory.get(i + 2);
+            Point p5 = trajectory.get(i + 3);
+
+            double dy1 = p1.getY() - p0.getY();
+            double dy2 = p2.getY() - p1.getY();
+
+            double dy3 = p3.getY() - p2.getY();
+            double dy4 = p4.getY() - p3.getY();
+            double dy5 = p5.getY() - p4.getY();
+
+            double dx1 = Math.abs(p3.getX() - p2.getX());
+            double dx2 = Math.abs(p4.getX() - p3.getX());
+
+            // la palla deve salire per almeno 3 frame
+            boolean stableRise =
+                    dy3 < 0 &&
+                            dy4 < 0 &&
+                            dy5 < 0;
+
+            if (!stableRise) {
+                continue;
+            }
+
+            // deve muoversi verso il canestro
+            boolean horizontalMotion =
+                    dx1 > 1 || dx2 > 1;
+
+            if (!horizontalMotion) {
+                continue;
+            }
+
+            // punteggio salita
+            double riseScore =
+                    (-dy3) +
+                            (-dy4) +
+                            (-dy5);
+
+            // bonus se prima stava scendendo (transizione)
+            double transitionBonus = 0;
+            if (dy2 > 0 && dy3 < 0) {
+                transitionBonus = 15;
+            }
+
+            // penalizzo candidati troppo tardivi
+            double latePenalty = i * 0.25;
+
+            double score = riseScore + transitionBonus - latePenalty;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = i;
             }
         }
 
-        return trajectory.size()/4;
+        return Math.max(0, bestIndex + 3);
     }
 
     private double distance(Point a, Point b){
