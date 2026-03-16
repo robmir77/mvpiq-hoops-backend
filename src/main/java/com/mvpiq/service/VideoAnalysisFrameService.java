@@ -3,7 +3,7 @@ package com.mvpiq.service;
 import com.mvpiq.model.VideoAnalysisFrame;
 import com.mvpiq.model.VideoAnalysisSession;
 import com.mvpiq.repositories.VideoAnalysisFrameRepository;
-import com.mvpiq.service.ia.TrajectoryOverlayService;
+import com.mvpiq.service.ia.OverlayDrawerService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -46,7 +46,7 @@ public class VideoAnalysisFrameService {
     VideoAnalysisFrameRepository frameRepository;
 
     @Inject
-    TrajectoryOverlayService overlayService;
+    OverlayDrawerService overlayService;
 
     public List<File> extractFrames(File video, VideoAnalysisSession session, double targetFps) {
 

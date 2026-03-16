@@ -6,7 +6,6 @@ import com.mvpiq.service.storage.SupabaseStorageService;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 
 import java.io.File;
 import java.util.UUID;

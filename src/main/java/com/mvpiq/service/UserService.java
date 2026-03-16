@@ -6,8 +6,6 @@ import com.mvpiq.model.Player;
 import com.mvpiq.model.User;
 import jakarta.enterprise.context.ApplicationScoped;
 
-import java.util.*;
-
 @ApplicationScoped
 public class UserService {
 

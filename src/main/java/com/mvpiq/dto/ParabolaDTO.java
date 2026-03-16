@@ -7,7 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @AllArgsConstructor
-public class Parabola {
+public class ParabolaDTO {
 
     public double a;
     public double b;

@@ -1,7 +1,6 @@
 package com.mvpiq.resource;
 
 import com.mvpiq.dto.RankingDTO;
-import com.mvpiq.enums.UserRole;
 import com.mvpiq.model.Ranking;
 import com.mvpiq.repositories.RankingRepository;
 import jakarta.enterprise.context.RequestScoped;

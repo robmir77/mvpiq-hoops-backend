@@ -1,6 +1,6 @@
 package com.mvpiq.dto;
 
-public class KalmanBallFilter {
+public class KalmanBallFilterDTO {
 
     private double x;
     private double y;

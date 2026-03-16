@@ -1,14 +1,16 @@
 package com.mvpiq.service.ia;
 
-public class Hoop {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class Hoop {
     public int x;
     public int y;
     public int radius;
-
-    public Hoop(int x, int y, int radius) {
-        this.x = x;
-        this.y = y;
-        this.radius = radius;
-    }
 }

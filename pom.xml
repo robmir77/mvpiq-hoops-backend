@@ -129,13 +129,6 @@
           <artifactId>smallrye-jwt-build</artifactId>
       </dependency>
 
-      <!-- AI runtime -->
-      <dependency>
-          <groupId>com.microsoft.onnxruntime</groupId>
-          <artifactId>onnxruntime</artifactId>
-          <version>1.18.0</version>
-      </dependency>
-
       <dependency>
           <groupId>com.twelvemonkeys.imageio</groupId>
           <artifactId>imageio-jpeg</artifactId>
@@ -149,45 +142,51 @@
       </dependency>
 
       <dependency>
-          <groupId>ai.djl</groupId>
-          <artifactId>api</artifactId>
-          <version>${djl.version}</version> <!-- Use the latest stable version -->
+          <groupId>org.apache.commons</groupId>
+          <artifactId>commons-math3</artifactId>
+          <version>3.6.1</version>
       </dependency>
 
-      <dependency>
-          <groupId>ai.djl.pytorch</groupId>
-          <artifactId>pytorch-engine</artifactId>
-          <version>${djl.version}</version>
-      </dependency>
-
-      <dependency>
-          <groupId>ai.djl.pytorch</groupId>
-          <artifactId>pytorch-model-zoo</artifactId>
-          <version>${djl.version}</version>
-      </dependency>
-
+      <!-- ONNX runtime -->
       <dependency>
           <groupId>ai.djl.onnxruntime</groupId>
           <artifactId>onnxruntime-engine</artifactId>
           <version>${djl.version}</version>
       </dependency>
 
+      <!-- Tensorflow model zoo -->
       <dependency>
-          <groupId>ai.djl.pytorch</groupId>
-          <artifactId>pytorch-engine</artifactId>
+          <groupId>ai.djl.tensorflow</groupId>
+          <artifactId>tensorflow-model-zoo</artifactId>
           <version>${djl.version}</version>
       </dependency>
 
+      <!-- DJL core -->
+      <dependency>
+          <groupId>ai.djl</groupId>
+          <artifactId>api</artifactId>
+          <version>${djl.version}</version>
+      </dependency>
+
+      <!-- Model zoo -->
       <dependency>
           <groupId>ai.djl</groupId>
           <artifactId>model-zoo</artifactId>
           <version>${djl.version}</version>
       </dependency>
 
+      <!-- Tensorflow engine (per MoveNet) -->
       <dependency>
-          <groupId>org.apache.commons</groupId>
-          <artifactId>commons-math3</artifactId>
-          <version>3.6.1</version>
+          <groupId>ai.djl.tensorflow</groupId>
+          <artifactId>tensorflow-engine</artifactId>
+          <version>${djl.version}</version>
+      </dependency>
+
+      <!-- Tensorflow native runtime -->
+      <dependency>
+          <groupId>ai.djl.tensorflow</groupId>
+          <artifactId>tensorflow-native-auto</artifactId>
+          <version>2.4.1</version>
       </dependency>
 
   </dependencies>

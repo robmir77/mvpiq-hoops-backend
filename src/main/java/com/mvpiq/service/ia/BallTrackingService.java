@@ -14,7 +14,7 @@ import ai.djl.repository.zoo.ZooModel;
 import ai.djl.training.util.ProgressBar;
 import ai.djl.translate.TranslateException;
 import com.mvpiq.dto.BallPointDTO;
-import com.mvpiq.dto.KalmanBallFilter;
+import com.mvpiq.dto.KalmanBallFilterDTO;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
@@ -38,11 +38,11 @@ public class BallTrackingService {
 
         try {
 
-            LOG.info("🧠 Loading YOLOv5 model...");
+            LOG.info("🧠 Loading YOLO model...");
 
             Criteria<Image, DetectedObjects> criteria = Criteria.builder()
                     .setTypes(Image.class, DetectedObjects.class)
-                    .optModelPath(Paths.get("C:/mvpiq-hoops/mvpiq-hoops-backend/src/main/resources/model/yolov5s.onnx"))
+                    .optModelPath(Paths.get("models/yolov5s.onnx"))
                     .optEngine("OnnxRuntime")
                     .optTranslator(YoloV5Translator.builder().build())
                     .optProgress(new ProgressBar())
@@ -52,7 +52,7 @@ public class BallTrackingService {
 
             predictor = model.newPredictor();
 
-            LOG.info("✅ YOLOv5 model loaded successfully");
+            LOG.info("✅ YOLO model loaded successfully");
 
         } catch (Exception e) {
 
@@ -62,7 +62,7 @@ public class BallTrackingService {
 
     public List<BallPointDTO> trackBallAI(List<File> frames) throws TranslateException {
 
-        KalmanBallFilter kalman = new KalmanBallFilter();
+        KalmanBallFilterDTO kalman = new KalmanBallFilterDTO();
         List<BallPointDTO> ballPositions = new ArrayList<>();
 
         if (frames == null || frames.isEmpty()) {

@@ -2,8 +2,13 @@ package com.mvpiq.service.ia;
 
 
 import ai.djl.modality.cv.output.Point;
+import com.mvpiq.dto.BallPointDTO;
+import com.mvpiq.dto.KeyPointDTO;
+import com.mvpiq.dto.PoseFrameDTO;
 import com.mvpiq.dto.ShotMetricsDTO;
+import com.mvpiq.enums.HandSide;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.awt.*;
@@ -15,6 +20,9 @@ import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
 
 @ApplicationScoped
 public class ShotMetricsService {
+
+    @Inject
+    PoseTrackingService poseTracking;
 
     private static final Logger LOG = Logger.getLogger(ShotMetricsService.class.getName());
 
@@ -306,7 +314,7 @@ public class ShotMetricsService {
     }
 
     // Viene scartato il palleggio
-    public int detectReleaseFrame(List<Point> trajectory) {
+    public int detectStartShotFrame(List<BallPointDTO> trajectory) {
 
         if (trajectory == null || trajectory.size() < 8) {
             return 0;
@@ -322,12 +330,12 @@ public class ShotMetricsService {
 
         for (int i = start; i < n - 4; i++) {
 
-            Point p0 = trajectory.get(i - 2);
-            Point p1 = trajectory.get(i - 1);
-            Point p2 = trajectory.get(i);
-            Point p3 = trajectory.get(i + 1);
-            Point p4 = trajectory.get(i + 2);
-            Point p5 = trajectory.get(i + 3);
+            BallPointDTO p0 = trajectory.get(i - 2);
+            BallPointDTO p1 = trajectory.get(i - 1);
+            BallPointDTO p2 = trajectory.get(i);
+            BallPointDTO p3 = trajectory.get(i + 1);
+            BallPointDTO p4 = trajectory.get(i + 2);
+            BallPointDTO p5 = trajectory.get(i + 3);
 
             double dy1 = p1.getY() - p0.getY();
             double dy2 = p2.getY() - p1.getY();
@@ -380,7 +388,131 @@ public class ShotMetricsService {
             }
         }
 
-        return Math.max(0, bestIndex + 3);
+        return Math.max(0, bestIndex - 1);
+    }
+
+    public int detectReleaseFrame(
+            List<BallPointDTO> ballPoints,
+            List<PoseFrameDTO> poses) {
+
+        if (ballPoints == null || poses == null || ballPoints.size() < 6 || poses.size() < 6) {
+            return 0;
+        }
+
+        int size = Math.min(ballPoints.size(), poses.size());
+        int start = size / 3;
+
+        int bestIndex = start;
+        double bestScore = Double.NEGATIVE_INFINITY;
+
+        HandSide shootingHand = poseTracking.estimateShootingHand(ballPoints, poses, start, size - 1);
+
+        for (int i = Math.max(start, 1); i < size - 2; i++) {
+
+            BallPointDTO prevBall = ballPoints.get(i - 1);
+            BallPointDTO ball = ballPoints.get(i);
+            BallPointDTO next1 = ballPoints.get(i + 1);
+            BallPointDTO next2 = ballPoints.get(i + 2);
+
+            PoseFrameDTO prevPose = poses.get(i - 1);
+            PoseFrameDTO pose = poses.get(i);
+            PoseFrameDTO poseNext1 = poses.get(i + 1);
+            PoseFrameDTO poseNext2 = poses.get(i + 2);
+
+            KeyPointDTO prevWrist = poseTracking.getWrist(prevPose, shootingHand);
+            KeyPointDTO wrist = poseTracking.getWrist(pose, shootingHand);
+            KeyPointDTO elbow = poseTracking.getElbow(pose, shootingHand);
+            KeyPointDTO shoulder = poseTracking.getShoulder(pose, shootingHand);
+            KeyPointDTO wristNext1 = poseTracking.getWrist(poseNext1, shootingHand);
+            KeyPointDTO wristNext2 = poseTracking.getWrist(poseNext2, shootingHand);
+
+            if (prevWrist == null || wrist == null || elbow == null || shoulder == null
+                    || wristNext1 == null || wristNext2 == null) {
+                continue;
+            }
+
+            if (!prevWrist.isValid(0.3) || !wrist.isValid(0.3) || !elbow.isValid(0.3)
+                    || !shoulder.isValid(0.3) || !wristNext1.isValid(0.3) || !wristNext2.isValid(0.3)) {
+                continue;
+            }
+
+            double distPrev = PoseMathUtils.distance(prevWrist, prevBall);
+            double distNow = PoseMathUtils.distance(wrist, ball);
+            double distNext1 = PoseMathUtils.distance(wristNext1, next1);
+            double distNext2 = PoseMathUtils.distance(wristNext2, next2);
+
+            double dy1 = next1.getY() - ball.getY();
+            double dy2 = next2.getY() - next1.getY();
+
+            boolean ballRising = dy1 < 0 && dy2 < 0;
+            if (!ballRising) {
+                continue;
+            }
+
+            boolean nearHandNow = distNow <= 35;
+            if (!nearHandNow) {
+                continue;
+            }
+
+            boolean separationStartsNow = distNext1 > distNow + 4;
+            boolean separationContinues = distNext2 > distNext1 + 2;
+            if (!(separationStartsNow && separationContinues)) {
+                continue;
+            }
+
+            boolean ballAboveShoulder = ball.getY() < shoulder.getY() + 20;
+            if (!ballAboveShoulder) {
+                continue;
+            }
+
+            Double elbowAngle = PoseMathUtils.angle(shoulder, elbow, wrist);
+
+            double elbowScore = 0.0;
+            if (elbowAngle != null) {
+                if (elbowAngle >= 135) {
+                    elbowScore = 1.0;
+                } else if (elbowAngle >= 115) {
+                    elbowScore = 0.7;
+                } else if (elbowAngle >= 95) {
+                    elbowScore = 0.4;
+                }
+            }
+
+            double handContactScore = 0.0;
+            if (distNow <= 20) {
+                handContactScore = 1.0;
+            } else if (distNow <= 28) {
+                handContactScore = 0.7;
+            } else if (distNow <= 35) {
+                handContactScore = 0.4;
+            }
+
+            double separationGain = distNext2 - distNow;
+            double separationScore = Math.min(Math.max(separationGain, 0.0), 35.0) / 35.0;
+
+            double riseScore = Math.min(((-dy1) + (-dy2)), 24.0) / 24.0;
+
+            double contactTrendScore = 0.0;
+            if (distPrev <= distNow + 5) {
+                contactTrendScore = 1.0;
+            } else {
+                contactTrendScore = 0.5;
+            }
+
+            double score =
+                    (handContactScore * 0.35) +
+                            (separationScore * 0.30) +
+                            (riseScore * 0.15) +
+                            (elbowScore * 0.10) +
+                            (contactTrendScore * 0.10);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = i;
+            }
+        }
+
+        return bestIndex;
     }
 
     private double distance(Point a, Point b){
@@ -563,5 +695,30 @@ public class ShotMetricsService {
         }
 
         return error / trajectory.size();
+    }
+
+    public double computePathLength(List<Point> trajectory) {
+
+        if (trajectory == null || trajectory.size() < 2) {
+            LOG.warn("Not enough points to compute trajectory length");
+            return 0;
+        }
+
+        double length = 0.0;
+
+        for (int i = 1; i < trajectory.size(); i++) {
+
+            Point prev = trajectory.get(i - 1);
+            Point curr = trajectory.get(i);
+
+            double dx = curr.getX() - prev.getX();
+            double dy = curr.getY() - prev.getY();
+
+            length += Math.sqrt(dx * dx + dy * dy);
+        }
+
+        LOG.infof("Computed trajectory path length -> %.2f", length);
+
+        return length;
     }
 }

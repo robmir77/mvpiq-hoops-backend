@@ -4,7 +4,7 @@ import com.mvpiq.model.VideoAnalysisResult;
 import com.mvpiq.model.VideoAnalysisSession;
 import com.mvpiq.repositories.VideoAnalysisResultRepository;
 
-import com.mvpiq.service.ia.ShotEvaluationService;
+import com.mvpiq.service.ia.ShotAnalysisService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -21,7 +21,7 @@ public class VideoAnalysisAIService {
     VideoAnalysisResultRepository resultRepository;
 
     @Inject
-    ShotEvaluationService shotAnalysisService;
+    ShotAnalysisService shotAnalysisService;
 
     public void analyzeFrames(VideoAnalysisSession session, List<File> frames) {
 
