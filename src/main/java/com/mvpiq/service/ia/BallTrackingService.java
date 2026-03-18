@@ -6,6 +6,7 @@ import ai.djl.modality.cv.Image;
 import ai.djl.modality.cv.ImageFactory;
 import ai.djl.modality.cv.output.BoundingBox;
 import ai.djl.modality.cv.output.DetectedObjects;
+import ai.djl.modality.cv.output.Point;
 import ai.djl.modality.cv.output.Rectangle;
 import ai.djl.modality.cv.translator.YoloV5Translator;
 import ai.djl.repository.zoo.Criteria;
@@ -17,6 +18,7 @@ import com.mvpiq.dto.BallPointDTO;
 import com.mvpiq.dto.KalmanBallFilterDTO;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import javax.imageio.ImageIO;
@@ -30,6 +32,9 @@ import java.util.List;
 public class BallTrackingService {
 
     private static final Logger LOG = Logger.getLogger(BallTrackingService.class);
+
+    @Inject
+    VideoStabilizationService stabilizationService;
 
     private Predictor<Image, DetectedObjects> predictor;
 
@@ -60,7 +65,9 @@ public class BallTrackingService {
         }
     }
 
-    public List<BallPointDTO> trackBallAI(List<File> frames) throws TranslateException {
+    public List<BallPointDTO> trackBallAI(ShotContext context) throws TranslateException {
+
+        List<File> frames = context.frames;
 
         KalmanBallFilterDTO kalman = new KalmanBallFilterDTO();
         List<BallPointDTO> ballPositions = new ArrayList<>();
@@ -248,7 +255,27 @@ public class BallTrackingService {
                     kalman.update(cx, cy);
                 }
 
-                BallPointDTO p = new BallPointDTO(kalman.getX(), kalman.getY(), frameIndex);
+                Point stabilized = new Point(cx, cy);
+
+                if (context.stabilized) {
+                    stabilized = stabilizationService.stabilizePoint(
+                            stabilized,
+                            context.frameTransforms.get(frameIndex - 1)
+                    );
+                }
+
+                if (!kalman.isInitialized()) {
+                    kalman.init(stabilized.getX(), stabilized.getY());
+                } else {
+                    kalman.update(stabilized.getX(), stabilized.getY());
+                }
+
+                BallPointDTO p = new BallPointDTO(
+                        kalman.getX(),
+                        kalman.getY(),
+                        frameIndex
+                );
+
                 ballPositions.add(p);
 
                 detectionsCount++;

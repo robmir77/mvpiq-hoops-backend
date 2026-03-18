@@ -7,6 +7,7 @@ import com.mvpiq.dto.ShotMetricsDTO;
 import com.mvpiq.enums.HandSide;
 import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
 
+import java.awt.geom.AffineTransform;
 import java.io.File;
 import java.util.List;
 
@@ -46,4 +47,7 @@ public class ShotContext {
     PolynomialFunction realArcPx;
     PolynomialFunction idealArcCm;
     PolynomialFunction idealArcPx;
+
+    public List<AffineTransform> frameTransforms;
+    public boolean stabilized;
 }

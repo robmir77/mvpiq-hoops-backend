@@ -374,7 +374,12 @@ public class ShotAnalysisService {
     private void trackBall(ShotContext ctx) {
 
         try {
-            List<BallPointDTO> aiPoints = aiTracker.trackBallAI(ctx.frames);
+            VideoStabilizationService stabilizationService = new VideoStabilizationService();
+
+            ctx.frameTransforms = stabilizationService.computeTransforms(ctx.frames);
+            ctx.stabilized = true;
+
+            List<BallPointDTO> aiPoints = aiTracker.trackBallAI(ctx);
 
             aiPoints = trajectoryService.smoothTrajectory(aiPoints);
             aiPoints = trajectoryService.filterTrajectory(aiPoints);
