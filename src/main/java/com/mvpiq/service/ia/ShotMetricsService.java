@@ -627,36 +627,81 @@ public class ShotMetricsService {
 
         return f.value(apexX);
     }
-
     public PolynomialFunction buildIdealArc(
             Point release,
             Point hoop,
-            double arcHeightCm) {
+            double baseArcHeightCm) {
 
         if (release == null || hoop == null) {
             return null;
         }
 
-        // -------------------------
-        // Vertice parabola ideale
-        // -------------------------
-        double xv = (release.getX() + hoop.getX()) / 2.0;
-
-        // apex sopra il ferro
-        double yv = hoop.getY() - arcHeightCm;
-
-        // -------------------------
-        // Calcolo coefficiente a
-        // usando il punto di rilascio
-        // -------------------------
         double xr = release.getX();
         double yr = release.getY();
 
-        double a = (yr - yv) / ((xr - xv) * (xr - xv));
+        double xh = hoop.getX();
+        double yh = hoop.getY();
 
-        // conversione forma standard
-        double b = -2 * a * xv;
-        double c = a * xv * xv + yv;
+        double dx = xh - xr;
+        double distance = Math.abs(dx);
+
+        if (distance < 5) {
+            return new PolynomialFunction(new double[]{yr, 0, 0});
+        }
+
+        // -------------------------
+        // ARC HEIGHT DINAMICO
+        // -------------------------
+        double dynamicArcHeight = baseArcHeightCm + (distance * 0.25);
+        dynamicArcHeight = Math.max(baseArcHeightCm, Math.min(dynamicArcHeight, baseArcHeightCm * 2.5));
+
+        // -------------------------
+        // SKEW VERTICE
+        // -------------------------
+        double skewFactor;
+
+        if (distance < 200) {
+            skewFactor = 0.55;
+        } else if (distance < 600) {
+            skewFactor = 0.62;
+        } else {
+            skewFactor = 0.68;
+        }
+
+        double xv = xr + dx * skewFactor;
+
+        // -------------------------
+        // VERTICE (MIGLIORATO)
+        // -------------------------
+        double baseHeight = Math.min(yr, yh);
+        double extraLift = distance * 0.05;
+        double yv = baseHeight - (dynamicArcHeight + extraLift);
+
+        // -------------------------
+        // PROTEZIONE NUMERICA
+        // -------------------------
+        if (Math.abs(xr - xv) < 1e-3 || Math.abs(xv - xh) < 1e-3) {
+            return new PolynomialFunction(new double[]{yr, 0, 0});
+        }
+
+        // -------------------------
+        // PARABOLA DA 3 PUNTI
+        // -------------------------
+        double x1 = xr, y1 = yr;
+        double x2 = xv, y2 = yv;
+        double x3 = xh, y3 = yh;
+
+        double denom = (x1 - x2) * (x1 - x3) * (x2 - x3);
+
+        if (Math.abs(denom) < 1e-6) {
+            return new PolynomialFunction(new double[]{yr, 0, 0});
+        }
+
+        double a = (x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)) / denom;
+        double b = (x3 * x3 * (y1 - y2) + x2 * x2 * (y3 - y1) + x1 * x1 * (y2 - y3)) / denom;
+        double c = (x2 * x3 * (x2 - x3) * y1
+                + x3 * x1 * (x3 - x1) * y2
+                + x1 * x2 * (x1 - x2) * y3) / denom;
 
         return new PolynomialFunction(new double[]{c, b, a});
     }
