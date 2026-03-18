@@ -627,6 +627,7 @@ public class ShotMetricsService {
 
         return f.value(apexX);
     }
+
     public PolynomialFunction buildIdealArc(
             Point release,
             Point hoop,
