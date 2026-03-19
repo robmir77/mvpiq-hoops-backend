@@ -147,7 +147,7 @@ public class BallTrackingService {
                 }
 
                 double probability = obj.getProbability();
-                if (probability < 0.25) {
+                if (probability < 0.1) {
                     continue;
                 }
 
@@ -184,7 +184,7 @@ public class BallTrackingService {
                 // 2) FILTRO FORMA
                 // -------------------------
                 double aspectRatio = bw / bh;
-                if (aspectRatio < 0.6 || aspectRatio > 1.6) {
+                if (aspectRatio < 0.5 || aspectRatio > 3) {
                     LOG.infof("❌ Candidate ignored (aspect ratio) frame=%d ar=%.2f",
                             frameIndex, aspectRatio);
                     continue;

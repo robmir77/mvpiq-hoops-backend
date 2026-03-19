@@ -15,9 +15,6 @@ public class ShotContext {
     List<File> frames;
 
     Hoop hoop;
-    int hoopX;
-    int hoopY;
-    int rimRadius;
 
     double pixelToCm;
     double hoopXCm;

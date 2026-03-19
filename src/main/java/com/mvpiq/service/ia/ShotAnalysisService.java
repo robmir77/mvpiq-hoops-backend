@@ -285,9 +285,6 @@ public class ShotAnalysisService {
         }
 
         ctx.hoop = hoop;
-        ctx.hoopX = hoop.x;
-        ctx.hoopY = hoop.y;
-        ctx.rimRadius = hoop.radius;
     }
 
     private Hoop detectHoopFromFrames(List<File> frames) {
@@ -303,10 +300,10 @@ public class ShotAnalysisService {
 
                 if (hoop != null) {
                     LOG.infof(
-                            "Hoop detected on frame %d -> x=%d y=%d r=%d",
+                            "Hoop detected on frame %d -> x=%f y=%f r=%d",
                             i,
-                            hoop.x,
-                            hoop.y,
+                            hoop.center.getX(),
+                            hoop.center.getY(),
                             hoop.radius
                     );
                     return hoop;
@@ -402,13 +399,13 @@ public class ShotAnalysisService {
     }
 
     private void computeScale(ShotContext ctx) {
-        double hoopDiameterPx = ctx.rimRadius * 2.0;
+        double hoopDiameterPx = ctx.hoop.radius * 2.0;
         double hoopDiameterCm = 45.0;
 
         ctx.pixelToCm = hoopDiameterCm / hoopDiameterPx;
-        ctx.hoopXCm = ctx.hoopX * ctx.pixelToCm;
-        ctx.hoopYCm = ctx.hoopY * ctx.pixelToCm;
-        ctx.rimRadiusCm = ctx.rimRadius * ctx.pixelToCm;
+        ctx.hoopXCm = ctx.hoop.center.getX() * ctx.pixelToCm;
+        ctx.hoopYCm = ctx.hoop.center.getY() * ctx.pixelToCm;
+        ctx.rimRadiusCm = ctx.hoop.radius * ctx.pixelToCm;
 
         ctx.ballCmPositions = ctx.ballPositions.stream()
                 .map(p -> new Point(p.getX() * ctx.pixelToCm, p.getY() * ctx.pixelToCm))
@@ -482,7 +479,7 @@ public class ShotAnalysisService {
         ctx.flightArcPx = trajectoryService.extractFlightArc(
                 ctx.ballPixelPositions,
                 ctx.releaseFrame,
-                ctx.hoopY
+                ctx.hoop.center.getY()
         );
     }
 
@@ -496,7 +493,7 @@ public class ShotAnalysisService {
         }
 
         Point hoopPointCm = new Point(ctx.hoopXCm, ctx.hoopYCm);
-        Point hoopPointPx = new Point(ctx.hoopX, ctx.hoopY);
+        Point hoopPointPx = ctx.hoop.center;
 
         ctx.idealArcCm = shotMetricsService.buildIdealArc(
                 ctx.releasePointCm,
@@ -581,8 +578,8 @@ public class ShotAnalysisService {
                         ctx.realArcPx,
                         ctx.idealArcPx,
                         ctx.releasePointPx,
-                        new Point(ctx.hoopX, ctx.hoopY),
-                        ctx.rimRadius,
+                        ctx.hoop.center,
+                        ctx.hoop.radius,
                         pose,
                         ctx.metrics
                 );
