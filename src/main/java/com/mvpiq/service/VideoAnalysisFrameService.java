@@ -48,7 +48,7 @@ public class VideoAnalysisFrameService {
     @Inject
     OverlayDrawerService overlayService;
 
-    public List<File> extractFrames(File video, VideoAnalysisSession session, double targetFps) {
+    public List<File> extractFrames(File video, VideoAnalysisSession session, int targetFps) {
 
         List<File> frames = new ArrayList<>();
 

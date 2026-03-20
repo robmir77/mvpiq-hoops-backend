@@ -6,12 +6,16 @@ import com.mvpiq.service.storage.SupabaseStorageService;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.io.File;
 import java.util.UUID;
 
 @ApplicationScoped
 public class VideoAnalysisProcessor {
+
+    @ConfigProperty(name = "mvpiq.hoop.search-frames")
+    int searchFrames;
 
     @Inject
     VideoAnalysisSessionRepository sessionRepository;
@@ -35,7 +39,7 @@ public class VideoAnalysisProcessor {
 
         File videoFile = storageService.downloadVideo(videoUrl);
 
-        var frames = frameService.extractFrames(videoFile, session, 10.0);
+        var frames = frameService.extractFrames(videoFile, session, searchFrames);
 
         // 3️⃣ Persistenza dei frame → dentro transazione breve
         frameService.persistFrames(session, frames);

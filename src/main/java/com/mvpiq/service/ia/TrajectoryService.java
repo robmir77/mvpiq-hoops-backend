@@ -3,27 +3,31 @@ package com.mvpiq.service.ia;
 import ai.djl.modality.cv.output.Point;
 import com.mvpiq.dto.BallPointDTO;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
+import org.apache.commons.math3.fitting.PolynomialCurveFitter;
+import org.apache.commons.math3.fitting.WeightedObservedPoints;
 import org.jboss.logging.Logger;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 @ApplicationScoped
 public class TrajectoryService {
 
     private static final Logger LOG = Logger.getLogger(TrajectoryService.class);
 
-    private static final double MAX_POINT_JUMP_PX = 150.0;
-    private static final double DUPLICATE_THRESHOLD_PX = 1.0;
-    private static final double RELEASE_ASCENDING_THRESHOLD = -5.0;
-    private static final double HOOP_EXIT_MARGIN_PX = 10.0;
+    // NORMALIZED (0–1)
+    private static final double MAX_POINT_JUMP = 0.15;
+    private static final double DUPLICATE_THRESHOLD = 0.001;
+    private static final double RELEASE_ASCENDING_THRESHOLD = -0.01;
+    private static final double HOOP_EXIT_MARGIN = 0.01;
     private static final int MIN_RELEASE_FRAME = 2;
 
-    // -------------------------
+    // =========================
     // SMOOTH TRAJECTORY
-    // -------------------------
+    // =========================
     public List<BallPointDTO> smoothTrajectory(List<BallPointDTO> points) {
 
         if (points == null || points.size() < 3) {
@@ -32,7 +36,6 @@ public class TrajectoryService {
         }
 
         List<BallPointDTO> result = new ArrayList<>();
-
         result.add(points.get(0));
 
         for (int i = 1; i < points.size() - 1; i++) {
@@ -55,9 +58,9 @@ public class TrajectoryService {
         return result;
     }
 
-    // -------------------------
+    // =========================
     // FILTER TRAJECTORY
-    // -------------------------
+    // =========================
     public List<BallPointDTO> filterTrajectory(List<BallPointDTO> points) {
 
         if (points == null || points.size() < 3) {
@@ -66,7 +69,6 @@ public class TrajectoryService {
         }
 
         List<BallPointDTO> filtered = new ArrayList<>();
-
         BallPointDTO prev = null;
 
         for (BallPointDTO p : points) {
@@ -85,17 +87,13 @@ public class TrajectoryService {
                     p.getX(), p.getY()
             );
 
-            // salto impossibile → scarta
-            if (distance > MAX_POINT_JUMP_PX) {
-                LOG.debugf("Discarding point at frame %d: impossible jump detected (distance=%.2f)",
-                        Optional.of(p.getFrame()), distance);
+            if (distance > MAX_POINT_JUMP) {
+                LOG.infof("Discard jump frame=%d dist=%.3f", p.getFrame(), distance);
                 continue;
             }
 
-            // punto duplicato → scarta
-            if (dx < DUPLICATE_THRESHOLD_PX && dy < DUPLICATE_THRESHOLD_PX) {
-                LOG.debugf("Discarding point at frame %d: duplicate point detected",
-                        p.getFrame());
+            if (dx < DUPLICATE_THRESHOLD && dy < DUPLICATE_THRESHOLD) {
+                LOG.debugf("Discard duplicate frame=%d", p.getFrame());
                 continue;
             }
 
@@ -109,100 +107,83 @@ public class TrajectoryService {
         return filtered;
     }
 
-    // -------------------------
+    // =========================
     // STABILIZE RELEASE FRAME
-    // -------------------------
-    public int stabilizeReleaseFrame(int releaseFrame, List<Point> trajectory) {
+    // =========================
+    public int stabilizeReleaseFrame(int releaseFrame, List<BallPointDTO> trajectory) {
 
         if (trajectory == null || trajectory.size() < 3) {
-            LOG.warn("Not enough trajectory points to stabilize release frame");
+            LOG.warn("Not enough trajectory points");
             return 0;
         }
 
-        int stabilizedFrame = clampReleaseFrame(releaseFrame, trajectory.size());
+        int f = clampReleaseFrame(releaseFrame, trajectory.size());
 
-        Point p0 = trajectory.get(stabilizedFrame - 1);
-        Point p1 = trajectory.get(stabilizedFrame);
+        BallPointDTO p0 = trajectory.get(f - 1);
+        BallPointDTO p1 = trajectory.get(f);
 
         double dy = p1.getY() - p0.getY();
 
-        // se la palla sta ancora salendo, probabilmente release è prima
-        if (dy < RELEASE_ASCENDING_THRESHOLD && stabilizedFrame > MIN_RELEASE_FRAME) {
-            LOG.infof("Release frame adjusted backward -> from=%d to=%d",
-                    stabilizedFrame, stabilizedFrame - 1);
-            stabilizedFrame -= 1;
+        if (dy < RELEASE_ASCENDING_THRESHOLD && f > MIN_RELEASE_FRAME) {
+            LOG.infof("Release adjusted: %d -> %d", f, f - 1);
+            f--;
         }
 
-        LOG.infof("Release frame stabilized -> %d", stabilizedFrame);
-
-        return stabilizedFrame;
+        return f;
     }
 
-    // -------------------------
-    // EXTRACT SHOT ARC
-    // -------------------------
-    public List<Point> extractShotArc(List<Point> trajectory, double hoopY) {
+    public List<Point> extractFlightArc(ShotContext ctx) {
 
-        if (trajectory == null || trajectory.size() < 3) {
-            LOG.warn("Not enough points to extract shot arc");
-            return safePoints(trajectory);
+        if (ctx == null || ctx.ballNorm == null || ctx.ballNorm.size() < 3) {
+            LOG.warn("Not enough ball points");
+            return List.of();
         }
+
+        if (ctx.hoopNorm == null) {
+            LOG.warn("Hoop not available");
+            return List.of();
+        }
+
+        final List<Point> trajectory = toPoints(ctx.ballNorm);
+
+        final int releaseIndex = clampReleaseFrame(ctx.releaseFrame, trajectory.size());
+        final int apexIndex = findApexIndex(trajectory, releaseIndex);
+
+        final double hoopY = ctx.hoopNorm.getCenter().getY();
 
         List<Point> arc = new ArrayList<>();
 
-        // trova apice
-        int apexIndex = findApexIndex(trajectory);
-
-        // prendi punti fino al ferro
-        for (int i = 0; i < trajectory.size(); i++) {
-
+        for (int i = releaseIndex; i < trajectory.size(); i++) {
             Point p = trajectory.get(i);
-
             arc.add(p);
 
-            // fermati quando la palla scende sotto il ferro
-            if (i > apexIndex && p.getY() > hoopY + HOOP_EXIT_MARGIN_PX) {
+            if (isAfterHoop(i, apexIndex, p, hoopY)) {
                 break;
             }
         }
 
-        LOG.infof("Shot arc extracted -> apexIndex=%d points=%d",
-                apexIndex, arc.size());
+        LOG.infof("Arc extracted -> release=%d apex=%d size=%d",
+                releaseIndex, apexIndex, arc.size());
 
         return arc;
     }
 
-    // -------------------------
-    // PRIVATE HELPERS
-    // -------------------------
-    private int clampReleaseFrame(int releaseFrame, int trajectorySize) {
-
-        if (trajectorySize < 3) {
-            return 0;
-        }
-
-        if (releaseFrame < MIN_RELEASE_FRAME) {
-            return MIN_RELEASE_FRAME;
-        }
-
-        if (releaseFrame >= trajectorySize) {
-            return trajectorySize - 1;
-        }
-
-        return releaseFrame;
+    private List<Point> toPoints(List<BallPointDTO> ballNorm) {
+        return ballNorm.stream()
+                .map(p -> new Point(p.getX(), p.getY()))
+                .toList();
     }
 
-    private int findApexIndex(List<Point> trajectory) {
+    private int findApexIndex(List<Point> trajectory, int startIndex) {
 
+        int apexIndex = startIndex;
         double minY = Double.MAX_VALUE;
-        int apexIndex = 0;
 
-        for (int i = 0; i < trajectory.size(); i++) {
+        for (int i = startIndex; i < trajectory.size(); i++) {
+            double y = trajectory.get(i).getY();
 
-            Point p = trajectory.get(i);
-
-            if (p.getY() < minY) {
-                minY = p.getY();
+            if (y < minY) {
+                minY = y;
                 apexIndex = i;
             }
         }
@@ -210,11 +191,82 @@ public class TrajectoryService {
         return apexIndex;
     }
 
-    private double euclideanDistance(double x1, double y1, double x2, double y2) {
+    private boolean isAfterHoop(int i, int apexIndex, Point p, double hoopY) {
+        return i > apexIndex && p.getY() > hoopY + HOOP_EXIT_MARGIN;
+    }
 
+    // =========================
+    // FIT TRAJECTORY (FIXED 🔥)
+    // =========================
+    public PolynomialFunction fitTrajectory(ShotContext ctx) {
+
+        List<Point> points = ctx.flightArcNorm;
+
+        if (points == null || points.size() < 3) {
+            LOG.warn("Not enough points to fit trajectory");
+            return null;
+        }
+
+        try {
+            WeightedObservedPoints obs = new WeightedObservedPoints();
+
+            for (Point p : points) {
+                obs.add(p.getX(), p.getY());
+            }
+
+            double[] coeff = PolynomialCurveFitter.create(2).fit(obs.toList());
+
+            LOG.info("Fit coeff: " + Arrays.toString(coeff));
+
+            // debug utile
+            PolynomialFunction f = new PolynomialFunction(coeff);
+            for (double x = 0; x <= 1.0; x += 0.25) {
+                LOG.debugf("f(%.2f)=%.3f", x, f.value(x));
+            }
+
+            return f;
+
+        } catch (Exception e) {
+            LOG.error("Error fitting trajectory", e);
+            return null;
+        }
+    }
+
+    // =========================
+    // HELPERS
+    // =========================
+    private int clampReleaseFrame(int releaseFrame, int size) {
+
+        if (size < 3) return 0;
+
+        if (releaseFrame < MIN_RELEASE_FRAME)
+            return MIN_RELEASE_FRAME;
+
+        if (releaseFrame >= size)
+            return size - 1;
+
+        return releaseFrame;
+    }
+
+    private int findApexIndex(List<Point> trajectory) {
+
+        double minY = Double.MAX_VALUE;
+        int index = 0;
+
+        for (int i = 0; i < trajectory.size(); i++) {
+
+            if (trajectory.get(i).getY() < minY) {
+                minY = trajectory.get(i).getY();
+                index = i;
+            }
+        }
+
+        return index;
+    }
+
+    private double euclideanDistance(double x1, double y1, double x2, double y2) {
         double dx = x2 - x1;
         double dy = y2 - y1;
-
         return Math.sqrt(dx * dx + dy * dy);
     }
 
@@ -222,51 +274,71 @@ public class TrajectoryService {
         return points == null ? Collections.emptyList() : points;
     }
 
-    private List<Point> safePoints(List<Point> points) {
-        return points == null ? Collections.emptyList() : points;
-    }
+    public PolynomialFunction buildPhysicsArc(ShotContext ctx, double apexHeight) {
 
-    public List<Point> extractFlightArc(
-            List<Point> trajectory,
-            int releaseFrame,
-            double hoopY) {
+        Point p0 = ctx.releaseNorm;
 
-        if (trajectory == null || trajectory.size() < 3) {
-            LOG.warn("Not enough points to extract flight arc");
-            return safePoints(trajectory);
+        if (ctx.hoopNorm == null || p0 == null) {
+            LOG.warn("Missing points");
+            return null;
         }
 
-        if (releaseFrame < 0 || releaseFrame >= trajectory.size()) {
-            LOG.warnf("Invalid releaseFrame %d for trajectory size %d",
-                    releaseFrame, trajectory.size());
-            releaseFrame = 0;
-        }
-
-        List<Point> arc = new ArrayList<>();
-
-        // trova apice dopo il rilascio
-        int apexIndex = findApexIndex(
-                trajectory.subList(releaseFrame, trajectory.size())
-        ) + releaseFrame;
-
-        for (int i = releaseFrame; i < trajectory.size(); i++) {
-
-            Point p = trajectory.get(i);
-            arc.add(p);
-
-            // quando la palla scende sotto il ferro fermiamo l'arco
-            if (i > apexIndex && p.getY() > hoopY + HOOP_EXIT_MARGIN_PX) {
-                break;
-            }
-        }
-
-        LOG.infof(
-                "Flight arc extracted -> release=%d apex=%d points=%d",
-                releaseFrame,
-                apexIndex,
-                arc.size()
+        // NORMALIZZA HOOP
+        Point raw = ctx.hoopNorm.getCenter();
+        Point p1 = new Point(
+                raw.getX() / ctx.frameWidth,
+                raw.getY() / ctx.frameHeight
         );
 
-        return arc;
+        double x0 = p0.getX();
+        double y0 = p0.getY();
+
+        double x1 = p1.getX();
+        double y1 = p1.getY();
+
+        if (Math.abs(x1 - x0) < 1e-6) {
+            LOG.warn("Vertical shot not supported");
+            return null;
+        }
+
+        // Apex
+        double xm = (x0 + x1) / 2.0;
+
+        double distance = Math.abs(x1 - x0);
+        double ym = Math.min(y0, y1) - distance * apexHeight;
+
+        ym = Math.max(0.0, ym);
+
+        double[][] A = {
+                {x0 * x0, x0, 1},
+                {xm * xm, xm, 1},
+                {x1 * x1, x1, 1}
+        };
+
+        double[] B = {y0, ym, y1};
+
+        double[] coeff = solve3x3(A, B);
+
+        LOG.infof("x0=%.3f x1=%.3f xm=%.3f", x0, x1, xm);
+
+        return coeff != null ? new PolynomialFunction(coeff) : null;
+    }
+
+    private double[] solve3x3(double[][] A, double[] B) {
+
+        double a = A[0][0], b = A[0][1], c = A[0][2];
+        double d = A[1][0], e = A[1][1], f = A[1][2];
+        double g = A[2][0], h = A[2][1], i = A[2][2];
+
+        double det = a*(e*i - f*h) - b*(d*i - f*g) + c*(d*h - e*g);
+
+        if (Math.abs(det) < 1e-9) return null;
+
+        double dx = B[0]*(e*i - f*h) - b*(B[1]*i - f*B[2]) + c*(B[1]*h - e*B[2]);
+        double dy = a*(B[1]*i - f*B[2]) - B[0]*(d*i - f*g) + c*(d*B[2] - B[1]*g);
+        double dz = a*(e*B[2] - B[1]*h) - b*(d*B[2] - B[1]*g) + B[0]*(d*h - e*g);
+
+        return new double[]{dx / det, dy / det, dz / det};
     }
 }
+

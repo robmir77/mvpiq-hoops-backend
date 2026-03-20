@@ -105,6 +105,9 @@ public class BallTrackingService {
                 continue;
             }
 
+            int width = img.getWidth();
+            int height = img.getHeight();
+
             Image image = ImageFactory.getInstance().fromImage(img);
             DetectedObjects detections = predictor.predict(image);
 
@@ -122,13 +125,13 @@ public class BallTrackingService {
             double bestScore = -1.0;
 
             // -------------------------
-            // POSIZIONE ATTESA (Kalman prediction)
+            // POSIZIONE ATTESA (Kalman prediction) - NORMALIZED
             // -------------------------
             Double expectedX = null;
             Double expectedY = null;
 
             if (kalman.isInitialized()) {
-                expectedX = kalman.getX(); // se hai predictX meglio
+                expectedX = kalman.getX();
                 expectedY = kalman.getY();
             }
 
@@ -137,19 +140,15 @@ public class BallTrackingService {
                 String cls = obj.getClassName().toLowerCase();
 
                 // -------------------------
-                // FILTRO CLASSE (più sicuro)
+                // FILTRO CLASSE
                 // -------------------------
                 boolean isBall = cls.contains("ball");
                 boolean fallback = (cls.contains("sports") || cls.contains("round")) && obj.getProbability() > 0.5;
 
-                if (!(isBall || fallback)) {
-                    continue;
-                }
+                if (!(isBall || fallback)) continue;
 
                 double probability = obj.getProbability();
-                if (probability < 0.1) {
-                    continue;
-                }
+                if (probability < 0.1) continue;
 
                 BoundingBox box = obj.getBoundingBox();
                 Rectangle rect = box.getBounds();
@@ -160,22 +159,22 @@ public class BallTrackingService {
                 double bh = rect.getHeight();
 
                 // -------------------------
-                // NORMALIZZAZIONE CORRETTA
+                // NORMALIZZAZIONE UNIFICATA (SEMPRE 0–1)
                 // -------------------------
-                boolean normalized = bw <= 1.0 && bh <= 1.0;
+                boolean alreadyNormalized = bw <= 1.0 && bh <= 1.0;
 
-                if (normalized) {
-                    cx *= img.getWidth();
-                    cy *= img.getHeight();
-                    bw *= img.getWidth();
-                    bh *= img.getHeight();
+                if (!alreadyNormalized) {
+                    cx /= width;
+                    cy /= height;
+                    bw /= width;
+                    bh /= height;
                 }
 
                 // -------------------------
-                // 1) FILTRO DIMENSIONE
+                // 1) FILTRO DIMENSIONE (NORMALIZED)
                 // -------------------------
-                if (bw < 4 || bh < 4 || bw > 120 || bh > 120) {
-                    LOG.infof("❌ Candidate ignored (size) frame=%d w=%.2f h=%.2f",
+                if (bw < 0.005 || bh < 0.005 || bw > 0.2 || bh > 0.2) {
+                    LOG.infof("❌ Candidate ignored (size) frame=%d w=%.4f h=%.4f",
                             frameIndex, bw, bh);
                     continue;
                 }
@@ -191,7 +190,7 @@ public class BallTrackingService {
                 }
 
                 // -------------------------
-                // 3) DISTANZA DINAMICA
+                // 3) DISTANZA DINAMICA (NORMALIZED)
                 // -------------------------
                 double distanceScore = 1.0;
                 double distance = 0.0;
@@ -201,10 +200,10 @@ public class BallTrackingService {
                     double dy = cy - expectedY;
                     distance = Math.sqrt(dx * dx + dy * dy);
 
-                    double maxDistance = 150 + (missingFrames * 40);
+                    double maxDistance = 0.15 + (missingFrames * 0.05);
 
                     if (distance > maxDistance) {
-                        LOG.infof("❌ Candidate ignored (too far) frame=%d dist=%.2f max=%.2f",
+                        LOG.infof("❌ Candidate ignored (too far) frame=%d dist=%.4f max=%.4f",
                                 frameIndex, distance, maxDistance);
                         continue;
                     }
@@ -213,7 +212,7 @@ public class BallTrackingService {
                 }
 
                 // -------------------------
-                // 4) SCORE MIGLIORATO
+                // 4) SCORE
                 // -------------------------
                 double shapeScore = 1.0 - Math.abs(1.0 - aspectRatio);
 
@@ -221,7 +220,7 @@ public class BallTrackingService {
                         + (distanceScore * 0.4)
                         + (shapeScore * 0.2);
 
-                LOG.infof("🟡 Candidate frame=%d x=%.2f y=%.2f conf=%.3f dist=%.2f score=%.3f",
+                LOG.infof("🟡 Candidate frame=%d x=%.4f y=%.4f conf=%.3f dist=%.4f score=%.3f",
                         frameIndex, cx, cy, probability, distance, score);
 
                 if (score > bestScore) {
@@ -241,33 +240,39 @@ public class BallTrackingService {
                 double cx = rect.getX() + rect.getWidth() / 2.0;
                 double cy = rect.getY() + rect.getHeight() / 2.0;
 
-                boolean normalized = rect.getWidth() <= 1.0 && rect.getHeight() <= 1.0;
+                boolean alreadyNormalized = rect.getWidth() <= 1.0 && rect.getHeight() <= 1.0;
 
-                if (normalized) {
-                    cx *= img.getWidth();
-                    cy *= img.getHeight();
+                if (!alreadyNormalized) {
+                    cx /= width;
+                    cy /= height;
                 }
 
+                // -------------------------
+                // STABILIZZAZIONE (lavora in pixel → convertiamo)
+                // -------------------------
+                Point stabilized;
+
+                if (context.stabilized) {
+
+                    Point pixelPoint = new Point(cx * width, cy * height);
+
+                    pixelPoint = stabilizationService.stabilizePoint(
+                            pixelPoint,
+                            context.frameTransforms.get(frameIndex - 1)
+                    );
+
+                    cx = pixelPoint.getX() / width;
+                    cy = pixelPoint.getY() / height;
+                }
+
+                // -------------------------
+                // KALMAN (UNA SOLA VOLTA, NORMALIZED)
+                // -------------------------
                 if (!kalman.isInitialized()) {
                     kalman.init(cx, cy);
                     LOG.info("🧠 Kalman filter initialized");
                 } else {
                     kalman.update(cx, cy);
-                }
-
-                Point stabilized = new Point(cx, cy);
-
-                if (context.stabilized) {
-                    stabilized = stabilizationService.stabilizePoint(
-                            stabilized,
-                            context.frameTransforms.get(frameIndex - 1)
-                    );
-                }
-
-                if (!kalman.isInitialized()) {
-                    kalman.init(stabilized.getX(), stabilized.getY());
-                } else {
-                    kalman.update(stabilized.getX(), stabilized.getY());
                 }
 
                 BallPointDTO p = new BallPointDTO(
@@ -282,7 +287,7 @@ public class BallTrackingService {
                 ballFoundInFrame = true;
                 missingFrames = 0;
 
-                LOG.infof("🏀 Ball accepted -> frame=%d x=%.2f y=%.2f score=%.3f",
+                LOG.infof("🏀 Ball accepted -> frame=%d x=%.4f y=%.4f score=%.3f",
                         frameIndex, p.getX(), p.getY(), bestScore);
             }
 
@@ -294,12 +299,17 @@ public class BallTrackingService {
                 if (missingFrames < 5) {
                     kalman.predict();
 
-                    BallPointDTO predicted = new BallPointDTO(kalman.getX(), kalman.getY(), frameIndex);
+                    BallPointDTO predicted = new BallPointDTO(
+                            kalman.getX(),
+                            kalman.getY(),
+                            frameIndex
+                    );
+
                     ballPositions.add(predicted);
 
                     missingFrames++;
 
-                    LOG.infof("🧠 Kalman predicted frame=%d x=%.2f y=%.2f (missing=%d)",
+                    LOG.infof("🧠 Kalman predicted frame=%d x=%.4f y=%.4f (missing=%d)",
                             frameIndex, predicted.getX(), predicted.getY(), missingFrames);
                 } else {
                     LOG.warn("⚠️ Too many missing frames → resetting Kalman");

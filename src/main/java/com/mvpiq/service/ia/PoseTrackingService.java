@@ -232,17 +232,24 @@ public class PoseTrackingService {
     // -------------------------------------------------------
     // SHOOTING HAND ESTIMATION
     // -------------------------------------------------------
+    public HandSide estimateShootingHand(ShotContext ctx) {
 
-    public HandSide estimateShootingHand(
-            List<BallPointDTO> ballPoints,
-            List<PoseFrameDTO> poses,
-            int from,
-            int to) {
+        List<BallPointDTO> ballPoints = ctx.ballNorm;
+        List<PoseFrameDTO> poses = ctx.poseFrames;
+
+        if (ballPoints == null || poses == null || ballPoints.isEmpty() || poses.isEmpty()) {
+            return HandSide.UNKNOWN;
+        }
+
+        int from = Math.max(0, ctx.releaseFrame - 3);
+        int to = ctx.releaseFrame;
 
         int leftCount = 0;
         int rightCount = 0;
 
-        for (int i = from; i <= to && i < ballPoints.size() && i < poses.size(); i++) {
+        int max = Math.min(ballPoints.size(), poses.size());
+
+        for (int i = from; i <= to && i < max; i++) {
 
             HandSide side = detectShootingHand(ballPoints.get(i), poses.get(i));
 
@@ -258,8 +265,8 @@ public class PoseTrackingService {
     }
 
     // -------------------------------------------------------
-// KEYPOINT HELPERS
-// -------------------------------------------------------
+    // KEYPOINT HELPERS
+    // -------------------------------------------------------
 
     public KeyPointDTO getWrist(PoseFrameDTO pose, HandSide side) {
 

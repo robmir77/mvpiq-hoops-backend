@@ -2,6 +2,7 @@ package com.mvpiq.service.ia;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.awt.*;
@@ -539,7 +540,7 @@ public class HoopDetectionService {
                     new File(debugDir, "debug_hoop_" + frameFile.getName() + ".png")
             );
 
-            return new Hoop(centerX, centerY, radius);
+            return new Hoop(centerX, centerY, radius, width, height);
 
         } catch (Exception e) {
 

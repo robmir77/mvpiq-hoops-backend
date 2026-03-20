@@ -8,54 +8,125 @@ import java.util.List;
 @Setter
 public class ShotMetricsDTO {
 
+    // =========================
+    // UNIT SYSTEM
+    // =========================
+    // Tutte le misure spaziali sono NORMALIZZATE (0–1 rispetto al frame)
+    // Le velocità sono in unità NORMALIZED / frame
+    // Gli angoli sono in GRADI
+
     // -------------------------
     // BALL TRAJECTORY
     // -------------------------
-    private double releaseAngle;      // angolo di rilascio (°)
-    private double entryAngle;        // angolo d’ingresso (°)
-    private double releaseSpeed;      // velocità al rilascio (cm/frame)
-    private double arcHeight;         // altezza massima traiettoria (cm)
-    private double trajectoryQuality; // qualità della traiettoria (0-1)
-    private double distance;          // distanza del tiro (cm) -> aggiunto
-    private double trajectoryDistance;// distanza reale
+
+    private double releaseAngle;
+    // Angolo di rilascio (°)
+    // Range tipico: 40° – 60°
+
+    private double entryAngle;
+    // Angolo d’ingresso nel canestro (°)
+    // Range tipico: 35° – 55°
+
+    private double releaseSpeed;
+    // Velocità al rilascio (normalized units / frame)
+    // Derivata da distanza tra punti consecutivi
+
+    private double arcHeight;
+    // Altezza massima della traiettoria (normalized 0–1)
+    // Es: 0.25 = 25% altezza frame
+
+    private double trajectoryQuality;
+    // Qualità della parabola (0–1)
+    // Basata su smoothness / fit ideale
+
+    private double distance;
+    // Distanza tiro → ferro (normalized)
+    // Tipico: 0.3 (vicino) → 1.2 (long range)
+
+    private double trajectoryDistance;
+    // Lunghezza reale della traiettoria (normalized)
+    // Somma delle distanze tra punti
+
+    private double trajectoryDeviation;
+    // Deviazione dalla traiettoria ideale (normalized)
+    // 0 = perfetta, >0.15 = errore significativo
+
     private double shotSpeed;
+    // Velocità media del tiro (normalized/frame)
+
     private double shotDifficulty;
+    // Difficoltà stimata del tiro (0–1 o 0–100 a seconda della logica)
+
 
     // -------------------------
     // RELEASE METRICS
     // -------------------------
-    private double releaseHeight;     // altezza al rilascio (cm)
-    private int releaseFrame;         // frame del rilascio
+
+    private double releaseHeight;
+    // Altezza della palla al rilascio (normalized 0–1)
+
+    private int releaseFrame;
+    // Frame index del rilascio
+
 
     // -------------------------
     // ARM BIOMECHANICS
     // -------------------------
-    private double elbowAngle;        // angolo gomito (°)
-    private double wristAngle;        // angolo polso (°)
-    private double elbowAlignmentError; // errore allineamento braccio
-    private double kneeAngle;         // angolo ginocchia
-    private double bodyExtension;     // per capire se il tiro è fluido
-    private double stabilityScore;    // stabilità del tiro
+
+    private double elbowAngle;
+    // Angolo del gomito (°)
+    // Ideale: ~85° – 100°
+
+    private double wristAngle;
+    // Angolo del polso (°)
+
+    private double elbowAlignmentError;
+    // Errore di allineamento gomito (normalized o gradi)
+    // 0 = perfetto
+
+    private double kneeAngle;
+    // Angolo ginocchia (°)
+
+    private double bodyExtension;
+    // Estensione del corpo (0–1)
+    // 1 = completamente esteso
+
+    private double stabilityScore;
+    // Stabilità del tiro (0–1)
+
 
     // -------------------------
     // BODY BALANCE
     // -------------------------
-    private double bodyBalanceScore;  // equilibrio del corpo (0-1)
+
+    private double bodyBalanceScore;
+    // Equilibrio del corpo (0–1)
+
 
     // -------------------------
     // SCORING
     // -------------------------
-    private double overallScore;      // punteggio complessivo (0-100)
+
+    private double overallScore;
+    // Punteggio complessivo (0–100)
+
 
     // -------------------------
     // FEEDBACK
     // -------------------------
-    double trajectoryDeviation;
-    private List<String> suggestions; // suggerimenti per migliorare
+
+    private List<String> suggestions;
+    // Suggerimenti per migliorare il tiro
+
 
     // -------------------------
     // SHOT RESULT
     // -------------------------
-    private boolean make;             // tiro riuscito
-    private String missType;          // tipo di errore: short/long/center
+
+    private boolean make;
+    // TRUE = canestro segnato
+
+    private String missType;
+    // Tipo errore:
+    // "SHORT", "LONG", "LEFT", "RIGHT", "UNKNOWN"
 }

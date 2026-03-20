@@ -12,10 +12,15 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Hoop {
     Point center;
-    public int radius;
+    public double radius;
 
-    public Hoop(int predictedX, int predictedY, int predictedRadius) {
-        this.center = new Point(predictedX, predictedY);
-        this.radius = predictedRadius;
+    public Hoop(int predictedX, int predictedY, int predictedRadius, int frameWidth, int frameHeight) {
+
+        this.center = new Point(
+                (double) predictedX / frameWidth,
+                (double) predictedY / frameHeight
+        );
+
+        this.radius = (double) predictedRadius / frameWidth;
     }
 }
