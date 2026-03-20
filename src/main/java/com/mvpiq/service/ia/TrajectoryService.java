@@ -248,22 +248,6 @@ public class TrajectoryService {
         return releaseFrame;
     }
 
-    private int findApexIndex(List<Point> trajectory) {
-
-        double minY = Double.MAX_VALUE;
-        int index = 0;
-
-        for (int i = 0; i < trajectory.size(); i++) {
-
-            if (trajectory.get(i).getY() < minY) {
-                minY = trajectory.get(i).getY();
-                index = i;
-            }
-        }
-
-        return index;
-    }
-
     private double euclideanDistance(double x1, double y1, double x2, double y2) {
         double dx = x2 - x1;
         double dy = y2 - y1;
@@ -279,11 +263,10 @@ public class TrajectoryService {
         Point p0 = ctx.releaseNorm;
 
         if (ctx.hoopNorm == null || p0 == null) {
-            LOG.warn("Missing points");
             return null;
         }
 
-        // NORMALIZZA HOOP
+        // === NORMALIZZAZIONE HOOP ===
         Point raw = ctx.hoopNorm.getCenter();
         Point p1 = new Point(
                 raw.getX() / ctx.frameWidth,
@@ -296,49 +279,57 @@ public class TrajectoryService {
         double x1 = p1.getX();
         double y1 = p1.getY();
 
-        if (Math.abs(x1 - x0) < 1e-6) {
-            LOG.warn("Vertical shot not supported");
+        // === DIREZIONE SEMPRE DA SINISTRA A DESTRA ===
+        boolean flipped = false;
+        if (x1 < x0) {
+            flipped = true;
+
+            double tmpX = x0; x0 = x1; x1 = tmpX;
+            double tmpY = y0; y0 = y1; y1 = tmpY;
+        }
+
+        double dx = x1 - x0;
+        if (Math.abs(dx) < 1e-6) {
             return null;
         }
 
-        // Apex
-        double xm = (x0 + x1) / 2.0;
+        // === DISTANZA ===
+        double distance = Math.abs(dx);
 
-        double distance = Math.abs(x1 - x0);
-        double ym = Math.min(y0, y1) - distance * apexHeight;
+        // === APEX (spostato in avanti, NON al centro) ===
+        double xm = x0 + dx * 0.45;
 
-        ym = Math.max(0.0, ym);
+        // === ALTEZZA ARCO (scalata e limitata) ===
+        double arcBoost = Math.min(distance, 0.5);
+        double baseHeight = Math.min(y0, y1);
 
-        double[][] A = {
-                {x0 * x0, x0, 1},
-                {xm * xm, xm, 1},
-                {x1 * x1, x1, 1}
-        };
+        double ym = baseHeight - (arcBoost * apexHeight);
+        ym = Math.max(0.05, ym); // evita schiacciamenti
 
-        double[] B = {y0, ym, y1};
+        // === COSTRUZIONE PARABOLA (forma stabile) ===
+        // Forma: y = a(x - xm)^2 + ym
 
-        double[] coeff = solve3x3(A, B);
+        double a = (y0 - ym) / ((x0 - xm) * (x0 - xm));
 
-        LOG.infof("x0=%.3f x1=%.3f xm=%.3f", x0, x1, xm);
+        // Se per qualche motivo è positiva → forziamo concavità corretta
+        if (a > 0) {
+            a = -Math.abs(a);
+        }
 
-        return coeff != null ? new PolynomialFunction(coeff) : null;
-    }
+        double b = -2 * a * xm;
+        double c = a * xm * xm + ym;
 
-    private double[] solve3x3(double[][] A, double[] B) {
+        // === SE AVEVI FLIPPATO → RIPRISTINA ===
+        if (flipped) {
+            // riflessione orizzontale
+            double newA = a;
+            double newB = -b;
+            double newC = c;
 
-        double a = A[0][0], b = A[0][1], c = A[0][2];
-        double d = A[1][0], e = A[1][1], f = A[1][2];
-        double g = A[2][0], h = A[2][1], i = A[2][2];
+            return new PolynomialFunction(new double[]{newC, newB, newA});
+        }
 
-        double det = a*(e*i - f*h) - b*(d*i - f*g) + c*(d*h - e*g);
-
-        if (Math.abs(det) < 1e-9) return null;
-
-        double dx = B[0]*(e*i - f*h) - b*(B[1]*i - f*B[2]) + c*(B[1]*h - e*B[2]);
-        double dy = a*(B[1]*i - f*B[2]) - B[0]*(d*i - f*g) + c*(d*B[2] - B[1]*g);
-        double dz = a*(e*B[2] - B[1]*h) - b*(d*B[2] - B[1]*g) + B[0]*(d*h - e*g);
-
-        return new double[]{dx / det, dy / det, dz / det};
+        return new PolynomialFunction(new double[]{c, b, a});
     }
 }
 

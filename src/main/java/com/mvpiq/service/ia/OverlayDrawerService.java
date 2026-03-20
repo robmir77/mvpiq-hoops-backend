@@ -13,6 +13,7 @@ import org.jboss.logging.Logger;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import java.util.List;
 
 @ApplicationScoped
@@ -56,9 +57,19 @@ public class OverlayDrawerService {
         // =========================
         // TRAJECTORY (NORMALIZED → PIXEL)
         // =========================
-        drawArcNorm(g, ctx.realArcNorm, width, height, Color.BLUE);   // dati reali
-        //drawArcNorm(g, ctx.physicsArcNorm, width, height, Color.RED);
-        drawArcNorm(g, ctx.idealArcNorm, width, height, Color.GREEN); // ideale
+        List<LegendItem> legend = new ArrayList<>();
+
+        drawArcNorm(g, ctx.realArcNorm, width, height, Color.BLUE);
+        legend.add(new LegendItem(Color.BLUE, "Traiettoria reale"));
+
+        drawArcNorm(g, ctx.physicsArcNorm, width, height, Color.RED);
+        legend.add(new LegendItem(Color.RED, "Traiettoria tiro migliore Fisica applicata"));
+
+        drawArcNorm(g, ctx.idealArcNorm, width, height, Color.GREEN);
+        legend.add(new LegendItem(Color.GREEN, "Traiettoria ideale NBA"));
+
+        // UNA SOLA VOLTA
+        drawLegend(g, legend);
 
         // =========================
         // RELEASE (NORMALIZED → PIXEL)
@@ -144,6 +155,9 @@ public class OverlayDrawerService {
         int prevX = 0;
         int prevY = (int) (y0 * height);
 
+        // =========================
+        // DISEGNO PARABOLA
+        // =========================
         for (int i = 1; i <= width; i++) {
 
             double x = i * step;
@@ -154,7 +168,6 @@ public class OverlayDrawerService {
                 continue;
             }
 
-            // 🔍 track range
             if (y < minY) minY = y;
             if (y > maxY) maxY = y;
 
@@ -169,16 +182,51 @@ public class OverlayDrawerService {
         }
 
         // =========================
-        // DEBUG FINALE 🔥
+        // DEBUG
         // =========================
-        LOG.infof("Arc draw -> yRange=[%.3f, %.3f]", minY, maxY);
+        LOG.infof("Arc draw " + color.toString() + " -> yRange=[%.3f, %.3f]", minY, maxY);
 
-        double yMid = arc.value(0.5);
-        LOG.infof("Arc sample -> f(0.5)=%.3f", yMid);
-    }
+        // =========================
+        // CALCOLO ANGOLO 🔥
+        // =========================
+        double xAngle = 0.5; // puoi cambiare questo punto
 
-    private double clamp(double v) {
-        return Math.max(0.0, Math.min(1.0, v));
+        PolynomialFunction derivative = arc.polynomialDerivative();
+
+        double slope = derivative.value(xAngle);
+        double angleRad = Math.atan(slope);
+        double angleDeg = Math.toDegrees(angleRad);
+
+        LOG.infof("Arc angle at x=%.2f -> slope=%.3f angle=%.2f°", xAngle, slope, angleDeg);
+
+        // =========================
+        // POSIZIONE PUNTO
+        // =========================
+        int px = (int) (xAngle * width);
+        int py = (int) (arc.value(xAngle) * height);
+
+        // =========================
+        // DISEGNO TANGENTE (opzionale)
+        // =========================
+        int tangentLength = 60;
+
+        int x1 = px - tangentLength;
+        int x2 = px + tangentLength;
+
+        double y1 = arc.value(xAngle) + slope * ((double)(x1 - px) / width);
+        double y2 = arc.value(xAngle) + slope * ((double)(x2 - px) / width);
+
+        int py1 = (int) (y1 * height);
+        int py2 = (int) (y2 * height);
+
+        g.setColor(Color.RED);
+        g.drawLine(x1, py1, x2, py2);
+
+        // =========================
+        // DISEGNO TESTO ANGOLO
+        // =========================
+        g.setColor(Color.BLACK);
+        g.drawString(String.format("θ=%.1f°", angleDeg), px + 5, py - 5);
     }
 
     private void drawReleasePx(Graphics2D g, Point p) {
@@ -280,5 +328,32 @@ public class OverlayDrawerService {
 
         g.setColor(color);
         g.drawLine((int) a.getX(), (int) a.getY(), (int) b.getX(), (int) b.getY());
+    }
+
+    private void drawLegend(Graphics2D g, List<LegendItem> items) {
+
+        int legendX = 10;
+        int legendY = 20;
+
+        int boxSize = 12;
+        int spacing = 18;
+
+        for (int i = 0; i < items.size(); i++) {
+
+            LegendItem item = items.get(i);
+
+            int y = legendY + (i * spacing);
+
+            // box colore
+            g.setColor(item.color);
+            g.fillRect(legendX, y - boxSize + 3, boxSize, boxSize);
+
+            // bordo
+            g.setColor(Color.BLACK);
+            g.drawRect(legendX, y - boxSize + 3, boxSize, boxSize);
+
+            // testo
+            g.drawString(item.label, legendX + 20, y);
+        }
     }
 }

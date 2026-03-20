@@ -68,9 +68,8 @@ public class BallTrackingService {
     public List<BallPointDTO> trackBallAI(ShotContext context) throws TranslateException {
 
         List<File> frames = context.frames;
-
-        KalmanBallFilterDTO kalman = new KalmanBallFilterDTO();
         List<BallPointDTO> ballPositions = new ArrayList<>();
+        KalmanBallFilterDTO kalman = new KalmanBallFilterDTO();
 
         if (frames == null || frames.isEmpty()) {
             LOG.warn("No frames received for ball tracking");
@@ -88,225 +87,37 @@ public class BallTrackingService {
             frameIndex++;
 
             LOG.infof("🔍 Processing frame %d / %d -> %s",
-                    frameIndex,
-                    frames.size(),
-                    frameFile.getName());
+                    frameIndex, frames.size(), frameFile.getName());
 
-            BufferedImage img;
-            try {
-                img = ImageIO.read(frameFile);
-            } catch (Exception e) {
-                LOG.errorf(e, "❌ Failed reading frame %s", frameFile.getName());
-                continue;
-            }
+            BufferedImage img = readFrame(frameFile);
+            if (img == null) continue;
 
-            if (img == null) {
-                LOG.warn("⚠️ Frame image is null: " + frameFile.getName());
-                continue;
-            }
+            DetectedObjects detections = detect(img);
 
-            int width = img.getWidth();
-            int height = img.getHeight();
+            Candidate best = findBestCandidate(
+                    detections, img, kalman, missingFrames, frameIndex
+            );
 
-            Image image = ImageFactory.getInstance().fromImage(img);
-            DetectedObjects detections = predictor.predict(image);
+            if (best != null) {
 
-            // -------------------------
-            // DEBUG DETECTIONS
-            // -------------------------
-            for (Classifications.Classification obj : detections.items()) {
-                LOG.infof("Detected -> class=%s prob=%.3f",
-                        obj.getClassName(),
-                        obj.getProbability());
-            }
-
-            boolean ballFoundInFrame = false;
-            DetectedObjects.DetectedObject bestBall = null;
-            double bestScore = -1.0;
-
-            // -------------------------
-            // POSIZIONE ATTESA (Kalman prediction) - NORMALIZED
-            // -------------------------
-            Double expectedX = null;
-            Double expectedY = null;
-
-            if (kalman.isInitialized()) {
-                expectedX = kalman.getX();
-                expectedY = kalman.getY();
-            }
-
-            for (DetectedObjects.DetectedObject obj : detections.<DetectedObjects.DetectedObject>items()) {
-
-                String cls = obj.getClassName().toLowerCase();
-
-                // -------------------------
-                // FILTRO CLASSE
-                // -------------------------
-                boolean isBall = cls.contains("ball");
-                boolean fallback = (cls.contains("sports") || cls.contains("round")) && obj.getProbability() > 0.5;
-
-                if (!(isBall || fallback)) continue;
-
-                double probability = obj.getProbability();
-                if (probability < 0.1) continue;
-
-                BoundingBox box = obj.getBoundingBox();
-                Rectangle rect = box.getBounds();
-
-                double cx = rect.getX() + rect.getWidth() / 2.0;
-                double cy = rect.getY() + rect.getHeight() / 2.0;
-                double bw = rect.getWidth();
-                double bh = rect.getHeight();
-
-                // -------------------------
-                // NORMALIZZAZIONE UNIFICATA (SEMPRE 0–1)
-                // -------------------------
-                boolean alreadyNormalized = bw <= 1.0 && bh <= 1.0;
-
-                if (!alreadyNormalized) {
-                    cx /= width;
-                    cy /= height;
-                    bw /= width;
-                    bh /= height;
-                }
-
-                // -------------------------
-                // 1) FILTRO DIMENSIONE (NORMALIZED)
-                // -------------------------
-                if (bw < 0.005 || bh < 0.005 || bw > 0.2 || bh > 0.2) {
-                    LOG.infof("❌ Candidate ignored (size) frame=%d w=%.4f h=%.4f",
-                            frameIndex, bw, bh);
-                    continue;
-                }
-
-                // -------------------------
-                // 2) FILTRO FORMA
-                // -------------------------
-                double aspectRatio = bw / bh;
-                if (aspectRatio < 0.5 || aspectRatio > 3) {
-                    LOG.infof("❌ Candidate ignored (aspect ratio) frame=%d ar=%.2f",
-                            frameIndex, aspectRatio);
-                    continue;
-                }
-
-                // -------------------------
-                // 3) DISTANZA DINAMICA (NORMALIZED)
-                // -------------------------
-                double distanceScore = 1.0;
-                double distance = 0.0;
-
-                if (expectedX != null && expectedY != null) {
-                    double dx = cx - expectedX;
-                    double dy = cy - expectedY;
-                    distance = Math.sqrt(dx * dx + dy * dy);
-
-                    double maxDistance = 0.15 + (missingFrames * 0.05);
-
-                    if (distance > maxDistance) {
-                        LOG.infof("❌ Candidate ignored (too far) frame=%d dist=%.4f max=%.4f",
-                                frameIndex, distance, maxDistance);
-                        continue;
-                    }
-
-                    distanceScore = Math.max(0.0, 1.0 - (distance / maxDistance));
-                }
-
-                // -------------------------
-                // 4) SCORE
-                // -------------------------
-                double shapeScore = 1.0 - Math.abs(1.0 - aspectRatio);
-
-                double score = (probability * 0.4)
-                        + (distanceScore * 0.4)
-                        + (shapeScore * 0.2);
-
-                LOG.infof("🟡 Candidate frame=%d x=%.4f y=%.4f conf=%.3f dist=%.4f score=%.3f",
-                        frameIndex, cx, cy, probability, distance, score);
-
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestBall = obj;
-                }
-            }
-
-            // -------------------------
-            // ACCETTAZIONE
-            // -------------------------
-            if (bestBall != null && bestScore >= 0.35) {
-
-                BoundingBox box = bestBall.getBoundingBox();
-                Rectangle rect = box.getBounds();
-
-                double cx = rect.getX() + rect.getWidth() / 2.0;
-                double cy = rect.getY() + rect.getHeight() / 2.0;
-
-                boolean alreadyNormalized = rect.getWidth() <= 1.0 && rect.getHeight() <= 1.0;
-
-                if (!alreadyNormalized) {
-                    cx /= width;
-                    cy /= height;
-                }
-
-                // -------------------------
-                // STABILIZZAZIONE (lavora in pixel → convertiamo)
-                // -------------------------
-                Point stabilized;
-
-                if (context.stabilized) {
-
-                    Point pixelPoint = new Point(cx * width, cy * height);
-
-                    pixelPoint = stabilizationService.stabilizePoint(
-                            pixelPoint,
-                            context.frameTransforms.get(frameIndex - 1)
-                    );
-
-                    cx = pixelPoint.getX() / width;
-                    cy = pixelPoint.getY() / height;
-                }
-
-                // -------------------------
-                // KALMAN (UNA SOLA VOLTA, NORMALIZED)
-                // -------------------------
-                if (!kalman.isInitialized()) {
-                    kalman.init(cx, cy);
-                    LOG.info("🧠 Kalman filter initialized");
-                } else {
-                    kalman.update(cx, cy);
-                }
-
-                BallPointDTO p = new BallPointDTO(
-                        kalman.getX(),
-                        kalman.getY(),
-                        frameIndex
+                BallPointDTO point = acceptCandidate(
+                        best, kalman, context, frameIndex, img
                 );
 
-                ballPositions.add(p);
+                ballPositions.add(point);
 
                 detectionsCount++;
-                ballFoundInFrame = true;
                 missingFrames = 0;
 
                 LOG.infof("🏀 Ball accepted -> frame=%d x=%.4f y=%.4f score=%.3f",
-                        frameIndex, p.getX(), p.getY(), bestScore);
-            }
+                        frameIndex, point.getX(), point.getY(), best.score);
 
-            // -------------------------
-            // PREDIZIONE LIMITATA
-            // -------------------------
-            if (!ballFoundInFrame && kalman.isInitialized()) {
+            } else {
 
-                if (missingFrames < 5) {
-                    kalman.predict();
+                BallPointDTO predicted = predict(kalman, frameIndex, missingFrames);
 
-                    BallPointDTO predicted = new BallPointDTO(
-                            kalman.getX(),
-                            kalman.getY(),
-                            frameIndex
-                    );
-
+                if (predicted != null) {
                     ballPositions.add(predicted);
-
                     missingFrames++;
 
                     LOG.infof("🧠 Kalman predicted frame=%d x=%.4f y=%.4f (missing=%d)",
@@ -317,10 +128,6 @@ public class BallTrackingService {
                     missingFrames = 0;
                 }
             }
-
-            if (!ballFoundInFrame) {
-                LOG.infof("No ball detected in frame %d", frameIndex);
-            }
         }
 
         LOG.info("📊 Ball tracking completed");
@@ -329,5 +136,201 @@ public class BallTrackingService {
         LOG.info("📊 Trajectory points collected: " + ballPositions.size());
 
         return ballPositions;
+    }
+
+    private BufferedImage readFrame(File frameFile) {
+        try {
+            BufferedImage img = ImageIO.read(frameFile);
+
+            if (img == null) {
+                LOG.warn("⚠️ Frame image is null: " + frameFile.getName());
+            }
+
+            return img;
+
+        } catch (Exception e) {
+            LOG.errorf(e, "❌ Failed reading frame %s", frameFile.getName());
+            return null;
+        }
+    }
+
+    private DetectedObjects detect(BufferedImage img) throws TranslateException {
+        Image image = ImageFactory.getInstance().fromImage(img);
+        DetectedObjects detections = predictor.predict(image);
+
+        // DEBUG
+        for (Classifications.Classification obj : detections.items()) {
+            LOG.infof("Detected -> class=%s prob=%.3f",
+                    obj.getClassName(),
+                    obj.getProbability());
+        }
+
+        return detections;
+    }
+
+    private Candidate findBestCandidate(DetectedObjects detections,
+                                        BufferedImage img,
+                                        KalmanBallFilterDTO kalman,
+                                        int missingFrames,
+                                        int frameIndex) {
+
+        Double expectedX = kalman.isInitialized() ? kalman.getX() : null;
+        Double expectedY = kalman.isInitialized() ? kalman.getY() : null;
+
+        Candidate best = null;
+
+        for (DetectedObjects.DetectedObject obj : detections.<DetectedObjects.DetectedObject>items()) {
+
+            if (!isBallCandidate(obj)) continue;
+
+            Candidate c = scoreCandidate(
+                    obj,
+                    img.getWidth(),
+                    img.getHeight(),
+                    expectedX,
+                    expectedY,
+                    missingFrames,
+                    frameIndex
+            );
+
+            if (best == null || c.score > best.score) {
+                best = c;
+            }
+        }
+
+        if (best != null) {
+            LOG.infof("🏆 Best candidate frame=%d score=%.3f", frameIndex, best.score);
+        }
+
+        return (best != null && best.score > 0.25) ? best : null;
+    }
+
+    private boolean isBallCandidate(DetectedObjects.DetectedObject obj) {
+        String cls = obj.getClassName().toLowerCase();
+
+        if (cls.contains("ball")) return true;
+
+        return (cls.contains("sports") || cls.contains("round"))
+                && obj.getProbability() > 0.3;
+    }
+
+    private Candidate scoreCandidate(DetectedObjects.DetectedObject obj,
+                                     int width,
+                                     int height,
+                                     Double expectedX,
+                                     Double expectedY,
+                                     int missingFrames,
+                                     int frameIndex) {
+
+        Rectangle rect = obj.getBoundingBox().getBounds();
+
+        double cx = rect.getX() + rect.getWidth() / 2.0;
+        double cy = rect.getY() + rect.getHeight() / 2.0;
+        double bw = rect.getWidth();
+        double bh = rect.getHeight();
+
+        // NORMALIZE
+        if (bw > 1.0 || bh > 1.0) {
+            cx /= width;
+            cy /= height;
+            bw /= width;
+            bh /= height;
+        }
+
+        double probability = obj.getProbability();
+
+        // SIZE (soft)
+        double sizeScore = (bw < 0.005 || bh < 0.005 || bw > 0.25 || bh > 0.25) ? 0.2 : 1.0;
+
+        // SHAPE
+        double aspectRatio = bw / bh;
+        double shapeScore = Math.max(0.0, 1.0 - Math.abs(1.0 - aspectRatio));
+
+        // DISTANCE
+        double distanceScore = 1.0;
+        double distance = 0.0;
+
+        if (expectedX != null) {
+            double dx = cx - expectedX;
+            double dy = cy - expectedY;
+            distance = Math.sqrt(dx * dx + dy * dy);
+
+            double maxDistance = 0.25 + (missingFrames * 0.08);
+
+            distanceScore = Math.max(0.0, 1.0 - (distance / maxDistance));
+        }
+
+        double score =
+                (probability * 0.5)
+                        + (distanceScore * 0.3)
+                        + (shapeScore * 0.1)
+                        + (sizeScore * 0.1);
+
+        LOG.infof("🟡 Candidate frame=%d x=%.4f y=%.4f prob=%.3f dist=%.4f score=%.3f",
+                frameIndex, cx, cy, probability, distance, score);
+
+        Candidate c = new Candidate();
+        c.cx = cx;
+        c.cy = cy;
+        c.score = score;
+
+        return c;
+    }
+
+    private BallPointDTO acceptCandidate(Candidate c,
+                                         KalmanBallFilterDTO kalman,
+                                         ShotContext context,
+                                         int frameIndex,
+                                         BufferedImage img) {
+
+        double cx = c.cx;
+        double cy = c.cy;
+
+        int width = img.getWidth();
+        int height = img.getHeight();
+
+        // STABILIZZAZIONE
+        if (context.stabilized) {
+            Point pixelPoint = new Point(cx * width, cy * height);
+
+            pixelPoint = stabilizationService.stabilizePoint(
+                    pixelPoint,
+                    context.frameTransforms.get(frameIndex - 1)
+            );
+
+            cx = pixelPoint.getX() / width;
+            cy = pixelPoint.getY() / height;
+        }
+
+        // KALMAN
+        if (!kalman.isInitialized()) {
+            kalman.init(cx, cy);
+            LOG.info("🧠 Kalman filter initialized");
+        } else {
+            kalman.update(cx, cy);
+        }
+
+        return new BallPointDTO(
+                kalman.getX(),
+                kalman.getY(),
+                frameIndex
+        );
+    }
+
+    private BallPointDTO predict(KalmanBallFilterDTO kalman,
+                                 int frameIndex,
+                                 int missingFrames) {
+
+        if (!kalman.isInitialized()) return null;
+
+        if (missingFrames >= 5) return null;
+
+        kalman.predict();
+
+        return new BallPointDTO(
+                kalman.getX(),
+                kalman.getY(),
+                frameIndex
+        );
     }
 }
