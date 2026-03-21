@@ -10,6 +10,7 @@ import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -491,5 +492,100 @@ public class ShotMetricsService {
         }
 
         return bestIndex;
+    }
+
+    public ShotMetricsDTO computeAll(ShotContext ctx) {
+
+        ShotMetricsDTO m = new ShotMetricsDTO();
+
+        if (ctx.flightArcNorm == null || ctx.flightArcNorm.size() < 3)
+            return m;
+
+        double path = computePathLength(ctx.flightArcNorm);
+
+        double deviation = trajectoryDeviation(
+                ctx.flightArcNorm,
+                ctx.idealArcNorm
+        );
+
+        m = calculateMetrics(ctx);
+
+        m.setReleaseFrame(ctx.releaseFrame);
+        m.setTrajectoryDistance(path);
+        m.setTrajectoryDeviation(deviation);
+
+        return m;
+    }
+
+    public void evaluateMakeMiss(ShotContext ctx) {
+
+        List<Point> trajectory = ctx.flightArcNorm;
+
+        if (trajectory == null || trajectory.size() < 3) {
+            ctx.metrics.setMake(false);
+            ctx.metrics.setMissType("UNKNOWN");
+            return;
+        }
+
+        boolean make = false;
+
+        for (Point p : trajectory) {
+            double d = Math.hypot(
+                    p.getX() - ctx.hoopNorm.center.getX(),
+                    p.getY() - ctx.hoopNorm.center.getY()
+            );
+
+            if (d <= ctx.hoopNorm.radius * 1.25) {
+                make = true;
+            }
+        }
+
+        ctx.metrics.setMake(make);
+
+        if (!make) {
+            ctx.metrics.setMissType("MISS"); // 🔥 migliorabile dopo
+        }
+    }
+
+    public void evaluateShotQuality(ShotContext ctx) {
+
+        ShotMetricsDTO m = ctx.metrics;
+
+        int score = 100;
+        List<String> errors = new ArrayList<>();
+        List<String> suggestions = new ArrayList<>();
+
+        if (m.getReleaseAngle() < 42) {
+            errors.add("Release angle too flat");
+            score -= 12;
+        }
+
+        if (m.getReleaseAngle() > 60) {
+            errors.add("Release angle too high");
+            score -= 8;
+        }
+
+        if (m.getArcHeight() < 80) {
+            errors.add("Low arc");
+            score -= 10;
+        }
+
+        if (m.getEntryAngle() < 35) {
+            errors.add("Flat entry angle");
+            score -= 8;
+        }
+
+        if (m.getTrajectoryDeviation() > 40) {
+            errors.add("Arc too flat vs ideal");
+            score -= 10;
+        }
+
+        if (m.getTrajectoryDeviation() < 15) {
+            suggestions.add("Excellent shooting arc");
+        }
+
+        m.setScore(Math.max(score, 0));
+        m.setErrors(errors);
+        m.setSuggestions(suggestions);
     }
 }

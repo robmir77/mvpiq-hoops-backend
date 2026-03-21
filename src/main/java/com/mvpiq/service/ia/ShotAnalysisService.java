@@ -4,6 +4,7 @@ import ai.djl.modality.cv.output.Point;
 import com.mvpiq.dto.BallPointDTO;
 import com.mvpiq.dto.ShotMetricsDTO;
 import com.mvpiq.enums.HandSide;
+import com.mvpiq.enums.ShotType;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.json.Json;
@@ -15,7 +16,6 @@ import org.jboss.logging.Logger;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,7 +25,7 @@ public class ShotAnalysisService {
     private static final Logger LOG = Logger.getLogger(ShotAnalysisService.class);
 
     @ConfigProperty(name = "mvpiq.hoop.search-frames")
-    int searchFrames;
+    int fps;
 
     @Inject HoopDetectionService hoopDetector;
     @Inject BallTrackingService aiTracker;
@@ -39,13 +39,14 @@ public class ShotAnalysisService {
 
         validateFrames(frames);
 
-        ShotContext ctx = new ShotContext(searchFrames);
-        ctx.frames = frames;
+        ShotContext ctx = new ShotContext(frames, fps, ShotType.MID_COURT);
 
-        initFrameSize(ctx);
+        ctx.initFrameSize(LOG);
+        ctx.initScale(LOG);
 
         trackBall(ctx);
         detectHoop(ctx);
+
         trackPose(ctx);
 
         detectShotEvents(ctx);
@@ -53,25 +54,47 @@ public class ShotAnalysisService {
 
         buildTrajectories(ctx);
 
-        ctx.metrics = computeMetrics(ctx);
+        ctx.metrics = shotMetricsService.computeAll(ctx);
 
-        evaluateShotResult(ctx);
+        shotMetricsService.evaluateMakeMiss(ctx);
+        shotMetricsService.evaluateShotQuality(ctx);
 
         enrichMetrics(ctx);
-
         drawOverlay(ctx);
 
-        return evaluateShot(ctx.metrics);
+        ctx.logState(LOG);
+
+        return buildJson(ctx);
     }
 
-    private void initFrameSize(ShotContext ctx) {
-        try {
-            BufferedImage first = ImageIO.read(ctx.frames.get(0));
-            ctx.frameWidth = first.getWidth();
-            ctx.frameHeight = first.getHeight();
-        } catch (IOException e) {
-            throw new RuntimeException("Cannot read first frame", e);
-        }
+    private JsonObject buildJson(ShotContext ctx) {
+
+        ShotMetricsDTO m = ctx.metrics;
+
+        JsonArrayBuilder errors = Json.createArrayBuilder();
+        m.getErrors().forEach(errors::add);
+
+        JsonArrayBuilder suggestions = Json.createArrayBuilder();
+        m.getSuggestions().forEach(suggestions::add);
+
+        return Json.createObjectBuilder()
+                .add("score", m.getScore())
+                .add("make", m.isMake())
+                .add("missType", m.getMissType() == null ? "" : m.getMissType())
+                .add("releaseFrame", m.getReleaseFrame())
+                .add("distance", m.getDistance())
+                .add("trajectoryDistance", m.getTrajectoryDistance())
+                .add("trajectoryDeviation", m.getTrajectoryDeviation())
+                .add("metrics", Json.createObjectBuilder()
+                        .add("releaseAngle", m.getReleaseAngle())
+                        .add("entryAngle", m.getEntryAngle())
+                        .add("releaseSpeed", m.getReleaseSpeed())
+                        .add("arcHeight", m.getArcHeight())
+                        .add("trajectoryQuality", m.getTrajectoryQuality()))
+                .add("errors", errors)
+                .add("suggestions", suggestions)
+                .add("shotDifficulty", m.getShotDifficulty())
+                .build();
     }
 
     // =========================
@@ -85,155 +108,8 @@ public class ShotAnalysisService {
 
         ctx.idealArcNorm = shotMetricsService.buildIdealArc(ctx,0.15);
 
-        ctx.physicsArcNorm = trajectoryService.buildPhysicsArc(ctx,0.15);
+        ctx.physicsArcNorm = trajectoryService.buildRealPhysicsArc(ctx); // 🔥 sweet spot NBA
 
-    }
-
-    public JsonObject evaluateShot(ShotMetricsDTO metrics) {
-
-        // -------------------------
-        // VALIDATION
-        // -------------------------
-        if (metrics == null) {
-            LOG.warn("Shot evaluation failed: metrics is null");
-
-            return Json.createObjectBuilder()
-                    .add("score", 0)
-                    .add("make", false)
-                    .add("missType", "UNKNOWN")
-                    .add("releaseFrame", 0)
-                    .add("distance", 0)
-                    .add("trajectoryDistance", 0)
-                    .add("trajectoryDeviation", 0)
-                    .add("metrics", Json.createObjectBuilder()
-                            .add("releaseAngle", 0)
-                            .add("entryAngle", 0)
-                            .add("releaseSpeed", 0)
-                            .add("arcHeight", 0)
-                            .add("trajectoryQuality", 0))
-                    .add("errors", Json.createArrayBuilder()
-                            .add("Shot metrics not available"))
-                    .add("suggestions", Json.createArrayBuilder())
-                    .add("shotDifficulty", 0)
-                    .build();
-        }
-
-        // -------------------------
-        // INIT
-        // -------------------------
-        JsonArrayBuilder errors = Json.createArrayBuilder();
-        JsonArrayBuilder suggestions = Json.createArrayBuilder();
-
-        int score = 100;
-
-        LOG.infof(
-                "Evaluating shot -> releaseAngle=%.2f entryAngle=%.2f arcHeight=%.2f deviation=%.2f",
-                metrics.getReleaseAngle(),
-                metrics.getEntryAngle(),
-                metrics.getArcHeight(),
-                metrics.getTrajectoryDeviation()
-        );
-
-        // -------------------------
-        // RELEASE ANGLE
-        // -------------------------
-        if (metrics.getReleaseAngle() < 42) {
-            errors.add("Release angle too flat");
-            score -= 12;
-        }
-
-        if (metrics.getReleaseAngle() > 60) {
-            errors.add("Release angle too high");
-            score -= 8;
-        }
-
-        // -------------------------
-        // ARC HEIGHT
-        // -------------------------
-        if (metrics.getArcHeight() < 80) {
-            errors.add("Low arc");
-            score -= 10;
-        }
-
-        // -------------------------
-        // ENTRY ANGLE
-        // -------------------------
-        if (metrics.getEntryAngle() < 35) {
-            errors.add("Flat entry angle");
-            score -= 8;
-        }
-
-        // -------------------------
-        // TRAJECTORY DEVIATION
-        // -------------------------
-        if (metrics.getTrajectoryDeviation() > 40) {
-            errors.add("Arc too flat compared to ideal trajectory");
-            score -= 10;
-        }
-
-        if (metrics.getTrajectoryDeviation() < 15) {
-            suggestions.add("Excellent shooting arc");
-        }
-
-        // -------------------------
-        // SCORE NORMALIZATION
-        // -------------------------
-        if (score < 0) {
-            score = 0;
-        }
-
-        LOG.infof(
-                "Shot evaluation completed -> score=%d make=%s missType=%s",
-                score,
-                metrics.isMake(),
-                metrics.getMissType()
-        );
-
-        // -------------------------
-        // BUILD RESULT
-        // -------------------------
-        return Json.createObjectBuilder()
-                .add("score", score)
-                .add("make", metrics.isMake())
-                .add("missType", metrics.getMissType() == null ? "" : metrics.getMissType())
-                .add("releaseFrame", metrics.getReleaseFrame())
-                .add("distance", metrics.getDistance())
-                .add("trajectoryDistance", metrics.getTrajectoryDistance())
-                .add("trajectoryDeviation", metrics.getTrajectoryDeviation())
-                .add("metrics", Json.createObjectBuilder()
-                        .add("releaseAngle", metrics.getReleaseAngle())
-                        .add("entryAngle", metrics.getEntryAngle())
-                        .add("releaseSpeed", metrics.getReleaseSpeed())
-                        .add("arcHeight", metrics.getArcHeight())
-                        .add("trajectoryQuality", metrics.getTrajectoryQuality()))
-                .add("errors", errors)
-                .add("suggestions", suggestions)
-                .add("shotDifficulty", metrics.getShotDifficulty())
-                .build();
-    }
-
-    public void evaluateShotResult(ShotContext ctx) {
-
-        List<Point> trajectory = ctx.flightArcNorm;
-
-        if (trajectory == null || trajectory.size() < 3) {
-            ctx.metrics.setMake(false);
-            ctx.metrics.setMissType("UNKNOWN");
-            return;
-        }
-
-        boolean make = false;
-
-        for (Point p : trajectory) {
-            double d = Math.hypot(
-                    p.getX() - ctx.hoopNorm.center.getX(),
-                    p.getY() - ctx.hoopNorm.center.getY()
-            );
-
-            if (d <= ctx.hoopNorm.radius * 1.25) make = true;
-        }
-
-        ctx.metrics.setMake(make);
     }
 
     private void validateFrames(List<File> frames) {
@@ -263,7 +139,7 @@ public class ShotAnalysisService {
 
     private Hoop detectHoopFromFrames(List<File> frames) {
 
-        int framesToCheck = Math.min(searchFrames, frames.size());
+        int framesToCheck = Math.min(fps, frames.size());
 
         for (int i = 0; i < framesToCheck; i++) {
 
@@ -417,32 +293,6 @@ public class ShotAnalysisService {
         } catch (Exception e) {
             ctx.shootingHand = HandSide.RIGHT;
         }
-    }
-
-    // =========================
-    // METRICS
-    // =========================
-    private ShotMetricsDTO computeMetrics(ShotContext ctx) {
-
-        if (ctx.flightArcNorm == null || ctx.flightArcNorm.size() < 3)
-            return new ShotMetricsDTO();
-
-        double path = shotMetricsService.computePathLength(ctx.flightArcNorm);
-
-        LOG.infof("IDEAL ARC SAMPLE: f(0.5)=%.3f", ctx.idealArcNorm.value(0.5));
-
-        double deviation = shotMetricsService.trajectoryDeviation(
-                ctx.flightArcNorm,
-                ctx.idealArcNorm
-        );
-
-        ShotMetricsDTO m = shotMetricsService.calculateMetrics(ctx);
-
-        m.setReleaseFrame(ctx.releaseFrame);
-        m.setTrajectoryDistance(path);
-        m.setTrajectoryDeviation(deviation);
-
-        return m;
     }
 
     private void enrichMetrics(ShotContext ctx) {

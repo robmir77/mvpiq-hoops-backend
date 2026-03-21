@@ -59,14 +59,14 @@ public class OverlayDrawerService {
         // =========================
         List<LegendItem> legend = new ArrayList<>();
 
-        drawArcNorm(g, ctx.realArcNorm, width, height, Color.BLUE);
-        legend.add(new LegendItem(Color.BLUE, "Traiettoria reale"));
+        drawArcNorm(g, ctx.realArcNorm, width, height, Color.GREEN);
+        legend.add(new LegendItem(Color.GREEN, "Traiettoria reale"));
+
+        drawArcNorm(g, ctx.idealArcNorm, width, height, Color.BLUE);
+        legend.add(new LegendItem(Color.BLUE, "Traiettoria ideale NBA"));
 
         drawArcNorm(g, ctx.physicsArcNorm, width, height, Color.RED);
         legend.add(new LegendItem(Color.RED, "Traiettoria tiro migliore Fisica applicata"));
-
-        drawArcNorm(g, ctx.idealArcNorm, width, height, Color.GREEN);
-        legend.add(new LegendItem(Color.GREEN, "Traiettoria ideale NBA"));
 
         // UNA SOLA VOLTA
         drawLegend(g, legend);

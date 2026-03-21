@@ -1,5 +1,6 @@
 package com.mvpiq.dto;
 
+import jakarta.json.JsonArrayBuilder;
 import lombok.Getter;
 import lombok.Setter;
 import java.util.List;
@@ -127,6 +128,11 @@ public class ShotMetricsDTO {
     // TRUE = canestro segnato
 
     private String missType;
+
+    int score;
+
+    List<String> errors;
+
     // Tipo errore:
     // "SHORT", "LONG", "LEFT", "RIGHT", "UNKNOWN"
 }

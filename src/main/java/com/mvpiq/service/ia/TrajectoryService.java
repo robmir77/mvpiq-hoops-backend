@@ -258,78 +258,174 @@ public class TrajectoryService {
         return points == null ? Collections.emptyList() : points;
     }
 
-    public PolynomialFunction buildPhysicsArc(ShotContext ctx, double apexHeight) {
+    public PolynomialFunction buildRealPhysicsArc(ShotContext ctx) {
 
-        Point p0 = ctx.releaseNorm;
-
-        if (ctx.hoopNorm == null || p0 == null) {
+        if (ctx.releaseNorm == null || ctx.hoopNorm == null) {
             return null;
         }
 
-        // === NORMALIZZAZIONE HOOP ===
-        Point raw = ctx.hoopNorm.getCenter();
-        Point p1 = new Point(
-                raw.getX() / ctx.frameWidth,
-                raw.getY() / ctx.frameHeight
-        );
-
-        double x0 = p0.getX();
-        double y0 = p0.getY();
-
-        double x1 = p1.getX();
-        double y1 = p1.getY();
-
-        // === DIREZIONE SEMPRE DA SINISTRA A DESTRA ===
-        boolean flipped = false;
-        if (x1 < x0) {
-            flipped = true;
-
-            double tmpX = x0; x0 = x1; x1 = tmpX;
-            double tmpY = y0; y0 = y1; y1 = tmpY;
+        if (ctx.metersPerPixel <= 0) {
+            return null;
         }
 
+        // =========================
+        // 🔁 PIXEL → METRI
+        // =========================
+        double x0 = ctx.releaseNorm.getX() * ctx.frameWidth * ctx.metersPerPixel;
+        double y0 = (1.0 - ctx.releaseNorm.getY()) * ctx.frameHeight * ctx.metersPerPixel;
+
+        double x1 = ctx.hoopNorm.getCenter().getX() * ctx.frameWidth * ctx.metersPerPixel;
+        double y1 = (1.0 - ctx.hoopNorm.getCenter().getY()) * ctx.frameHeight * ctx.metersPerPixel;
+
         double dx = x1 - x0;
+        double dy = y1 - y0;
+
         if (Math.abs(dx) < 1e-6) {
             return null;
         }
 
-        // === DISTANZA ===
-        double distance = Math.abs(dx);
+        // =========================
+        // 🌍 GRAVITÀ REALE
+        // =========================
+        double g = 9.81;
 
-        // === APEX (spostato in avanti, NON al centro) ===
-        double xm = x0 + dx * 0.45;
+        // =========================
+        // 🎯 RICERCA θ + v0
+        // =========================
+        double bestTheta = 0;
+        double bestV0 = 0;
+        double bestError = Double.MAX_VALUE;
 
-        // === ALTEZZA ARCO (scalata e limitata) ===
-        double arcBoost = Math.min(distance, 0.5);
-        double baseHeight = Math.min(y0, y1);
+        for (double theta = Math.toRadians(35); theta <= Math.toRadians(65); theta += Math.toRadians(1)) {
 
-        double ym = baseHeight - (arcBoost * apexHeight);
-        ym = Math.max(0.05, ym); // evita schiacciamenti
+            double cos = Math.cos(theta);
+            double tan = Math.tan(theta);
 
-        // === COSTRUZIONE PARABOLA (forma stabile) ===
-        // Forma: y = a(x - xm)^2 + ym
+            if (cos <= 0) continue;
 
-        double a = (y0 - ym) / ((x0 - xm) * (x0 - xm));
+            for (double v0 = 5.0; v0 <= 14.0; v0 += 0.3) {
 
-        // Se per qualche motivo è positiva → forziamo concavità corretta
-        if (a > 0) {
-            a = -Math.abs(a);
+                double denom = 2 * v0 * v0 * cos * cos;
+
+                double yPred = y0 + dx * tan - (g * dx * dx) / denom;
+
+                double error = Math.abs(yPred - y1);
+
+                if (error < bestError) {
+                    bestError = error;
+                    bestTheta = theta;
+                    bestV0 = v0;
+                }
+            }
         }
 
-        double b = -2 * a * xm;
-        double c = a * xm * xm + ym;
-
-        // === SE AVEVI FLIPPATO → RIPRISTINA ===
-        if (flipped) {
-            // riflessione orizzontale
-            double newA = a;
-            double newB = -b;
-            double newC = c;
-
-            return new PolynomialFunction(new double[]{newC, newB, newA});
+        if (bestError == Double.MAX_VALUE) {
+            return null;
         }
 
-        return new PolynomialFunction(new double[]{c, b, a});
+        // =========================
+        // 🏀 TRAIETTORIA
+        // =========================
+        int samples = 30;
+        List<Point> points = new java.util.ArrayList<>();
+
+        for (int i = 0; i <= samples; i++) {
+
+            double t = (double) i / samples;
+
+            double x = x0 + dx * t;
+
+            double y = y0
+                    + (x - x0) * Math.tan(bestTheta)
+                    - (g * Math.pow((x - x0), 2)) / (2 * bestV0 * bestV0 * Math.pow(Math.cos(bestTheta), 2));
+
+            // =========================
+            // 🔁 METRI → NORMALIZZATO
+            // =========================
+            double xNorm = x / (ctx.frameWidth * ctx.metersPerPixel);
+            double yNorm = 1.0 - (y / (ctx.frameHeight * ctx.metersPerPixel));
+
+            points.add(new Point(xNorm, yNorm));
+        }
+
+        return fitPolynomial(points);
+    }
+
+    private PolynomialFunction fitPolynomial(List<Point> points) {
+
+        if (points == null || points.size() < 3) {
+            return null;
+        }
+
+        int n = points.size();
+
+        double sumX = 0, sumX2 = 0, sumX3 = 0, sumX4 = 0;
+        double sumY = 0, sumXY = 0, sumX2Y = 0;
+
+        for (Point p : points) {
+            double x = p.getX();
+            double y = p.getY();
+
+            double x2 = x * x;
+
+            sumX += x;
+            sumX2 += x2;
+            sumX3 += x2 * x;
+            sumX4 += x2 * x2;
+
+            sumY += y;
+            sumXY += x * y;
+            sumX2Y += x2 * y;
+        }
+
+        double[][] A = {
+                {sumX4, sumX3, sumX2},
+                {sumX3, sumX2, sumX},
+                {sumX2, sumX, n}
+        };
+
+        double[] B = {sumX2Y, sumXY, sumY};
+
+        double[] coeff = solve3x3(A, B);
+
+        if (coeff == null) {
+            return null;
+        }
+
+        return new PolynomialFunction(coeff);
+    }
+
+    private double[] solve3x3(double[][] A, double[] B) {
+
+        double detA =
+                A[0][0] * (A[1][1]*A[2][2] - A[2][1]*A[1][2]) -
+                        A[0][1] * (A[1][0]*A[2][2] - A[2][0]*A[1][2]) +
+                        A[0][2] * (A[1][0]*A[2][1] - A[2][0]*A[1][1]);
+
+        if (Math.abs(detA) < 1e-9) {
+            return null;
+        }
+
+        double detA0 =
+                B[0] * (A[1][1]*A[2][2] - A[2][1]*A[1][2]) -
+                        A[0][1] * (B[1]*A[2][2] - A[2][1]*B[2]) +
+                        A[0][2] * (B[1]*A[2][1] - A[2][0]*B[2]);
+
+        double detA1 =
+                A[0][0] * (B[1]*A[2][2] - A[2][0]*B[2]) -
+                        B[0] * (A[1][0]*A[2][2] - A[2][0]*A[1][2]) +
+                        A[0][2] * (A[1][0]*B[2] - B[1]*A[2][0]);
+
+        double detA2 =
+                A[0][0] * (A[1][1]*B[2] - B[1]*A[2][1]) -
+                        A[0][1] * (A[1][0]*B[2] - B[1]*A[2][0]) +
+                        B[0] * (A[1][0]*A[2][1] - A[2][0]*A[1][1]);
+
+        double a = detA0 / detA;
+        double b = detA1 / detA;
+        double c = detA2 / detA;
+
+        return new double[]{a, b, c};
     }
 }
 
