@@ -210,8 +210,8 @@ public class BallTrackingService {
 
         if (cls.contains("ball")) return true;
 
-        return (cls.contains("sports") || cls.contains("round"))
-                && obj.getProbability() > 0.3;
+        return (cls.contains("sports") || cls.contains("round") || cls.contains("tennis racket") || cls.contains("apple"))
+                && obj.getProbability() > 0.2;
     }
 
     private Candidate scoreCandidate(DetectedObjects.DetectedObject obj,
@@ -261,9 +261,9 @@ public class BallTrackingService {
         }
 
         double score =
-                (probability * 0.5)
+                (probability * 0.4)
                         + (distanceScore * 0.3)
-                        + (shapeScore * 0.1)
+                        + (shapeScore * 0.2)
                         + (sizeScore * 0.1);
 
         LOG.infof("🟡 Candidate frame=%d x=%.4f y=%.4f prob=%.3f dist=%.4f score=%.3f",
