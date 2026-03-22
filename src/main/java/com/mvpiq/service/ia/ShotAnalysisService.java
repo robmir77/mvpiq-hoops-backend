@@ -263,6 +263,9 @@ public class ShotAnalysisService {
 
             List<BallPointDTO> norm = aiTracker.trackBallAI(ctx);
 
+            // 🔥 NORMALIZZAZIONE QUI
+            norm = normalizeTrajectory(norm, ctx.frameWidth, ctx.frameHeight);
+
             norm = trajectoryService.smoothTrajectory(norm);
             norm = trajectoryService.filterTrajectory(norm);
 
@@ -272,6 +275,32 @@ public class ShotAnalysisService {
             LOG.error("Ball tracking error", e);
             ctx.ballNorm = new ArrayList<>();
         }
+    }
+
+    private List<BallPointDTO> normalizeTrajectory(List<BallPointDTO> points, int w, int h) {
+
+        List<BallPointDTO> out = new ArrayList<>();
+
+        for (BallPointDTO p : points) {
+            if (p == null) continue;
+
+            double x = p.getX();
+            double y = p.getY();
+
+            // se già normalizzato, salta
+            if (x <= 1.0 && y <= 1.0) {
+                out.add(p);
+                continue;
+            }
+
+            out.add(new BallPointDTO(
+                    x / w,
+                    y / h,
+                    p.getFrame()
+            ));
+        }
+
+        return out;
     }
 
     private void trackPose(ShotContext ctx) {

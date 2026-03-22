@@ -260,25 +260,17 @@ public class TrajectoryService {
 
     public PolynomialFunction buildRealPhysicsArc(ShotContext ctx) {
 
-        if (ctx.releaseNorm == null || ctx.hoopNorm == null) {
+        if (!ctx.isPhysicallyValid(LOG)) {
             return null;
         }
 
-        if (ctx.metersPerPixel <= 0) {
-            return null;
-        }
+        Point release = ctx.normToWorld(ctx.releaseNorm);
 
-        // =========================
-        // 🔁 PIXEL → METRI
-        // =========================
-        double x0 = ctx.releaseNorm.getX() * ctx.frameWidth * ctx.metersPerPixel;
-        double y0 = (1.0 - ctx.releaseNorm.getY()) * ctx.frameHeight * ctx.metersPerPixel;
+        double x0 = release.getX();
+        double y0 = release.getY();
 
-        double x1 = ctx.hoopNorm.getCenter().getX() * ctx.frameWidth * ctx.metersPerPixel;
-        double y1 = (1.0 - ctx.hoopNorm.getCenter().getY()) * ctx.frameHeight * ctx.metersPerPixel;
-
-        double dx = x1 - x0;
-        double dy = y1 - y0;
+        double dx = -ctx.getHorizontalDistance(); // vincolato
+        double dy = ctx.getDeltaY();              // reale
 
         if (Math.abs(dx) < 1e-6) {
             return null;
@@ -309,7 +301,7 @@ public class TrajectoryService {
 
                 double yPred = y0 + dx * tan - (g * dx * dx) / denom;
 
-                double error = Math.abs(yPred - y1);
+                double error = Math.abs(yPred - dy);
 
                 if (error < bestError) {
                     bestError = error;
@@ -322,6 +314,13 @@ public class TrajectoryService {
         if (bestError == Double.MAX_VALUE) {
             return null;
         }
+
+        LOG.infof(
+                "[PHYSICS SOLUTION] theta=%.2f° v0=%.2f m/s error=%.5f",
+                Math.toDegrees(bestTheta),
+                bestV0,
+                bestError
+        );
 
         // =========================
         // 🏀 TRAIETTORIA
@@ -346,6 +345,13 @@ public class TrajectoryService {
             double yNorm = 1.0 - (y / (ctx.frameHeight * ctx.metersPerPixel));
 
             points.add(new Point(xNorm, yNorm));
+
+            if (i == 0 || i == samples / 2 || i == samples) {
+                LOG.infof(
+                        "[PHYSICS POINT] i=%d | x=%.3f y=%.3f | xNorm=%.3f yNorm=%.3f",
+                        i, x, y, xNorm, yNorm
+                );
+            }
         }
 
         return fitPolynomial(points);

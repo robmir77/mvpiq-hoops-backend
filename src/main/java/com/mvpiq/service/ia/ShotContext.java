@@ -273,4 +273,66 @@ public class ShotContext {
             throw new RuntimeException("Cannot read first frame", e);
         }
     }
+
+    public void resolveShotDistance(Logger log) {
+
+        if (!shotType.isAuto()) {
+            shotDistanceMeters = shotType.getDefaultDistanceMeters();
+
+            log.infof("[SHOT] Using predefined shot type %s → distance=%.2f m",
+                    shotType, shotDistanceMeters);
+            return;
+        }
+
+        // fallback (stimato da video)
+        if (releaseNorm != null && hoopNorm != null) {
+
+            Point r = normToWorld(releaseNorm);
+            Point h = new Point(0, 0); // ferro = origine
+
+            double dx = Math.abs(r.getX());
+
+            shotDistanceMeters = dx;
+
+            log.infof("[SHOT] AUTO distance estimated → %.2f m", shotDistanceMeters);
+        }
+    }
+
+    public double getHorizontalDistance() {
+        return shotDistanceMeters;
+    }
+
+    public double getHoopHeight() {
+        return 3.05; // metri reali
+    }
+
+    public double getReleaseHeight() {
+        Point r = normToWorld(releaseNorm);
+        return r != null ? r.getY() : 0;
+    }
+
+    public double getDeltaY() {
+        return getHoopHeight() - getReleaseHeight();
+    }
+
+    public boolean isPhysicallyValid(Logger log) {
+
+        if (metersPerPixel <= 0) {
+            log.warn("[VALIDATION] Invalid scale");
+            return false;
+        }
+
+        if (shotDistanceMeters <= 0) {
+            log.warn("[VALIDATION] Invalid shot distance");
+            return false;
+        }
+
+        double h = getReleaseHeight();
+
+        if (h < 1.5 || h > 3.5) {
+            log.warnf("[VALIDATION] Suspicious release height: %.2f m", h);
+        }
+
+        return true;
+    }
 }
