@@ -266,18 +266,34 @@ public class TrajectoryService {
 
         Point release = ctx.normToWorld(ctx.releaseNorm);
 
-        double x0 = release.getX();
-        double y0 = release.getY();
+        LOG.infof(
+                "[WORLD CHECK] releaseNorm=(%.3f, %.3f) → world=(%.2f m, %.2f m)",
+                ctx.releaseNorm.getX(),
+                ctx.releaseNorm.getY(),
+                release.getX(),
+                release.getY()
+        );
 
-        double dx = -ctx.getHorizontalDistance(); // vincolato
-        double dy = ctx.getDeltaY();              // reale
+        // =========================
+        // 🌍 POSIZIONE REALE
+        // =========================
+        double x0 = release.getX();
+        double y0 = release.getY(); // ✅ FIX (NO + HOOP_HEIGHT)
+
+        double HOOP_HEIGHT = ctx.getHoopHeight();
+
+        // distanza orizzontale (release → ferro)
+        double dx = -ctx.getHorizontalDistance();
+
+        // target verticale (ferro)
+        double dy = HOOP_HEIGHT - y0;
 
         if (Math.abs(dx) < 1e-6) {
             return null;
         }
 
         // =========================
-        // 🌍 GRAVITÀ REALE
+        // 🌍 GRAVITÀ
         // =========================
         double g = 9.81;
 
@@ -301,7 +317,9 @@ public class TrajectoryService {
 
                 double yPred = y0 + dx * tan - (g * dx * dx) / denom;
 
-                double error = Math.abs(yPred - dy);
+                double yTarget = y0 + dy;
+
+                double error = Math.abs(yPred - yTarget);
 
                 if (error < bestError) {
                     bestError = error;
@@ -326,7 +344,10 @@ public class TrajectoryService {
         // 🏀 TRAIETTORIA
         // =========================
         int samples = 30;
-        List<Point> points = new java.util.ArrayList<>();
+        List<Point> points = new ArrayList<>();
+
+        // 🔥 ORIGINE = RELEASE (FIX CRITICO)
+        Point releasePx = ctx.normToPixel(ctx.releaseNorm);
 
         for (int i = 0; i <= samples; i++) {
 
@@ -339,10 +360,16 @@ public class TrajectoryService {
                     - (g * Math.pow((x - x0), 2)) / (2 * bestV0 * bestV0 * Math.pow(Math.cos(bestTheta), 2));
 
             // =========================
-            // 🔁 METRI → NORMALIZZATO
+            // 🔁 WORLD → PIXEL (FIX)
             // =========================
-            double xNorm = x / (ctx.frameWidth * ctx.metersPerPixel);
-            double yNorm = 1.0 - (y / (ctx.frameHeight * ctx.metersPerPixel));
+            double px = releasePx.getX() + ((x - x0) / ctx.metersPerPixel);
+            double py = releasePx.getY() - ((y - y0) / ctx.metersPerPixel);
+
+            // =========================
+            // 🔁 PIXEL → NORMALIZED
+            // =========================
+            double xNorm = px / ctx.frameWidth;
+            double yNorm = py / ctx.frameHeight;
 
             points.add(new Point(xNorm, yNorm));
 

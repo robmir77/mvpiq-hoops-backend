@@ -195,23 +195,21 @@ public class ShotContext {
     // =========================
     public Point normToWorld(Point norm) {
 
-        if (norm == null || hoopNorm == null) return null;
+        double HOOP_HEIGHT = 3.05;
 
-        Point ballPx = normToPixel(norm);
+        double hoopPxX = hoopNorm.getCenter().getX() * frameWidth;
+        double hoopPxY = hoopNorm.getCenter().getY() * frameHeight;
 
-        Point hoopPx = normToPixel(new Point(
-                hoopNorm.center.getX(),
-                hoopNorm.center.getY()
-        ));
+        double px = norm.getX() * frameWidth;
+        double py = norm.getY() * frameHeight;
 
-        // 🔥 coordinate relative al ferro
-        double dx = ballPx.getX() - hoopPx.getX();
-        double dy = hoopPx.getY() - ballPx.getY(); // invertiamo Y
+        double dxPx = px - hoopPxX;
+        double dyPx = hoopPxY - py; // invertito (pixel → world)
 
-        double mx = dx * metersPerPixel;
-        double my = dy * metersPerPixel;
+        double x = dxPx * metersPerPixel;
+        double y = HOOP_HEIGHT + (dyPx * metersPerPixel); // 🔥 QUI STA LA CHIAVE
 
-        return new Point(mx, my);
+        return new Point(x, y);
     }
 
     // =========================

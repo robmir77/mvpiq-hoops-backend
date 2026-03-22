@@ -43,25 +43,59 @@ public class ShotAnalysisService {
 
         ShotContext ctx = initShotContext(frames, analisysType);
 
+        // =========================
+        // 🎬 VIDEO BASE INFO
+        // =========================
         ctx.initFrameSize(LOG);
 
+        // =========================
+        // 🏀 TRACKING RAW
+        // =========================
         trackBall(ctx);
         detectHoop(ctx);
 
+        // =========================
+        // 🔥 SCALE (SERVE PER WORLD)
+        // =========================
         ctx.initScale(LOG);
 
+        // =========================
+        // 🧍 POSE
+        // =========================
         trackPose(ctx);
 
+        // =========================
+        // 🎯 EVENTI TIRO
+        // =========================
         detectShotEvents(ctx);
         resolveShootingHand(ctx);
 
+        // =========================
+        // 🌍 FISICA (STEP CHIAVE)
+        // =========================
+        ctx.resolveShotDistance(LOG);
+
+        if (!ctx.isPhysicallyValid(LOG)) {
+            LOG.warn("❌ Invalid physical context → abort analysis");
+            //return buildJson(ctx);
+        }
+
+        // =========================
+        // 📈 TRAIETTORIE
+        // =========================
         buildTrajectories(ctx);
 
+        // =========================
+        // 📊 METRICHE
+        // =========================
         ctx.metrics = shotMetricsService.computeAll(ctx);
 
         shotMetricsService.evaluateMakeMiss(ctx);
         shotMetricsService.evaluateShotQuality(ctx);
 
+        // =========================
+        // 🎨 OUTPUT
+        // =========================
         enrichMetrics(ctx);
         drawOverlay(ctx);
 
