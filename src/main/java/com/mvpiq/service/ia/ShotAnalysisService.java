@@ -3,8 +3,10 @@ package com.mvpiq.service.ia;
 import ai.djl.modality.cv.output.Point;
 import com.mvpiq.dto.BallPointDTO;
 import com.mvpiq.dto.ShotMetricsDTO;
+import com.mvpiq.enums.AnalisysType;
 import com.mvpiq.enums.HandSide;
 import com.mvpiq.enums.ShotType;
+import jakarta.annotation.Nonnull;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.json.Json;
@@ -35,17 +37,18 @@ public class ShotAnalysisService {
     @Inject PoseTrackingService poseTracker;
     @Inject VideoStabilizationService stabilizationService;
 
-    public JsonObject analyzeShot(List<File> frames) {
+    public JsonObject analyzeShot(List<File> frames, AnalisysType analisysType) {
 
         validateFrames(frames);
 
-        ShotContext ctx = new ShotContext(frames, fps, ShotType.MID_COURT);
+        ShotContext ctx = initShotContext(frames, analisysType);
 
         ctx.initFrameSize(LOG);
-        ctx.initScale(LOG);
 
         trackBall(ctx);
         detectHoop(ctx);
+
+        ctx.initScale(LOG);
 
         trackPose(ctx);
 
@@ -65,6 +68,31 @@ public class ShotAnalysisService {
         ctx.logState(LOG);
 
         return buildJson(ctx);
+    }
+
+    @Nonnull
+    private ShotContext initShotContext(List<File> frames, AnalisysType analisysType) {
+        ShotType shotType;
+
+        switch (analisysType) {
+            case BASKET_FREE_THROW:
+                shotType = ShotType.FREE_THROW;
+                break;
+
+            case BASKET_THREE_POINT_SHOT:
+                shotType = ShotType.LONG_THREE;
+                break;
+
+            case BASKET_MID_COURT:
+                shotType = ShotType.MID_COURT;
+                break;
+
+            default:
+                throw new RuntimeException("analyzeShot non supporta il tipo tiro!");
+
+        }
+
+        return new ShotContext(frames, fps, shotType);
     }
 
     private JsonObject buildJson(ShotContext ctx) {

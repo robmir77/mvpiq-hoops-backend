@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mvpiq.dto.*;
+import com.mvpiq.enums.AnalisysType;
 import com.mvpiq.model.VideoAnalysisSession;
 import com.mvpiq.model.VideoAnalysisResult;
 import com.mvpiq.model.VideoAnalysisType;
@@ -46,7 +47,9 @@ public class VideoAnalysisService {
 
     public AnalysisSessionResponseDTO createSession(CreateAnalysisSessionRequestDTO request) {
 
-        var type = typeRepository.findByCode(request.getAnalysisCode())
+        AnalisysType analisysType = AnalisysType.fromString(request.getAnalysisCode());
+
+        var type = typeRepository.findByCode(analisysType)
                 .orElseThrow(() -> new RuntimeException("Analysis type not found"));
 
         VideoAnalysisSession session = newVideoAnalysisSession(request, type);
@@ -57,7 +60,7 @@ public class VideoAnalysisService {
         AnalysisSessionResponseDTO response = new AnalysisSessionResponseDTO();
         response.id = session.id;
         response.status = session.status;
-        response.analysisCode = type.code;
+        response.analysisCode = type.code.name();
         response.createdAt = session.createdAt;
 
         return response;

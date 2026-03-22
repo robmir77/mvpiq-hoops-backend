@@ -1,5 +1,7 @@
 package com.mvpiq.service;
 
+import com.arjuna.ats.jta.exceptions.NotImplementedException;
+import com.mvpiq.enums.AnalisysType;
 import com.mvpiq.model.VideoAnalysisResult;
 import com.mvpiq.model.VideoAnalysisSession;
 import com.mvpiq.repositories.VideoAnalysisResultRepository;
@@ -30,8 +32,17 @@ public class VideoAnalysisAIService {
         }
 
         try {
+            JsonObject aiResponse = null;
 
-            JsonObject aiResponse = shotAnalysisService.analyzeShot(frames);
+            if (AnalisysType.BASKET_FREE_THROW.equals(session.analysisType.code)
+                    || AnalisysType.BASKET_THREE_POINT_SHOT.equals(session.analysisType.code)
+                    || AnalisysType.BASKET_MID_COURT.equals(session.analysisType.code)
+            ) {
+                aiResponse = shotAnalysisService.analyzeShot(frames, session.analysisType.code);
+            } else {
+                session.status = "FAILED";
+                throw new NotImplementedException("AI analysis not implemented yet");
+            }
 
             saveResult(session, aiResponse);
 

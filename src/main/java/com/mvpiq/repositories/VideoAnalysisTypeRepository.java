@@ -1,5 +1,6 @@
 package com.mvpiq.repositories;
 
+import com.mvpiq.enums.AnalisysType;
 import com.mvpiq.model.VideoAnalysisType;
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -14,7 +15,7 @@ public class VideoAnalysisTypeRepository implements PanacheRepository<VideoAnaly
         return list("isActive", true);
     }
 
-    public Optional<VideoAnalysisType> findByCode(String code) {
+    public Optional<VideoAnalysisType> findByCode(AnalisysType code) {
         return find("code", code).firstResultOptional();
     }
 }
