@@ -23,8 +23,8 @@ public class AuthResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response register(RegisterDTO dto) {
-        User user = authService.register(dto);
-        return Response.ok(user).build();
+        LoginResponseDTO response = authService.register(dto);
+        return Response.ok(response).build();
     }
 
     @POST

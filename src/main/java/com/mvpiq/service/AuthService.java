@@ -24,7 +24,7 @@ public class AuthService {
     PlayerRepository playerRepository;
 
     @Transactional
-    public User register(RegisterDTO dto) {
+    public LoginResponseDTO register(RegisterDTO dto) {
 
         if (userRepository.findByEmail(dto.getEmail()).isPresent()) {
             throw new RuntimeException("Email already in use");
@@ -33,6 +33,8 @@ public class AuthService {
         String hashedPassword = PasswordUtils.hashWithSaltString(dto.getPassword());
 
         UserRole role = dto.getRole() != null ? dto.getRole() : UserRole.player;
+
+        User user;
 
         // Se è player → creiamo direttamente Player (eredita da User)
         if (role == UserRole.player) {
@@ -45,21 +47,35 @@ public class AuthService {
             player.setPasswordHash(hashedPassword);
 
             playerRepository.persist(player);
+            user = player;
+        } else {
+            // Altri ruoli → solo User base
+            user = new User();
+            user.setUsername(dto.getUsername());
+            user.setEmail(dto.getEmail());
+            user.setDisplayName(dto.getDisplayName());
+            user.setRole(role);
+            user.setPasswordHash(hashedPassword);
 
-            return player;
+            userRepository.persist(user);
         }
 
-        // Altri ruoli → solo User base
-        User user = new User();
-        user.setUsername(dto.getUsername());
-        user.setEmail(dto.getEmail());
-        user.setDisplayName(dto.getDisplayName());
-        user.setRole(role);
-        user.setPasswordHash(hashedPassword);
+        // Genera token JWT dopo la registrazione
+        String token = Jwt.issuer("mvpiq-hoops")
+                .subject(user.getId().toString())
+                .claim("role", user.getRole().name())
+                .expiresIn(3600)
+                .sign();
 
-        userRepository.persist(user);
-
-        return user;
+        return LoginResponseDTO.builder()
+                .token(token)
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .role(user.getRole())
+                .verified(user.getVerified())
+                .build();
     }
 
     // LOGIN
