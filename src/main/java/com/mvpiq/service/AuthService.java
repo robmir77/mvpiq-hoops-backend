@@ -5,7 +5,7 @@ import com.mvpiq.dto.LoginDTO;
 import com.mvpiq.dto.LoginResponseDTO;
 import com.mvpiq.dto.RegisterDTO;
 import com.mvpiq.enums.UserRole;
-import com.mvpiq.model.Player;
+import com.mvpiq.model.PlayerProfile;
 import com.mvpiq.model.User;
 import com.mvpiq.repositories.AthleteGoalsRepository;
 import com.mvpiq.repositories.PlayerRepository;
@@ -40,10 +40,10 @@ public class AuthService {
 
         User user;
 
-        // Se è player → creiamo direttamente Player (eredita da User)
+        // Se è player → creiamo direttamente PlayerProfile (eredita da User)
         if (role == UserRole.player) {
 
-            Player player = new Player();
+            PlayerProfile player = new PlayerProfile();
             player.setUsername(dto.getUsername());
             player.setEmail(dto.getEmail());
             player.setDisplayName(dto.getDisplayName());

@@ -29,7 +29,7 @@ public class PlayerCv {
 
     @OneToOne
     @JoinColumn(name = "player_id", nullable = false)
-    private Player player;
+    private PlayerProfile player;
 
     @Column(name = "headline", length = 255)
     @JsonProperty("headline")

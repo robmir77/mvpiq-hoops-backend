@@ -1,6 +1,6 @@
 package com.mvpiq.dto;
 
-import com.mvpiq.model.Player;
+import com.mvpiq.model.PlayerProfile;
 import com.mvpiq.model.PlayerPosition;
 import com.mvpiq.model.PositionMetadata;
 import lombok.*;
@@ -32,8 +32,8 @@ public class PlayerProfileDTO {
     // Campi specifici Player
     @JsonFormat(pattern = "yyyy/MM/dd")
     private LocalDate birthDate;
-    private Short heightCm;
-    private Short weightKg;
+    private Integer heightCm;
+    private Integer weightKg;
 
     // 🔥 ORA USIAMO GLI ID
     private UUID mainPositionId;
@@ -49,7 +49,7 @@ public class PlayerProfileDTO {
     private Integer approximateAge;
     private String gender;
 
-    public static PlayerProfileDTO fromEntity(Player p) {
+    public static PlayerProfileDTO fromEntity(PlayerProfile p) {
 
         UUID mainId = null;
         String mainLabel = null;
@@ -99,7 +99,7 @@ public class PlayerProfileDTO {
                 .build();
     }
 
-    public void updateEntity(Player p) {
+    public void updateEntity(PlayerProfile p) {
 
         // Campi User modificabili
         p.setDisplayName(displayName);
@@ -120,7 +120,7 @@ public class PlayerProfileDTO {
         // 🔥 Le posizioni si aggiornano nel PlayerPositionService
     }
 
-    public static PlayerProfileDTO toDTO(Player p) {
+    public static PlayerProfileDTO toDTO(PlayerProfile p) {
         return fromEntity(p);
     }
 }

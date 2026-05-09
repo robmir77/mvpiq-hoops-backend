@@ -12,7 +12,7 @@ import java.util.UUID;
 public class PlayerProfileRepository implements PanacheRepositoryBase<PlayerProfile, UUID> {
 
     public PlayerProfile findByUserId(UUID userId) {
-        return find("user.id", userId).firstResult();
+        return find("id", userId).firstResult();
     }
 
     public List<PlayerProfile> findByCountry(String country) {

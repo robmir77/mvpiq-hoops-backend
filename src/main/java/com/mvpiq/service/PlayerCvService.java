@@ -48,7 +48,7 @@ public class PlayerCvService {
     @Transactional
     public PlayerCvDTO updateCv(UUID playerId, PlayerCvDTO dto) {
 
-        Player player = playerRepository.findByIdOptional(playerId)
+        PlayerProfile player = playerRepository.findByIdOptional(playerId)
                 .orElseThrow(() -> new NotFoundException("Player not found"));
 
         // 1️⃣ Load or create CV

@@ -1,5 +1,6 @@
 package com.mvpiq.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,7 +27,8 @@ public class PlayerPosition {
 
     @ManyToOne
     @JoinColumn(name = "profile_id", nullable = false)
-    private Player player;
+    @JsonIgnore
+    private PlayerProfile player;
 
     @ManyToOne
     @JoinColumn(name = "position_id", nullable = false)

@@ -1,6 +1,6 @@
 package com.mvpiq.service;
 
-import com.mvpiq.model.Player;
+import com.mvpiq.model.PlayerProfile;
 import com.mvpiq.model.PlayerPosition;
 import com.mvpiq.model.PositionMetadata;
 import com.mvpiq.repositories.PlayerPositionRepository;
@@ -21,7 +21,7 @@ public class PlayerPositionService {
     PositionMetadataRepository positionMetadataRepository;
 
     @Transactional
-    public void updatePositions(Player player,
+    public void updatePositions(PlayerProfile player,
                                 UUID mainId,
                                 List<UUID> secondaryIds) {
 
