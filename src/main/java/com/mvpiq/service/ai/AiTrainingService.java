@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -117,7 +118,30 @@ public class AiTrainingService {
                 
             } catch (Exception e) {
                 log.error("Error generating AI training program", e);
+                
+                // Check if it's a connection error and provide fallback
+                if (e.getCause() != null && e.getCause().getMessage() != null) {
+                    String causeMessage = e.getCause().getMessage().toLowerCase();
+                    if (causeMessage.contains("connection") || causeMessage.contains("network") || 
+                        causeMessage.contains("refused") || causeMessage.contains("timeout")) {
+                        
+                        log.warn("Ollama not available, generating fallback program");
+                        
+                        // Generate fallback program
+                        TrainingProgramDTO fallbackProgram = generateFallbackProgram(request);
+                        program.setProgramJson(fallbackProgram);
+                        program.setGenerationStatus(GenerationStatus.COMPLETED);
+                        program.setGeneratedAt(OffsetDateTime.now());
+                        program.setAiModel("FALLBACK");
+                        program.setAiPrompt("Fallback program - Ollama unavailable");
+                        
+                        trainingProgramRepository.persist(program);
+                        return program;
+                    }
+                }
+                
                 program.setGenerationStatus(GenerationStatus.FAILED);
+                throw new RuntimeException("Failed to generate training program: " + e.getMessage(), e);
             }
             
             trainingProgramRepository.persist(program);
@@ -158,6 +182,76 @@ public class AiTrainingService {
     
     public TrainingProgram getProgramById(UUID programId) {
         return trainingProgramRepository.findById(programId);
+    }
+    
+    private TrainingProgramDTO generateFallbackProgram(TrainingGenerationRequestDTO request) {
+        List<TrainingProgramDTO.TrainingWeekDTO> weeks = new ArrayList<>();
+        
+        for (int week = 1; week <= request.getWeeks(); week++) {
+            List<TrainingProgramDTO.TrainingDayDTO> days = new ArrayList<>();
+            
+            for (int day = 1; day <= request.getSessionsPerWeek(); day++) {
+                List<TrainingProgramDTO.TrainingExerciseDTO> exercises = generateFallbackExercises(request.getSessionDurationMinutes());
+                
+                days.add(TrainingProgramDTO.TrainingDayDTO.builder()
+                        .day(day)
+                        .title(String.format("Giorno %d - Sessione di %d minuti", day, request.getSessionDurationMinutes()))
+                        .exercises(exercises)
+                        .build());
+            }
+            
+            weeks.add(TrainingProgramDTO.TrainingWeekDTO.builder()
+                    .week(week)
+                    .days(days)
+                    .build());
+        }
+        
+        return TrainingProgramDTO.builder()
+                .title("Programma di Allenamento - " + request.getGoal())
+                .weeks(weeks)
+                .build();
+    }
+    
+    private List<TrainingProgramDTO.TrainingExerciseDTO> generateFallbackExercises(Integer sessionDuration) {
+        List<TrainingProgramDTO.TrainingExerciseDTO> exercises = new ArrayList<>();
+        
+        // Warm-up (10 minutes)
+        exercises.add(TrainingProgramDTO.TrainingExerciseDTO.builder()
+                .exerciseId("warmup")
+                .name("Riscaldamento")
+                .durationMinutes(10)
+                .repetitions(null)
+                .notes("Corsa leggera e stretching dinamico")
+                .build());
+        
+        // Main exercises (sessionDuration - 20 minutes for warm-up and cool-down)
+        int mainDuration = sessionDuration - 20;
+        exercises.add(TrainingProgramDTO.TrainingExerciseDTO.builder()
+                .exerciseId("shooting")
+                .name("Esercizi di tiro")
+                .durationMinutes(mainDuration / 2)
+                .repetitions(50)
+                .notes("Tiro da diverse posizioni, focus sulla tecnica")
+                .build());
+        
+        exercises.add(TrainingProgramDTO.TrainingExerciseDTO.builder()
+                .exerciseId("dribbling")
+                .name("Dribbling e handling")
+                .durationMinutes(mainDuration / 2)
+                .repetitions(100)
+                .notes("Esercizi di dribbling con entrambe le mani")
+                .build());
+        
+        // Cool-down (10 minutes)
+        exercises.add(TrainingProgramDTO.TrainingExerciseDTO.builder()
+                .exerciseId("cooldown")
+                .name("Defaticamento")
+                .durationMinutes(10)
+                .repetitions(null)
+                .notes("Stretching statico e recupero")
+                .build());
+        
+        return exercises;
     }
     
     @Transactional

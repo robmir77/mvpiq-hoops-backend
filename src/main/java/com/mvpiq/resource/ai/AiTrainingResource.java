@@ -5,6 +5,7 @@ import com.mvpiq.dto.ai.TrainingGenerationRequestDTO;
 import com.mvpiq.model.TrainingProgram;
 import com.mvpiq.service.ai.AiTrainingService;
 import io.quarkus.security.Authenticated;
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -26,11 +27,19 @@ public class AiTrainingResource {
     @Inject
     AiTrainingService aiTrainingService;
     
+    @Inject
+    SecurityIdentity securityIdentity;
+    
     @POST
     @Path("/generate")
     public Response generateTrainingProgram(TrainingGenerationRequestDTO request) {
         try {
-            log.info("Generating training program for athlete: {}", request.getAthleteId());
+            // Extract user ID from JWT token
+            UUID userId = UUID.fromString(securityIdentity.getPrincipal().getName());
+            log.info("Generating training program for athlete: {}", userId);
+            
+            // Set athleteId from authenticated user
+            request.setAthleteId(userId);
             
             TrainingProgram program = aiTrainingService.generateTrainingProgram(request);
             
