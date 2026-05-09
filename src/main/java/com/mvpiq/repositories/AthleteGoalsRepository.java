@@ -16,6 +16,11 @@ public class AthleteGoalsRepository implements PanacheRepository<AthleteGoal> {
         return list("athleteId", athleteId);
     }
 
+    // Conta i goal di un atleta
+    public long countByAthleteId(UUID athleteId) {
+        return count("athleteId", athleteId);
+    }
+
     // Trova un goal per ID
     public AthleteGoal findById(UUID goalId) {
         return find("id", goalId).firstResult();

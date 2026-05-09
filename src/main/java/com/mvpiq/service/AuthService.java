@@ -7,6 +7,7 @@ import com.mvpiq.dto.RegisterDTO;
 import com.mvpiq.enums.UserRole;
 import com.mvpiq.model.Player;
 import com.mvpiq.model.User;
+import com.mvpiq.repositories.AthleteGoalsRepository;
 import com.mvpiq.repositories.PlayerRepository;
 import com.mvpiq.repositories.UserRepository;
 import com.mvpiq.security.PasswordUtils;
@@ -22,6 +23,9 @@ public class AuthService {
 
     @Inject
     PlayerRepository playerRepository;
+
+    @Inject
+    AthleteGoalsRepository athleteGoalsRepository;
 
     @Transactional
     public LoginResponseDTO register(RegisterDTO dto) {
@@ -67,6 +71,9 @@ public class AuthService {
                 .expiresIn(3600)
                 .sign();
 
+        // Verifica se l'utente ha già dei goal
+        boolean hasGoals = athleteGoalsRepository.countByAthleteId(user.getId()) > 0;
+
         return LoginResponseDTO.builder()
                 .token(token)
                 .id(user.getId())
@@ -75,6 +82,7 @@ public class AuthService {
                 .displayName(user.getDisplayName())
                 .role(user.getRole())
                 .verified(user.getVerified())
+                .hasGoals(hasGoals)
                 .build();
     }
 
@@ -94,6 +102,9 @@ public class AuthService {
                 .expiresIn(3600)
                 .sign();
 
+        // Verifica se l'utente ha già dei goal
+        boolean hasGoals = athleteGoalsRepository.countByAthleteId(user.getId()) > 0;
+
         return LoginResponseDTO.builder()
                 .token(token)
                 .id(user.getId())
@@ -102,6 +113,7 @@ public class AuthService {
                 .displayName(user.getDisplayName())
                 .role(user.getRole())
                 .verified(user.getVerified())
+                .hasGoals(hasGoals)
                 .build();
     }
 }
