@@ -100,6 +100,13 @@
           <artifactId>quarkus-rest-client-jackson</artifactId>
       </dependency>
 
+      <!-- Firebase FCM for Push Notifications -->
+      <dependency>
+          <groupId>com.google.firebase</groupId>
+          <artifactId>firebase-admin</artifactId>
+          <version>9.2.0</version>
+      </dependency>
+
       <dependency>
           <groupId>io.quarkus</groupId>
           <artifactId>quarkus-jsonb</artifactId>

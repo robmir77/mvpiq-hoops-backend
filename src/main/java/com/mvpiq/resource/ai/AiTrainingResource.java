@@ -9,6 +9,8 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -131,7 +133,10 @@ public class AiTrainingResource {
     }
     
     // DTO for generation status response
+    @Setter
+    @Getter
     public static class GenerationStatusDTO {
+        // Getters and setters
         private String status;
         private java.time.OffsetDateTime generatedAt;
         
@@ -139,11 +144,6 @@ public class AiTrainingResource {
             this.status = status.name();
             this.generatedAt = generatedAt;
         }
-        
-        // Getters and setters
-        public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
-        public java.time.OffsetDateTime getGeneratedAt() { return generatedAt; }
-        public void setGeneratedAt(java.time.OffsetDateTime generatedAt) { this.generatedAt = generatedAt; }
+
     }
 }

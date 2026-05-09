@@ -23,7 +23,7 @@ public class AiPromptBuilderService {
         List<String> availableExercises = exerciseRepository.findAll()
                 .stream()
                 .map(exercise -> exercise.getTitle() + " (ID: " + exercise.getId() + ")")
-                .collect(Collectors.toList());
+                .toList();
         
         StringBuilder prompt = new StringBuilder();
         prompt.append("Create a ").append(request.getWeeks()).append("-week basketball training program.\n\n");

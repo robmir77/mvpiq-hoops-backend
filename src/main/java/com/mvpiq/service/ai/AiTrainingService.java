@@ -15,7 +15,6 @@ import com.mvpiq.model.TrainingProgram;
 import com.mvpiq.repositories.AthleteGoalsRepository;
 import com.mvpiq.repositories.PlayerRepository;
 import com.mvpiq.repositories.TrainingProgramRepository;
-import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;

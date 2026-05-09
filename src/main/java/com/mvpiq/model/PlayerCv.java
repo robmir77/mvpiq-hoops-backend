@@ -7,8 +7,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -31,7 +29,7 @@ public class PlayerCv {
     @JoinColumn(name = "player_id", nullable = false)
     private PlayerProfile player;
 
-    @Column(name = "headline", length = 255)
+    @Column(name = "headline")
     @JsonProperty("headline")
     private String headline;
 

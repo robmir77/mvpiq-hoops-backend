@@ -1,0 +1,12 @@
+package com.mvpiq.enums;
+
+public enum NotificationType {
+    GENERAL,
+    TRAINING_PROGRAM_GENERATED,
+    TRAINING_REMINDER,
+    GOAL_ACHIEVED,
+    PROFILE_UPDATED,
+    TEAM_INVITATION,
+    VIDEO_ANALYSIS_COMPLETED,
+    SYSTEM_ANNOUNCEMENT
+}
