@@ -30,7 +30,7 @@ public class PlayerProfileDTO {
     private String bio;
 
     // Campi specifici Player
-    @JsonFormat(pattern = "yyyy/MM/dd")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate birthDate;
     private Integer heightCm;
     private Integer weightKg;
