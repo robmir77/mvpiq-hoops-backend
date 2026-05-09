@@ -17,4 +17,16 @@ public class TrainingProgramRepository implements PanacheRepositoryBase<Training
     public List<TrainingProgram> findByAuthor(UUID authorId) {
         return list("author.id = ?1 ORDER BY createdAt DESC", authorId);
     }
+    
+    public List<TrainingProgram> findByOwnerId(UUID ownerId) {
+        return list("owner.id = ?1 ORDER BY createdAt DESC", ownerId);
+    }
+    
+    public List<TrainingProgram> findByAthleteId(UUID athleteId) {
+        return list("owner.id = ?1 AND generatedByAi = true ORDER BY createdAt DESC", athleteId);
+    }
+    
+    public List<TrainingProgram> findByGenerationStatus(String status) {
+        return list("generationStatus = ?1", status);
+    }
 }
