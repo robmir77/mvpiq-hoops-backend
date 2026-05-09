@@ -24,13 +24,13 @@ public class TrainingSession {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "user_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("user_id")
-    private UUID userId;
+    @ManyToOne
+    @JoinColumn(name = "player_id", nullable = false)
+    private PlayerProfile player;
 
-    @Column(name = "program_id", columnDefinition = "UUID")
-    @JsonProperty("program_id")
-    private UUID programId;
+    @ManyToOne
+    @JoinColumn(name = "program_id")
+    private TrainingProgram program;
 
     @Column(name = "session_date")
     @JsonProperty("session_date")
@@ -39,7 +39,7 @@ public class TrainingSession {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "session_data", columnDefinition = "jsonb")
     @JsonProperty("session_data")
-    private String sessionData;
+    private Object sessionData;
 
     @Column(name = "duration_seconds")
     @JsonProperty("duration_seconds")

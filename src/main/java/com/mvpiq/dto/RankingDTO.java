@@ -26,8 +26,8 @@ public class RankingDTO {
         if (ranking == null) return null;
         return RankingDTO.builder()
                 .id(ranking.getId())
-                .playerId(ranking.getPlayerId())
-                .rankScope(ranking.getRankScope())
+                .playerId(ranking.getPlayer() != null ? ranking.getPlayer().getId() : null)
+                .rankScope(ranking.getScope())
                 .scopeValue(ranking.getScopeValue())
                 .rankPosition(ranking.getRankPosition())
                 .score(ranking.getScore())
@@ -40,8 +40,9 @@ public class RankingDTO {
         if (dto == null) return null;
         Ranking ranking = new Ranking();
         ranking.setId(dto.getId());
-        ranking.setPlayerId(dto.getPlayerId());
-        ranking.setRankScope(dto.getRankScope());
+        // Note: player relationship needs to be set separately using PlayerProfileRepository
+        // ranking.setPlayer(null); // This needs to be set by the caller
+        ranking.setScope(dto.getRankScope());
         ranking.setScopeValue(dto.getScopeValue());
         ranking.setRankPosition(dto.getRankPosition());
         ranking.setScore(dto.getScore());

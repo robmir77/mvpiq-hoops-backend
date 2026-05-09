@@ -1,19 +1,20 @@
 package com.mvpiq.repositories;
 
 import com.mvpiq.model.VideoAnalysisSession;
-import io.quarkus.hibernate.orm.panache.PanacheRepository;
+import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
-public class VideoAnalysisSessionRepository implements PanacheRepository<VideoAnalysisSession> {
-    public VideoAnalysisSession findById(UUID sessionId) {
-        return VideoAnalysisSession.findById(sessionId);
+public class VideoAnalysisSessionRepository implements PanacheRepositoryBase<VideoAnalysisSession, UUID> {
+
+    public List<VideoAnalysisSession> findByUserId(UUID userId) {
+        return list("userId", userId);
     }
 
-    public Optional<VideoAnalysisSession> findByIdOptional(UUID sessionId) {
-        return Optional.ofNullable(VideoAnalysisSession.findById(sessionId));
+    public long countByUserId(UUID userId) {
+        return count("userId", userId);
     }
 }

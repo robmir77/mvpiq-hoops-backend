@@ -66,7 +66,6 @@ public class VideoAnalysisService {
         return response;
     }
 
-    @Transactional
     VideoAnalysisSession newVideoAnalysisSession(CreateAnalysisSessionRequestDTO request, VideoAnalysisType type) {
         VideoAnalysisSession session = new VideoAnalysisSession();
 

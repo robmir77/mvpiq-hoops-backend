@@ -22,6 +22,9 @@ public class Conversation {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
+    @Column(name = "title", length = 200)
+    private String title;
+
     @Column(name = "created_at")
     @JsonProperty("created_at")
     private OffsetDateTime createdAt = OffsetDateTime.now();

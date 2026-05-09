@@ -19,8 +19,13 @@ import java.util.UUID;
 public class AthletePoints {
 
     @Id
-    @Column(name = "athlete_id", columnDefinition = "UUID")
-    private UUID athleteId;
+    @GeneratedValue
+    @Column(name = "id", columnDefinition = "UUID")
+    private UUID id = UUID.randomUUID();
+
+    @ManyToOne
+    @JoinColumn(name = "player_id", nullable = false)
+    private PlayerProfile player;
 
     @Column(name = "total_points")
     @JsonProperty("total_points")

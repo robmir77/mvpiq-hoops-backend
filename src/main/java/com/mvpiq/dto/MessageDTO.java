@@ -42,23 +42,21 @@ public class MessageDTO {
         if (message == null) return null;
         return MessageDTO.builder()
                 .id(message.getId())
-                .conversationId(message.getConversationId())
-                .senderId(message.getSenderId())
-                .messageText(message.getMessageText())
-                .mediaId(message.getMediaId())
+                .conversationId(message.getConversation() != null ? message.getConversation().getId() : null)
+                .senderId(message.getSender() != null ? message.getSender().getId() : null)
+                .messageText(message.getContent())
+                .mediaId(message.getMedia() != null ? message.getMedia().getId() : null)
                 .messageType(message.getMessageType())
                 .createdAt(message.getCreatedAt())
                 .build();
     }
 
-    // Metodo opzionale per convertire DTO -> entity
+    // Metodo opzionale per convertire DTO -> entity  
     public Message toEntity() {
         Message message = new Message();
         message.setId(this.id != null ? this.id : UUID.randomUUID());
-        message.setConversationId(this.conversationId);
-        message.setSenderId(this.senderId);
-        message.setMessageText(this.messageText);
-        message.setMediaId(this.mediaId);
+        // Note: Le relazioni devono essere impostate separatamente tramite i repository
+        message.setContent(this.messageText);
         message.setMessageType(this.messageType);
         message.setCreatedAt(this.createdAt != null ? this.createdAt : OffsetDateTime.now());
         return message;

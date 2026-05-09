@@ -24,9 +24,9 @@ public class TrainingProgram {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "author_id", columnDefinition = "UUID")
-    @JsonProperty("author_id")
-    private UUID authorId;
+    @ManyToOne
+    @JoinColumn(name = "owner_id")
+    private User owner;
 
     @Column(name = "title", length = 200, nullable = false)
     @JsonProperty("title")
@@ -39,7 +39,7 @@ public class TrainingProgram {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "program_json", columnDefinition = "jsonb")
     @JsonProperty("program_json")
-    private String programJson;
+    private Object programJson;
 
     @Column(name = "is_public")
     @JsonProperty("is_public")

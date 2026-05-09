@@ -27,7 +27,7 @@ public class GoalResource {
     @Path("/goals/{athleteId}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAthleteGoals(@PathParam("athleteId") UUID athleteId) {
-        List<AthleteGoalDTO> goals = athleteGoalsRepository.findByAthleteId(athleteId)
+        List<AthleteGoalDTO> goals = athleteGoalsRepository.findByPlayerId(athleteId)
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());

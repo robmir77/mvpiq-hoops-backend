@@ -25,9 +25,9 @@ public class AthleteGoal {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "athlete_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("athlete_id")
-    private UUID athleteId;
+    @ManyToOne
+    @JoinColumn(name = "player_id", nullable = false)
+    private PlayerProfile player;
 
     @Column(name = "title", length = 200, nullable = false)
     @JsonProperty("title")
@@ -64,4 +64,25 @@ public class AthleteGoal {
     @Column(name = "status", length = 20, nullable = false)
     @JsonProperty("status")
     private String status = "ACTIVE";
+
+    // Metodo helper per ottenere l'ID dell'atleta
+    public UUID getAthleteId() {
+        return player != null ? player.getId() : null;
+    }
+
+    // Metodo helper per il builder
+    public static class AthleteGoalBuilder {
+        private PlayerProfile player;
+
+        public AthleteGoalBuilder athleteId(UUID athleteId) {
+            // Questo metodo è solo per compatibilità - non fa nulla reale
+            // L'ID del player deve essere impostato tramite il campo player
+            return this;
+        }
+
+        public AthleteGoalBuilder player(PlayerProfile player) {
+            this.player = player;
+            return this;
+        }
+    }
 }

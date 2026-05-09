@@ -22,17 +22,21 @@ public class Exercise {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "media_id", columnDefinition = "UUID")
-    @JsonProperty("media_id")
-    private UUID mediaId;
+    @ManyToOne
+    @JoinColumn(name = "media_id")
+    private MediaAsset media;
 
-    @Column(name = "creator_id", columnDefinition = "UUID")
-    @JsonProperty("creator_id")
-    private UUID creatorId;
+    @ManyToOne
+    @JoinColumn(name = "owner_id")
+    private User owner;
 
     @Column(name = "title", length = 150, nullable = false)
     @JsonProperty("title")
     private String title;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    @JsonProperty("description")
+    private String description;
 
     @Column(name = "category", length = 50)
     @JsonProperty("category")
@@ -42,9 +46,9 @@ public class Exercise {
     @JsonProperty("difficulty")
     private String difficulty;
 
-    @Column(name = "duration_minutes")
-    @JsonProperty("duration_minutes")
-    private Short durationMinutes;
+    @Column(name = "duration_seconds")
+    @JsonProperty("duration_seconds")
+    private Integer durationSeconds;
 
     @Column(name = "instructions", columnDefinition = "TEXT")
     @JsonProperty("instructions")

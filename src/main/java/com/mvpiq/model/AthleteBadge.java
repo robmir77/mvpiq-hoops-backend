@@ -24,13 +24,13 @@ public class AthleteBadge {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "athlete_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("athlete_id")
-    private UUID athleteId;
+    @ManyToOne
+    @JoinColumn(name = "player_id", nullable = false)
+    private PlayerProfile player;
 
-    @Column(name = "badge_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("badge_id")
-    private UUID badgeId;
+    @ManyToOne
+    @JoinColumn(name = "badge_id", nullable = false)
+    private Badge badge;
 
     @Column(name = "obtained_at")
     @JsonProperty("obtained_at")

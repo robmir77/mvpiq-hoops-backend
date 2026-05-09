@@ -62,6 +62,12 @@ public class User {
     @Column(name = "bio", columnDefinition = "TEXT")
     private String bio;
 
+    @Column(name = "is_creator")
+    private Boolean isCreator = false;
+
+    @Column(name = "is_trainer")
+    private Boolean isTrainer = false;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = OffsetDateTime.now();

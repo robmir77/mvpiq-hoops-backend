@@ -24,9 +24,9 @@ public class ScoutSavedFilter {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "scout_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("scout_id")
-    private UUID scoutId;
+    @ManyToOne
+    @JoinColumn(name = "scout_id", nullable = false)
+    private User scout;
 
     @Column(name = "name", length = 150, nullable = false)
     @JsonProperty("name")
@@ -35,7 +35,7 @@ public class ScoutSavedFilter {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "filter_json", columnDefinition = "jsonb", nullable = false)
     @JsonProperty("filter_json")
-    private String filterJson;
+    private Object filterJson;
 
     @Column(name = "created_at")
     @JsonProperty("created_at")

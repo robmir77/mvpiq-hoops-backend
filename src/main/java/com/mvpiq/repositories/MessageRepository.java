@@ -13,10 +13,14 @@ public class MessageRepository implements PanacheRepositoryBase<Message, UUID> {
 
     public List<Message> findByUserId(UUID userId) {
         return list(
-                "senderId = :uid OR conversationId IN (" +
-                        "select cp.conversationId from ConversationParticipant cp where cp.userId = :uid" +
+                "sender.id = :uid OR conversation.id IN (" +
+                        "select cp.conversation.id from ConversationParticipant cp where cp.user.id = :uid" +
                         ")",
                 Parameters.with("uid", userId)
         );
+    }
+
+    public List<Message> findByConversationIdOrderByCreatedAtAsc(UUID conversationId) {
+        return find("conversation.id = ?1 ORDER BY createdAt ASC", conversationId).list();
     }
 }

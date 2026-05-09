@@ -43,8 +43,8 @@ public class TrainingService {
 
         int minutes = totalSeconds / 60;
 
-        AthletePoints points = pointsRepository.findByAthlete(userId);
-        long totalPoints = points != null ? points.getTotalPoints() : 0;
+        Optional<AthletePoints> pointsOpt = pointsRepository.findByPlayer(userId);
+        long totalPoints = pointsOpt.map(AthletePoints::getTotalPoints).orElse(0L);
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("sessions", sessions);

@@ -22,13 +22,13 @@ public class PlayerCvHighlight {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "cv_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("cv_id")
-    private UUID cvId;
+    @ManyToOne
+    @JoinColumn(name = "cv_id", nullable = false)
+    private PlayerCv cv;
 
-    @Column(name = "media_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("media_id")
-    private UUID mediaId;
+    @ManyToOne
+    @JoinColumn(name = "media_id", nullable = false)
+    private MediaAsset media;
 
     @Column(name = "title", length = 150)
     @JsonProperty("title")

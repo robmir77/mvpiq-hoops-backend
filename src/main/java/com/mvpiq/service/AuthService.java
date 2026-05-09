@@ -72,7 +72,7 @@ public class AuthService {
                 .sign();
 
         // Verifica se l'utente ha già dei goal
-        boolean hasGoals = athleteGoalsRepository.countByAthleteId(user.getId()) > 0;
+        boolean hasGoals = athleteGoalsRepository.countByPlayerId(user.getId()) > 0;
 
         return LoginResponseDTO.builder()
                 .token(token)
@@ -103,7 +103,7 @@ public class AuthService {
                 .sign();
 
         // Verifica se l'utente ha già dei goal
-        boolean hasGoals = athleteGoalsRepository.countByAthleteId(user.getId()) > 0;
+        boolean hasGoals = athleteGoalsRepository.countByPlayerId(user.getId()) > 0;
 
         return LoginResponseDTO.builder()
                 .token(token)

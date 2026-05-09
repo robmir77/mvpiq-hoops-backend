@@ -24,13 +24,13 @@ public class TrainerFollow {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "trainer_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("trainer_id")
-    private UUID trainerId;
+    @ManyToOne
+    @JoinColumn(name = "trainer_id", nullable = false)
+    private User trainer;
 
-    @Column(name = "player_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("player_id")
-    private UUID playerId;
+    @ManyToOne
+    @JoinColumn(name = "player_id", nullable = false)
+    private PlayerProfile player;
 
     @Column(name = "created_at")
     @JsonProperty("created_at")

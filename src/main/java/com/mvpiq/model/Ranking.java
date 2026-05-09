@@ -25,13 +25,13 @@ public class Ranking {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "player_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("player_id")
-    private UUID playerId;
+    @ManyToOne
+    @JoinColumn(name = "player_id", nullable = false)
+    private PlayerProfile player;
 
-    @Column(name = "rank_scope", length = 50, nullable = false)
-    @JsonProperty("rank_scope")
-    private String rankScope;
+    @Column(name = "scope", length = 50, nullable = false)
+    @JsonProperty("scope")
+    private String scope;
 
     @Column(name = "scope_value", length = 200)
     @JsonProperty("scope_value")

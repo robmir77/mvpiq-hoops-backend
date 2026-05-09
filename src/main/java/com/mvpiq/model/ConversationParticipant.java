@@ -24,13 +24,13 @@ public class ConversationParticipant {
     @Column(name = "id", columnDefinition = "UUID")
     private UUID id = UUID.randomUUID();
 
-    @Column(name = "conversation_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("conversation_id")
-    private UUID conversationId;
+    @ManyToOne
+    @JoinColumn(name = "conversation_id", nullable = false)
+    private Conversation conversation;
 
-    @Column(name = "user_id", columnDefinition = "UUID", nullable = false)
-    @JsonProperty("user_id")
-    private UUID userId;
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "joined_at")
     @JsonProperty("joined_at")
