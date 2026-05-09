@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Getter
 @Setter
@@ -29,6 +30,7 @@ public class PlayerProfileDTO {
     private String bio;
 
     // Campi specifici Player
+    @JsonFormat(pattern = "yyyy/MM/dd")
     private LocalDate birthDate;
     private Short heightCm;
     private Short weightKg;

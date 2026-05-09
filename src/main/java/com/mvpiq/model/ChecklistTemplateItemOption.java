@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -21,6 +22,7 @@ public class ChecklistTemplateItemOption {
     @GeneratedValue
     private UUID id;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "template_item_id", nullable = false)
     private ChecklistTemplateItem templateItem;

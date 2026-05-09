@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -36,6 +37,7 @@ public class ChecklistTemplate {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @JsonIgnore
     @OneToMany(
             mappedBy = "template",
             cascade = CascadeType.ALL,

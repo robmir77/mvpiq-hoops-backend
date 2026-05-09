@@ -116,4 +116,11 @@ public class AuthService {
                 .hasGoals(hasGoals)
                 .build();
     }
+
+    // LOGOUT
+    public void logout() {
+        // Con JWT stateless, il logout viene gestito lato client
+        // Questo metodo esiste per completezza API e future implementazioni
+        // come token blacklist o refresh token invalidation
+    }
 }

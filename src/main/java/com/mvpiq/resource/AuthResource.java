@@ -1,5 +1,6 @@
 package com.mvpiq.resource;
 
+import com.mvpiq.dto.ApiResponse;
 import com.mvpiq.dto.LoginDTO;
 import com.mvpiq.dto.LoginResponseDTO;
 import com.mvpiq.dto.RegisterDTO;
@@ -24,7 +25,8 @@ public class AuthResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response register(RegisterDTO dto) {
         LoginResponseDTO response = authService.register(dto);
-        return Response.ok(response).build();
+        ApiResponse<LoginResponseDTO> apiResponse = ApiResponse.success(response, "User registered successfully");
+        return Response.ok(apiResponse).build();
     }
 
     @POST
@@ -34,7 +36,16 @@ public class AuthResource {
     public Response login(LoginDTO dto) {
 
         LoginResponseDTO response = authService.login(dto);
+        ApiResponse<LoginResponseDTO> apiResponse = ApiResponse.success(response, "Login successful");
+        return Response.ok(apiResponse).build();
+    }
 
-        return Response.ok(response).build();
+    @POST
+    @Path("/auth/logout")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response logout() {
+        authService.logout();
+        ApiResponse<Void> apiResponse = ApiResponse.success(null, "Logout successful");
+        return Response.ok(apiResponse).build();
     }
 }
