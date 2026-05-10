@@ -5,8 +5,10 @@ import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -18,7 +20,32 @@ public class RoleBasedSecurityService {
     SecurityIdentity securityIdentity;
 
     public boolean hasRole(UserRole role) {
-        return securityIdentity.hasRole(role.name());
+        // Debug del token JWT
+        debugJwtToken();
+        
+        boolean result = securityIdentity.hasRole(role.name());
+        log.info("hasRole({}) = {} | Available roles: {}", role.name(), result, securityIdentity.getRoles());
+        return result;
+    }
+
+    private void debugJwtToken() {
+        try {
+            if (securityIdentity.getPrincipal() instanceof JsonWebToken) {
+                JsonWebToken jwt = (JsonWebToken) securityIdentity.getPrincipal();
+                log.info("=== JWT TOKEN DEBUG ===");
+                log.info("Subject: {}", jwt.getSubject());
+                log.info("Issuer: {}", jwt.getIssuer());
+                log.info("All Claims: {}", jwt.getClaimNames());
+                log.info("Role Claim: {}", Optional.ofNullable(jwt.getClaim("role")));
+                log.info("Available Roles: {}", securityIdentity.getRoles());
+                log.info("Principal Name: {}", jwt.getName());
+                log.info("==================");
+            } else {
+                log.warn("Principal is not JsonWebToken: {}", securityIdentity.getPrincipal().getClass().getName());
+            }
+        } catch (Exception e) {
+            log.error("Error debugging JWT token: {}", e.getMessage(), e);
+        }
     }
 
     public boolean hasAnyRole(UserRole... roles) {
