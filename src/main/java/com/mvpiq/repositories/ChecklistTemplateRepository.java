@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @ApplicationScoped
 @Slf4j
@@ -63,5 +64,24 @@ public class ChecklistTemplateRepository implements PanacheRepository<ChecklistT
      */
     public List<ChecklistTemplate> findAllActive() {
         return list("isActive = true order by entryType, code");
+    }
+
+    /**
+     * Recupera un template per ID UUID.
+     */
+    public ChecklistTemplate findById(UUID id) {
+        return find("id", id).firstResult();
+    }
+
+    /**
+     * Cancella un template per ID UUID.
+     */
+    public boolean deleteById(UUID id) {
+        ChecklistTemplate template = findById(id);
+        if (template == null) {
+            return false;
+        }
+        delete(template);
+        return true;
     }
 }

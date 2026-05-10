@@ -40,4 +40,32 @@ public class UserActivityLogRepository implements PanacheRepositoryBase<UserActi
     public List<UserActivityLog> findByCreatedAtBetween(OffsetDateTime start, OffsetDateTime end) {
         return list("createdAt between ?1 and ?2", start, end);
     }
+
+    /**
+     * Trova gli utenti con attività recente (online)
+     * @param minutesAgo minuti nel passato da considerare
+     * @return lista di activity log con timestamp unici per utente
+     */
+    public List<UserActivityLog> findRecentActivity(int minutesAgo) {
+        OffsetDateTime cutoff = OffsetDateTime.now().minusMinutes(minutesAgo);
+        return list("createdAt >= ?1 order by createdAt desc", cutoff);
+    }
+
+    /**
+     * Trova gli ultimi activity log unici per utente (online)
+     * @param minutesAgo minuti nel passato da considerare
+     * @return lista di activity log con l'attività più recente per ogni utente
+     */
+    public List<UserActivityLog> findUniqueUsersWithRecentActivity(int minutesAgo) {
+        OffsetDateTime cutoff = OffsetDateTime.now().minusMinutes(minutesAgo);
+        return getEntityManager()
+                .createQuery("""
+                    SELECT DISTINCT ual
+                    FROM UserActivityLog ual
+                    WHERE ual.createdAt >= :cutoff
+                    ORDER BY ual.userId, ual.createdAt DESC
+                """, UserActivityLog.class)
+                .setParameter("cutoff", cutoff)
+                .getResultList();
+    }
 }
