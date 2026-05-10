@@ -1,12 +1,15 @@
 package com.mvpiq.resource;
 
 import com.mvpiq.model.ChecklistTemplate;
+import com.mvpiq.model.ChecklistTemplateItemOption;
 import com.mvpiq.repositories.ChecklistTemplateRepository;
 import com.mvpiq.security.RoleBasedSecurityService;
+import com.mvpiq.service.ChecklistDynamicOptionsService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -15,6 +18,7 @@ import java.util.UUID;
 @Path("/api/checklist-templates")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Slf4j
 public class ChecklistTemplateResource {
 
     @Inject
@@ -22,6 +26,9 @@ public class ChecklistTemplateResource {
 
     @Inject
     RoleBasedSecurityService securityService;
+
+    @Inject
+    ChecklistDynamicOptionsService dynamicOptionsService;
 
     /**
      * GET /api/checklist-templates?entryType=MATCH
@@ -144,5 +151,32 @@ public class ChecklistTemplateResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
         return Response.noContent().build();
+    }
+
+    /**
+     * GET /api/checklist-templates/dynamic-options?selectSource=POSITION_METADATA
+     * Recupera le opzioni dinamiche basate su select_source per SELECT/MULTI_SELECT
+     */
+    @GET
+    @Path("/dynamic-options")
+    public Response getDynamicOptions(
+            @QueryParam("selectSource") String selectSource,
+            @QueryParam("selectQuery") String selectQuery
+    ) {
+        log.info("Dynamic options requested - selectSource: {}, selectQuery: {}", selectSource, selectQuery);
+        
+        if (selectSource == null || selectSource.isBlank()) {
+            log.warn("selectSource is null or blank");
+            throw new BadRequestException("selectSource is required");
+        }
+
+        if ("SQL".equals(selectSource) && (selectQuery == null || selectQuery.isBlank())) {
+            log.warn("selectSource is SQL but selectQuery is null or blank");
+            throw new BadRequestException("selectQuery is required when selectSource is SQL");
+        }
+
+        List<ChecklistTemplateItemOption> options = dynamicOptionsService.getDynamicOptions(selectSource, selectQuery);
+        log.info("Returning {} dynamic options for selectSource: {}", options.size(), selectSource);
+        return Response.ok(options).build();
     }
 }

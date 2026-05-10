@@ -1,11 +1,12 @@
 package com.mvpiq.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -14,6 +15,7 @@ import java.util.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "checklist_templates")
 public class ChecklistTemplate {
@@ -43,5 +45,6 @@ public class ChecklistTemplate {
             orphanRemoval = true
     )
     @OrderBy("sortOrder ASC")
+    @JsonIgnoreProperties({"template"})
     private Set<ChecklistTemplateItem> items = new LinkedHashSet<>();
 }

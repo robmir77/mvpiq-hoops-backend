@@ -60,7 +60,7 @@ public class NavigationService {
     private boolean hasRole(UserRole role) {
         try {
             boolean result = securityService.hasRole(role);
-            log.info("Checking role {}: {}", role, result);
+            //log.info("Checking role {}: {}", role, result);
             return result;
         } catch (Exception e) {
             log.warn("Error checking role {}: {}", role, e.getMessage());

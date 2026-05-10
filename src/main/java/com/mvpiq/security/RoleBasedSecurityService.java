@@ -24,7 +24,7 @@ public class RoleBasedSecurityService {
         // debugJwtToken();
         
         boolean result = securityIdentity.hasRole(role.name());
-        log.info("hasRole({}) = {} | Available roles: {}", role.name(), result, securityIdentity.getRoles());
+        //log.info("hasRole({}) = {} | Available roles: {}", role.name(), result, securityIdentity.getRoles());
         return result;
     }
 
