@@ -1,5 +1,6 @@
 package com.mvpiq.service;
 
+import com.mvpiq.model.PlayerPosition;
 import com.mvpiq.model.PlayerProfile;
 import com.mvpiq.model.User;
 import com.mvpiq.repositories.PlayerProfileRepository;
@@ -81,6 +82,56 @@ public class PlayerProfileService {
         
         playerProfileRepository.persist(profile);
         log.info("Player profile updated: {}", profileId);
+        return profile;
+    }
+
+    @Transactional
+    public PlayerProfile updatePlayerProfileByUserId(UUID userId, PlayerProfile updatedProfile) {
+        log.info("Updating player profile by user ID: {}", userId);
+        
+        Optional<PlayerProfile> existingProfile = getPlayerProfileByUserId(userId);
+        if (existingProfile.isEmpty()) {
+            throw new IllegalArgumentException("Player profile not found for user: " + userId);
+        }
+        
+        PlayerProfile profile = existingProfile.get();
+        profile.setFullName(updatedProfile.getFullName());
+        profile.setBirthDate(updatedProfile.getBirthDate());
+        profile.setHeightCm(updatedProfile.getHeightCm());
+        profile.setWeightKg(updatedProfile.getWeightKg());
+        profile.setLevel(updatedProfile.getLevel());
+        profile.setDominantHand(updatedProfile.getDominantHand());
+        profile.setCountry(updatedProfile.getCountry());
+        profile.setCity(updatedProfile.getCity());
+        profile.setGender(updatedProfile.getGender());
+        profile.setUpdatedAt(OffsetDateTime.now());
+        
+        // Handle positions - update the positions list
+        if (updatedProfile.getPositions() != null) {
+            log.info("Found {} positions to update for user {}", updatedProfile.getPositions().size(), userId);
+            // Clear existing positions
+            profile.getPositions().clear();
+            // Add new positions
+            for (PlayerPosition newPosition : updatedProfile.getPositions()) {
+                log.info("Adding position: {} (isPrimary: {}) for user {}", 
+                    newPosition.getPosition() != null ? newPosition.getPosition().getLabel() : "null", 
+                    newPosition.getIsPrimary(), userId);
+                newPosition.setPlayer(profile);
+                profile.getPositions().add(newPosition);
+            }
+            log.info("Total positions after update: {}", profile.getPositions().size());
+        } else {
+            log.info("No positions provided in update request for user {}", userId);
+        }
+        
+        // Recalculate age if birth date changed
+        if (updatedProfile.getBirthDate() != null) {
+            int age = Period.between(updatedProfile.getBirthDate(), LocalDate.now()).getYears();
+            profile.setApproximateAge(age);
+        }
+        
+        playerProfileRepository.persist(profile);
+        log.info("Player profile updated by user ID: {}", userId);
         return profile;
     }
 

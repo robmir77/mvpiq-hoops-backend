@@ -94,6 +94,20 @@ public class PlayerProfileResource {
         }
     }
 
+    @PUT
+    @Path("/user/{userId}")
+    public Response updatePlayerProfileByUserId(@PathParam("userId") UUID userId, PlayerProfile profile) {
+        try {
+            PlayerProfile updated = playerProfileService.updatePlayerProfileByUserId(userId, profile);
+            return Response.ok(ApiResponse.success(updated, "Player profile updated successfully")).build();
+        } catch (Exception e) {
+            log.error("Error updating player profile by user ID", e);
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(ApiResponse.error("Error updating player profile: " + e.getMessage()))
+                    .build();
+        }
+    }
+
     @DELETE
     @Path("/{id}")
     public Response deletePlayerProfile(@PathParam("id") UUID id) {
