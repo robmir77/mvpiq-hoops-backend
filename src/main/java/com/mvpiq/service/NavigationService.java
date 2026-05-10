@@ -49,6 +49,7 @@ public class NavigationService {
         log.info("Total accessible sections: {}", accessibleSections.size());
         
         return accessibleSections.stream()
+                .sorted(Comparator.comparing(NavigationSection::getSortOrder).thenComparing(NavigationSection::getTitle))
                 .map(this::createNavigationItem)
                 .collect(Collectors.toList());
     }
