@@ -3,11 +3,13 @@ package com.mvpiq.repositories;
 import com.mvpiq.model.ChecklistTemplate;
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Optional;
 
 @ApplicationScoped
+@Slf4j
 public class ChecklistTemplateRepository implements PanacheRepository<ChecklistTemplate> {
 
     /**
@@ -15,8 +17,9 @@ public class ChecklistTemplateRepository implements PanacheRepository<ChecklistT
      * con caricamento eager degli item.
      */
     public List<ChecklistTemplate> findActiveByType(String entryType) {
+        log.info("Finding active templates for entryType: {}", entryType);
 
-        return getEntityManager()
+        List<ChecklistTemplate> templates = getEntityManager()
                 .createQuery("""
                 select distinct t
                 from ChecklistTemplate t
@@ -28,6 +31,14 @@ public class ChecklistTemplateRepository implements PanacheRepository<ChecklistT
             """, ChecklistTemplate.class)
                 .setParameter("type", entryType)
                 .getResultList();
+
+        log.info("Found {} templates for entryType: {}", templates.size(), entryType);
+        for (ChecklistTemplate template : templates) {
+            log.info("Template: {} ({}) - Items: {}", template.getName(), template.getCode(), 
+                    template.getItems() != null ? template.getItems().size() : 0);
+        }
+
+        return templates;
     }
 
     /**

@@ -37,7 +37,6 @@ public class ChecklistTemplate {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    @JsonIgnore
     @OneToMany(
             mappedBy = "template",
             cascade = CascadeType.ALL,

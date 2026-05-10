@@ -20,8 +20,8 @@ public class RoleBasedSecurityService {
     SecurityIdentity securityIdentity;
 
     public boolean hasRole(UserRole role) {
-        // Debug del token JWT
-        debugJwtToken();
+        // Debug del token JWT (commentato perché sistema funzionante)
+        // debugJwtToken();
         
         boolean result = securityIdentity.hasRole(role.name());
         log.info("hasRole({}) = {} | Available roles: {}", role.name(), result, securityIdentity.getRoles());
