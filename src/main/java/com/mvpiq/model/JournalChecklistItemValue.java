@@ -1,5 +1,6 @@
 package com.mvpiq.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "journal_checklist_item_values")
 public class JournalChecklistItemValue {
@@ -24,10 +26,12 @@ public class JournalChecklistItemValue {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "checklist_id", nullable = false)
+    @JsonIgnoreProperties({"itemValues"})
     private JournalChecklist checklist;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "template_item_id", nullable = false)
+    @JsonIgnoreProperties({"template", "options"})
     private ChecklistTemplateItem templateItem;
 
     @Column(name = "boolean_value")

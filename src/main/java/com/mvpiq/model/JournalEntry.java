@@ -1,5 +1,6 @@
 package com.mvpiq.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "journal_entries")
 public class JournalEntry {
@@ -64,5 +66,6 @@ public class JournalEntry {
     private OffsetDateTime updatedAt;
 
     @OneToMany(mappedBy = "journalEntry", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"journalEntry"})
     private List<JournalChecklist> checklists = new ArrayList<>();
 }

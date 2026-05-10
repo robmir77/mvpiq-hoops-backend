@@ -39,7 +39,7 @@ public class JournalService {
 
     public JournalEntryDTO getById(UUID playerId, UUID entryId) {
         JournalEntry entry = entryRepository
-                .findByIdAndPlayer(entryId, playerId)
+                .findByIdAndPlayerWithChecklists(entryId, playerId)
                 .orElseThrow(NotFoundException::new);
 
         return mapper.toDTO(entry);
