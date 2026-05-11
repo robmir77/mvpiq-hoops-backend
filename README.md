@@ -147,6 +147,7 @@ All APIs use JSON format (`application/json`) unless otherwise specified.
 | `GET` | `/api/players/{playerId}/journal?entryType={type}` | List journal entries |
 | `GET` | `/api/players/{playerId}/journal/{entryId}` | Get single entry |
 | `POST` | `/api/players/{playerId}/journal` | Create journal entry |
+| `PUT` | `/api/players/{playerId}/journal/{entryId}` | Update journal entry with checklist values |
 | `DELETE` | `/api/players/{playerId}/journal/{entryId}` | Delete entry |
 
 ### 6. Training

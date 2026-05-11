@@ -40,6 +40,7 @@ public class JournalEntryRepository implements PanacheRepositoryBase<JournalEntr
                     left join fetch jc.itemValues jv
                     left join fetch jv.templateItem
                     where je.id = :id and je.player.id = :playerId
+                    order by jv.templateItem.sortOrder
                 """, JournalEntry.class)
                 .setParameter("id", id)
                 .setParameter("playerId", playerId)

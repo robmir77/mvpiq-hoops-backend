@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -67,5 +67,5 @@ public class JournalEntry {
 
     @OneToMany(mappedBy = "journalEntry", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"journalEntry"})
-    private List<JournalChecklist> checklists = new ArrayList<>();
+    private Set<JournalChecklist> checklists = new HashSet<>();
 }

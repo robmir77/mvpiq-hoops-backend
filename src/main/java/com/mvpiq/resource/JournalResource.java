@@ -42,4 +42,12 @@ public class JournalResource {
                        @PathParam("entryId") UUID entryId) {
         service.delete(playerId, entryId);
     }
+
+    @PUT
+    @Path("/{entryId}")
+    public JournalEntryDTO update(@PathParam("playerId") UUID playerId,
+                                  @PathParam("entryId") UUID entryId,
+                                  JournalEntryDTO dto) {
+        return service.update(playerId, entryId, dto);
+    }
 }
