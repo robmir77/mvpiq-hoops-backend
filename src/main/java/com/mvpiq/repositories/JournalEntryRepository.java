@@ -16,6 +16,10 @@ public class JournalEntryRepository implements PanacheRepositoryBase<JournalEntr
         return find("player.id = ?1 order by entryDate desc", playerId).list();
     }
 
+    public List<JournalEntry> findByPlayerAndType(UUID playerId, String entryType) {
+        return find("player.id = ?1 and entryType = ?2 order by entryDate desc", playerId, entryType).list();
+    }
+
     public Optional<JournalEntry> findByIdAndPlayer(UUID id, UUID playerId) {
         return find("id = ?1 and player.id = ?2", id, playerId).firstResultOptional();
     }

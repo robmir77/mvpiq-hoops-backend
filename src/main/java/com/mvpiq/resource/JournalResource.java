@@ -18,8 +18,9 @@ public class JournalResource {
     JournalService service;
 
     @GET
-    public List<JournalEntryDTO> list(@PathParam("playerId") UUID playerId) {
-        return service.getPlayerEntries(playerId);
+    public List<JournalEntryDTO> list(@PathParam("playerId") UUID playerId,
+                                       @QueryParam("entryType") String entryType) {
+        return service.getPlayerEntries(playerId, entryType);
     }
 
     @GET

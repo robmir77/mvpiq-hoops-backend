@@ -30,9 +30,14 @@ public class JournalService {
     @Inject
     ChecklistTemplateRepository templateRepository;
 
-    public List<JournalEntryDTO> getPlayerEntries(UUID playerId) {
-        return entryRepository.findByPlayer(playerId)
-                .stream()
+    public List<JournalEntryDTO> getPlayerEntries(UUID playerId, String entryType) {
+        List<JournalEntry> entries;
+        if (entryType != null && !entryType.isBlank()) {
+            entries = entryRepository.findByPlayerAndType(playerId, entryType);
+        } else {
+            entries = entryRepository.findByPlayer(playerId);
+        }
+        return entries.stream()
                 .map(mapper::toDTO)
                 .toList();
     }
