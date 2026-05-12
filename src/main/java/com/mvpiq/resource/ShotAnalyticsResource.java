@@ -13,7 +13,7 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.logging.Logger;
+import org.jboss.logging.Logger;
 import java.util.stream.Collectors;
 
 @Path("/api/workouts/{sessionId}/analytics")
@@ -32,16 +32,8 @@ public class ShotAnalyticsResource {
     public Response getShotChart(
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId) {
-        
-        try {
-            var shotChart = analyticsService.getShotChart(sessionId, userId);
-            return Response.ok(shotChart).build();
-        } catch (Exception e) {
-            LOGGER.severe("Error getting shot chart: " + e.getMessage());
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
-                    .build();
-        }
+        var shotChart = analyticsService.getShotChart(sessionId, userId);
+        return Response.ok(shotChart).build();
     }
 
     @GET
@@ -50,16 +42,8 @@ public class ShotAnalyticsResource {
     public Response getSessionStatistics(
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId) {
-        
-        try {
-            var shotChart = analyticsService.getShotChart(sessionId, userId);
-            return Response.ok(shotChart.getSessionStats()).build();
-        } catch (Exception e) {
-            LOGGER.severe("Error getting session statistics: " + e.getMessage());
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
-                    .build();
-        }
+        var shotChart = analyticsService.getShotChart(sessionId, userId);
+        return Response.ok(shotChart.getSessionStats()).build();
     }
 
     @GET
@@ -68,16 +52,8 @@ public class ShotAnalyticsResource {
     public Response getZoneStatistics(
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId) {
-        
-        try {
-            var shotChart = analyticsService.getShotChart(sessionId, userId);
-            return Response.ok(shotChart.getZoneStats()).build();
-        } catch (Exception e) {
-            LOGGER.severe("Error getting zone statistics: " + e.getMessage());
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
-                    .build();
-        }
+        var shotChart = analyticsService.getShotChart(sessionId, userId);
+        return Response.ok(shotChart.getZoneStats()).build();
     }
 
     @GET
@@ -87,28 +63,20 @@ public class ShotAnalyticsResource {
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId,
             @DefaultValue("10") @QueryParam("limit") int limit) {
+        var hotShots = analyticsService.getHotZones(userId, limit);
+        var hotShotResponses = hotShots.stream()
+                .map(shot -> {
+                    var response = new ShotChartResponse.ShotPoint();
+                    response.setX(shot.getCourtX());
+                    response.setY(shot.getCourtY());
+                    response.setMade(true);
+                    response.setDistance(shot.getDistanceFromHoop());
+                    response.setZone(determineZone(shot.getDistanceFromHoop()));
+                    return response;
+                })
+                .collect(Collectors.toList());
         
-        try {
-            var hotShots = analyticsService.getHotZones(userId, limit);
-            var hotShotResponses = hotShots.stream()
-                    .map(shot -> {
-                        var response = new ShotChartResponse.ShotPoint();
-                        response.setX(shot.getCourtX());
-                        response.setY(shot.getCourtY());
-                        response.setMade(true);
-                        response.setDistance(shot.getDistanceFromHoop());
-                        response.setZone(determineZone(shot.getDistanceFromHoop()));
-                        return response;
-                    })
-                    .collect(Collectors.toList());
-            
-            return Response.ok(hotShotResponses).build();
-        } catch (Exception e) {
-            LOGGER.severe("Error getting hot zones: " + e.getMessage());
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
-                    .build();
-        }
+        return Response.ok(hotShotResponses).build();
     }
 
     @GET
@@ -118,44 +86,28 @@ public class ShotAnalyticsResource {
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId,
             @DefaultValue("10") @QueryParam("limit") int limit) {
+        var coldShots = analyticsService.getColdZones(userId, limit);
+        var coldShotResponses = coldShots.stream()
+                .map(shot -> {
+                    var response = new ShotChartResponse.ShotPoint();
+                    response.setX(shot.getCourtX());
+                    response.setY(shot.getCourtY());
+                    response.setMade(false);
+                    response.setDistance(shot.getDistanceFromHoop());
+                    response.setZone(determineZone(shot.getDistanceFromHoop()));
+                    return response;
+                })
+                .collect(Collectors.toList());
         
-        try {
-            var coldShots = analyticsService.getColdZones(userId, limit);
-            var coldShotResponses = coldShots.stream()
-                    .map(shot -> {
-                        var response = new ShotChartResponse.ShotPoint();
-                        response.setX(shot.getCourtX());
-                        response.setY(shot.getCourtY());
-                        response.setMade(false);
-                        response.setDistance(shot.getDistanceFromHoop());
-                        response.setZone(determineZone(shot.getDistanceFromHoop()));
-                        return response;
-                    })
-                    .collect(Collectors.toList());
-            
-            return Response.ok(coldShotResponses).build();
-        } catch (Exception e) {
-            LOGGER.severe("Error getting cold zones: " + e.getMessage());
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
-                    .build();
-        }
+        return Response.ok(coldShotResponses).build();
     }
 
     @GET
     @Path("/career-stats")
     @RolesAllowed({"PLAYER", "TRAINER"})
     public Response getCareerStats(@QueryParam("userId") UUID userId) {
-        
-        try {
-            var careerStats = analyticsService.getPlayerCareerStats(userId);
-            return Response.ok(careerStats).build();
-        } catch (Exception e) {
-            LOGGER.severe("Error getting career stats: " + e.getMessage());
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
-                    .build();
-        }
+        var careerStats = analyticsService.getPlayerCareerStats(userId);
+        return Response.ok(careerStats).build();
     }
 
     private String determineZone(Double distance) {

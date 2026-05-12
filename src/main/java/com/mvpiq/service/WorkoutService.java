@@ -19,7 +19,7 @@ import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.logging.Logger;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class WorkoutService {

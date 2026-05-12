@@ -43,7 +43,6 @@ public class JournalChecklist {
     private OffsetDateTime updatedAt;
 
     @OneToMany(mappedBy = "checklist", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("templateItem.sortOrder")
     @JsonIgnoreProperties({"checklist"})
     private Set<JournalChecklistItemValue> itemValues = new HashSet<>();
 }
