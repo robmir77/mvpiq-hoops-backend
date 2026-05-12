@@ -327,6 +327,102 @@ All APIs use JSON format (`application/json`) unless otherwise specified.
 |--------|----------|-------------|
 | `GET` | `/mvpiq` | Basic health check |
 
+### 21. Basketball Shot Tracking
+
+#### Workout Sessions
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/workouts/sessions?userId={id}` | Create new workout session |
+| `GET` | `/api/workouts/sessions/{sessionId}?userId={id}` | Get workout session details |
+| `GET` | `/api/workouts/sessions?userId={id}` | Get all player workout sessions |
+| `POST` | `/api/workouts/sessions/{sessionId}/end?userId={id}` | End workout session |
+| `POST` | `/api/workouts/sessions/{sessionId}/pause?userId={id}` | Pause workout session |
+| `POST` | `/api/workouts/sessions/{sessionId}/resume?userId={id}` | Resume workout session |
+| `GET` | `/api/workouts/sessions/active?userId={id}` | Get active workout session |
+
+#### Shot Events
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/workouts/sessions/{sessionId}/shots?userId={id}` | Get all shots in session |
+| `POST` | `/api/workouts/sessions/{sessionId}/shots?userId={id}` | Add shot event to session |
+
+#### Court Calibration
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/workouts/sessions/{sessionId}/calibration?userId={id}` | Save court calibration data |
+
+#### Analytics & Statistics
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/workouts/{sessionId}/analytics/shot-chart?userId={id}` | Get shot chart visualization |
+| `GET` | `/api/workouts/{sessionId}/analytics/stats?userId={id}` | Get session statistics |
+| `GET` | `/api/workouts/{sessionId}/analytics/zones?userId={id}` | Get zone statistics |
+| `GET` | `/api/workouts/{sessionId}/analytics/hot-zones?userId={id}&limit={n}` | Get hot zone shots |
+| `GET` | `/api/workouts/{sessionId}/analytics/cold-zones?userId={id}&limit={n}` | Get cold zone shots |
+| `GET` | `/api/workouts/{sessionId}/analytics/career-stats?userId={id}` | Get career statistics |
+
+**Request Examples:**
+
+Create Workout Session:
+```json
+POST /api/workouts/sessions?userId=550e8400-e29b-41d4-a716-446655440000
+{
+  "cameraMode": "ANGLE_45",
+  "courtType": "HALF_COURT",
+  "calibrationData": "{\"homographyMatrix\": [...], \"hoopCenter\": {\"x\": 320, \"y\": 240}}"
+}
+```
+
+Add Shot Event:
+```json
+POST /api/workouts/sessions/session-123/shots?userId=550e8400-e29b-41d4-a716-446655440000
+{
+  "timestampMs": 123456,
+  "shotResult": "MADE",
+  "courtX": 4.2,
+  "courtY": 6.8,
+  "distanceFromHoop": 7.1,
+  "releaseAngle": 48.2,
+  "releaseVelocity": 12.5,
+  "detectionConfidence": 0.91,
+  "trackingData": "{\"ballPosition\": {\"x\": 120, \"y\": 330}, \"trajectory\": [...]}"
+}
+```
+
+Shot Chart Response:
+```json
+{
+  "shots": [
+    {
+      "x": 4.3,
+      "y": 5.6,
+      "made": true,
+      "distance": 7.2,
+      "zone": "THREE_POINT"
+    }
+  ],
+  "sessionStats": {
+    "totalShots": 100,
+    "madeShots": 63,
+    "missedShots": 37,
+    "shootingPercentage": 63.0,
+    "averageDistance": 6.8,
+    "bestZone": "PAINT",
+    "worstZone": "THREE_POINT"
+  },
+  "zoneStats": {
+    "paint": {"attempts": 30, "made": 24, "percentage": 80.0},
+    "midRange": {"attempts": 25, "made": 15, "percentage": 60.0},
+    "threePoint": {"attempts": 35, "made": 18, "percentage": 51.4},
+    "corner": {"attempts": 10, "made": 6, "percentage": 60.0}
+  }
+}
+```
+
 ---
 
 ## Technical Notes
