@@ -32,7 +32,7 @@ public class AchievementService {
     AthletePointsRepository athletePointsRepository;
     
     @Inject
-    PlayerProfileRepository playerProfileRepository;
+    UserRepository userRepository;
 
     /**
      * Controlla e assegna achievement per un utente dopo un'azione
@@ -83,14 +83,14 @@ public class AchievementService {
         // Assegna il badge
         AthleteBadge athleteBadge = new AthleteBadge();
         
-        // Recupera il PlayerProfile per l'utente
-        PlayerProfile playerProfile = playerProfileRepository.findByUserId(userId);
-        if (playerProfile == null) {
-            log.warn("PlayerProfile not found for user: {}", userId);
+        // Recupera l'User per l'utente
+        User user = userRepository.findById(userId);
+        if (user == null) {
+            log.warn("User not found: {}", userId);
             return;
         }
         
-        athleteBadge.setPlayer(playerProfile);
+        athleteBadge.setPlayer(user);
         athleteBadge.setBadge(badge);
         athleteBadge.setObtainedAt(OffsetDateTime.now());
         
@@ -228,12 +228,12 @@ public class AchievementService {
             points.setTotalPoints(points.getTotalPoints() + additionalPoints);
             points.setUpdatedAt(OffsetDateTime.now());
         } else {
-            PlayerProfile player = playerProfileRepository.findByUserId(userId);
-            if (player == null) {
-                throw new IllegalArgumentException("Player not found: " + userId);
+            User user = userRepository.findById(userId);
+            if (user == null) {
+                throw new IllegalArgumentException("User not found: " + userId);
             }
             AthletePoints points = new AthletePoints();
-            points.setPlayer(player);
+            points.setPlayer(user);
             points.setTotalPoints((long) additionalPoints);
             points.setUpdatedAt(OffsetDateTime.now());
             athletePointsRepository.persist(points);

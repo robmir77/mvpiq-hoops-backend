@@ -26,7 +26,7 @@ public class AthleteBadge {
 
     @ManyToOne
     @JoinColumn(name = "player_id", nullable = false)
-    private PlayerProfile player;
+    private User player;
 
     @ManyToOne
     @JoinColumn(name = "badge_id", nullable = false)

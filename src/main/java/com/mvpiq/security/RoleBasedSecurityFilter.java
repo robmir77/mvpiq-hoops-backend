@@ -52,29 +52,29 @@ public class RoleBasedSecurityFilter implements ContainerRequestFilter {
         String userId = identity.getAttribute("user_id");
 
         // Admin has access to everything
-        if (userRoles.contains(UserRole.admin.name())) {
+        if (userRoles.contains(UserRole.ADMIN.name())) {
             return true;
         }
 
         // Scout-specific endpoints
         if (path.contains("/api/scout/")) {
-            return userRoles.contains(UserRole.scout.name()) || 
-                   userRoles.contains(UserRole.admin.name()) ||
-                   userRoles.contains(UserRole.trainer.name());
+            return userRoles.contains(UserRole.SCOUT.name()) || 
+                   userRoles.contains(UserRole.ADMIN.name()) ||
+                   userRoles.contains(UserRole.TRAINER.name());
         }
 
         // Trainer-specific endpoints
         if (path.contains("/api/trainer/")) {
-            return userRoles.contains(UserRole.trainer.name()) || 
-                   userRoles.contains(UserRole.admin.name()) ||
+            return userRoles.contains(UserRole.TRAINER.name()) || 
+                   userRoles.contains(UserRole.ADMIN.name()) ||
                    identity.getAttributes().containsKey("is_trainer");
         }
 
         // Creator-specific endpoints (for exercise creation, etc.)
         if ((path.contains("/api/exercises/") && "POST".equals(method)) ||
             (path.contains("/api/media/") && "POST".equals(method))) {
-            return userRoles.contains(UserRole.creator.name()) || 
-                   userRoles.contains(UserRole.admin.name()) ||
+            return userRoles.contains(UserRole.CREATOR.name()) || 
+                   userRoles.contains(UserRole.ADMIN.name()) ||
                    identity.getAttributes().containsKey("is_creator");
         }
 
@@ -85,9 +85,9 @@ public class RoleBasedSecurityFilter implements ContainerRequestFilter {
                 String profileId = pathParts[3];
                 // Allow access if it's the user's own profile or if they have appropriate roles
                 return profileId.equals(userId) || 
-                       userRoles.contains(UserRole.trainer.name()) ||
-                       userRoles.contains(UserRole.scout.name()) ||
-                       userRoles.contains(UserRole.admin.name());
+                       userRoles.contains(UserRole.TRAINER.name()) ||
+                       userRoles.contains(UserRole.SCOUT.name()) ||
+                       userRoles.contains(UserRole.ADMIN.name());
             }
         }
 
@@ -111,16 +111,16 @@ public class RoleBasedSecurityFilter implements ContainerRequestFilter {
 
         // Define specific role requirements for different endpoints
         if (path.contains("/api/scout/")) {
-            requiredRoles.add(UserRole.scout.name());
+            requiredRoles.add(UserRole.SCOUT.name());
         }
 
         if (path.contains("/api/trainer/")) {
-            requiredRoles.add(UserRole.trainer.name());
+            requiredRoles.add(UserRole.TRAINER.name());
         }
 
         if ((path.contains("/api/exercises/") && "POST".equals(method)) ||
             (path.contains("/api/media/") && "POST".equals(method))) {
-            requiredRoles.add(UserRole.creator.name());
+            requiredRoles.add(UserRole.CREATOR.name());
         }
 
         return requiredRoles;

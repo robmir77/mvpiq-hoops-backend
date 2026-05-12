@@ -34,7 +34,7 @@ public class GamificationEngine {
     AthletePointsRepository athletePointsRepository;
     
     @Inject
-    PlayerProfileRepository playerProfileRepository;
+    UserRepository userRepository;
 
     /**
      * Calcola e aggiorna lo streak di allenamento per un utente
@@ -155,15 +155,15 @@ public class GamificationEngine {
             log.info("Updated points for user {}: {}", userId, totalPoints);
             return Optional.of(existingPoints);
         } else {
-            // Recupero il PlayerProfile esistente
-            PlayerProfile player = playerProfileRepository.findById(userId);
-            if (player == null) {
-                log.warn("PlayerProfile not found for user: {}", userId);
+            // Recupero l'User esistente
+            User user = userRepository.findById(userId);
+            if (user == null) {
+                log.warn("User not found: {}", userId);
                 return Optional.empty();
             }
             
             AthletePoints points = new AthletePoints();
-            points.setPlayer(player);
+            points.setPlayer(user);
             points.setTotalPoints((long) totalPoints);
             points.setUpdatedAt(OffsetDateTime.now());
             athletePointsRepository.persist(points);
@@ -235,15 +235,15 @@ public class GamificationEngine {
      * Assegna un badge a un utente
      */
     private void awardBadge(UUID userId, Badge badge) {
-        // Recupero il PlayerProfile esistente
-        PlayerProfile player = playerProfileRepository.findByUserId(userId);
-        if (player == null) {
-            log.warn("PlayerProfile not found for user: {}", userId);
+        // Recupero l'User esistente
+        User user = userRepository.findById(userId);
+        if (user == null) {
+            log.warn("User not found: {}", userId);
             return;
         }
         
         AthleteBadge athleteBadge = new AthleteBadge();
-        athleteBadge.setPlayer(player);
+        athleteBadge.setPlayer(user);
         athleteBadge.setBadge(badge);
         athleteBadge.setObtainedAt(OffsetDateTime.now());
         

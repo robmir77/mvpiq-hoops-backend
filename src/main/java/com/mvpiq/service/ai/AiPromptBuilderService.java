@@ -1,7 +1,7 @@
 package com.mvpiq.service.ai;
 
 import com.mvpiq.dto.ai.TrainingGenerationRequestDTO;
-import com.mvpiq.model.PlayerProfile;
+import com.mvpiq.model.Player;
 import com.mvpiq.model.AthleteGoal;
 import com.mvpiq.repositories.ExerciseRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,7 +18,7 @@ public class AiPromptBuilderService {
     @Inject
     ExerciseRepository exerciseRepository;
     
-    public String buildPrompt(TrainingGenerationRequestDTO request, PlayerProfile athlete, AthleteGoal goal) {
+    public String buildPrompt(TrainingGenerationRequestDTO request, Player athlete, AthleteGoal goal) {
         // Recupera catalogo esercizi disponibili
         List<String> availableExercises = exerciseRepository.findAll()
                 .stream()

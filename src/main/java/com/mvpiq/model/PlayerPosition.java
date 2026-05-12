@@ -14,9 +14,9 @@ import java.util.UUID;
 @Builder
 @Entity
 @Table(
-        name = "player_profile_positions",
+        name = "player_positions",
         uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"profile_id", "position_id"})
+                @UniqueConstraint(columnNames = {"player_id", "position_id"})
         }
 )
 public class PlayerPosition {
@@ -26,9 +26,9 @@ public class PlayerPosition {
     private UUID id;
 
     @ManyToOne
-    @JoinColumn(name = "profile_id", nullable = false)
+    @JoinColumn(name = "player_id", nullable = false)
     @JsonIgnore
-    private PlayerProfile player;
+    private Player player;
 
     @ManyToOne
     @JoinColumn(name = "position_id", nullable = false)

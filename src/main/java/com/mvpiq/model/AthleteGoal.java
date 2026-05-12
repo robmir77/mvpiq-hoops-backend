@@ -27,7 +27,7 @@ public class AthleteGoal {
 
     @ManyToOne
     @JoinColumn(name = "player_id", nullable = false)
-    private PlayerProfile player;
+    private User player;
 
     @Column(name = "title", length = 200, nullable = false)
     @JsonProperty("title")
@@ -72,7 +72,7 @@ public class AthleteGoal {
 
     // Metodo helper per il builder
     public static class AthleteGoalBuilder {
-        private PlayerProfile player;
+        private User player;
 
         public AthleteGoalBuilder athleteId(UUID athleteId) {
             // Questo metodo è solo per compatibilità - non fa nulla reale
@@ -80,7 +80,7 @@ public class AthleteGoal {
             return this;
         }
 
-        public AthleteGoalBuilder player(PlayerProfile player) {
+        public AthleteGoalBuilder player(User player) {
             this.player = player;
             return this;
         }

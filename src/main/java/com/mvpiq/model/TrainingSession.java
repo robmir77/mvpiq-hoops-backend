@@ -26,7 +26,7 @@ public class TrainingSession {
 
     @ManyToOne
     @JoinColumn(name = "player_id", nullable = false)
-    private PlayerProfile player;
+    private User player;
 
     @ManyToOne
     @JoinColumn(name = "program_id")

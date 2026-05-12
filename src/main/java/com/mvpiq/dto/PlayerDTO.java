@@ -1,6 +1,6 @@
 package com.mvpiq.dto;
 
-import com.mvpiq.model.PlayerProfile;
+import com.mvpiq.model.Player;
 import com.mvpiq.model.PlayerPosition;
 import com.mvpiq.model.PositionMetadata;
 import lombok.*;
@@ -16,7 +16,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PlayerProfileDTO {
+public class PlayerDTO {
 
     // ID coincide con users.id
     private UUID id;
@@ -32,8 +32,8 @@ public class PlayerProfileDTO {
     // Campi specifici Player
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate birthDate;
-    private Integer heightCm;
-    private Integer weightKg;
+    private Short heightCm;
+    private Short weightKg;
 
     // 🔥 ORA USIAMO GLI ID
     private UUID mainPositionId;
@@ -49,7 +49,7 @@ public class PlayerProfileDTO {
     private Integer approximateAge;
     private String gender;
 
-    public static PlayerProfileDTO fromEntity(PlayerProfile p) {
+    public static PlayerDTO fromEntity(Player p) {
 
         UUID mainId = null;
         String mainLabel = null;
@@ -69,7 +69,7 @@ public class PlayerProfileDTO {
             }
         }
 
-        return PlayerProfileDTO.builder()
+        return PlayerDTO.builder()
                 .id(p.getId())
 
                 // Campi User
@@ -99,7 +99,7 @@ public class PlayerProfileDTO {
                 .build();
     }
 
-    public void updateEntity(PlayerProfile p) {
+    public void updateEntity(Player p) {
 
         // Campi User modificabili
         p.setDisplayName(displayName);
@@ -120,7 +120,7 @@ public class PlayerProfileDTO {
         // 🔥 Le posizioni si aggiornano nel PlayerPositionService
     }
 
-    public static PlayerProfileDTO toDTO(PlayerProfile p) {
+    public static PlayerDTO toDTO(Player p) {
         return fromEntity(p);
     }
 }

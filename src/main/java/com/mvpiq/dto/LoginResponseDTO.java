@@ -19,6 +19,4 @@ public class LoginResponseDTO {
     private UserRole role;
     private Boolean verified;
     private Boolean hasGoals;
-    private Boolean isCreator;
-    private Boolean isTrainer;
 }

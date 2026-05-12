@@ -11,10 +11,14 @@ import java.util.UUID;
 public class PlayerCvTeamRepository implements PanacheRepository<PlayerCvTeam> {
 
     public List<PlayerCvTeam> findByPlayer(UUID playerId) {
-        return list("player.id", playerId);
+        return list("cv.player.id", playerId);
     }
 
     public void deleteByPlayer(UUID playerId) {
-        delete("player.id", playerId);
+        delete("cv.player.id", playerId);
+    }
+
+    public List<PlayerCvTeam> findByPlayerIdColumn(UUID playerId) {
+        return list("cv.player.id", playerId);
     }
 }

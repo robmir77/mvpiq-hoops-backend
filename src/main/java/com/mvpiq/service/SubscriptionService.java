@@ -1,15 +1,15 @@
 package com.mvpiq.service;
 
 import com.mvpiq.model.User;
+import com.mvpiq.model.UserRoleAssignment;
 import com.mvpiq.repositories.UserRepository;
-import com.mvpiq.enums.UserRole;
+import com.mvpiq.repositories.UserRoleRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.OffsetDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -18,6 +18,9 @@ public class SubscriptionService {
 
     @Inject
     UserRepository userRepository;
+
+    @Inject
+    UserRoleRepository userRoleRepository;
 
     /**
      * Verifica se un utente ha accesso Premium
@@ -29,13 +32,21 @@ public class SubscriptionService {
         }
         
         // I trainer e scout hanno accesso premium di default
-        if (UserRole.trainer.equals(user.getRole()) || UserRole.scout.equals(user.getRole())) {
-            return true;
+        java.util.List<UserRoleAssignment> userRoles = userRoleRepository.findByUserId(userId);
+        for (UserRoleAssignment ur : userRoles) {
+            String roleCode = ur.getRole().getCode();
+            if ("TRAINER".equals(roleCode) || "SCOUT".equals(roleCode)) {
+                return true;
+            }
         }
         
         // Per i player, implementazione semplificata - tutti premium per ora
-        // In produzione, qui ci sarebbe logica di subscription/pagamento
-        return UserRole.player.equals(user.getRole());
+        for (UserRoleAssignment ur : userRoles) {
+            if ("PLAYER".equals(ur.getRole().getCode())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -46,7 +57,14 @@ public class SubscriptionService {
         if (user == null) {
             return false;
         }
-        return UserRole.scout.equals(user.getRole()) || UserRole.admin.equals(user.getRole());
+        java.util.List<UserRoleAssignment> userRoles = userRoleRepository.findByUserId(userId);
+        for (UserRoleAssignment ur : userRoles) {
+            String roleCode = ur.getRole().getCode();
+            if ("SCOUT".equals(roleCode) || "ADMIN".equals(roleCode)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -57,7 +75,14 @@ public class SubscriptionService {
         if (user == null) {
             return false;
         }
-        return UserRole.creator.equals(user.getRole()) || UserRole.trainer.equals(user.getRole()) || UserRole.admin.equals(user.getRole());
+        java.util.List<UserRoleAssignment> userRoles = userRoleRepository.findByUserId(userId);
+        for (UserRoleAssignment ur : userRoles) {
+            String roleCode = ur.getRole().getCode();
+            if ("CREATOR".equals(roleCode) || "TRAINER".equals(roleCode) || "ADMIN".equals(roleCode)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -76,19 +101,24 @@ public class SubscriptionService {
             return SubscriptionPlan.FREE;
         }
         
-        switch (user.getRole()) {
-            case admin:
-                return SubscriptionPlan.ADMIN;
-            case scout:
-                return SubscriptionPlan.SCOUT_PRO;
-            case trainer:
-            case creator:
-                return SubscriptionPlan.PREMIUM;
-            case player:
-                return isPremium(userId) ? SubscriptionPlan.PREMIUM : SubscriptionPlan.FREE;
-            default:
-                return SubscriptionPlan.FREE;
+        java.util.List<UserRoleAssignment> userRoles = userRoleRepository.findByUserId(userId);
+        for (UserRoleAssignment ur : userRoles) {
+            String roleCode = ur.getRole().getCode();
+            switch (roleCode) {
+                case "ADMIN":
+                    return SubscriptionPlan.ADMIN;
+                case "SCOUT":
+                    return SubscriptionPlan.SCOUT_PRO;
+                case "TRAINER":
+                case "CREATOR":
+                    return SubscriptionPlan.PREMIUM;
+                case "PLAYER":
+                    return isPremium(userId) ? SubscriptionPlan.PREMIUM : SubscriptionPlan.FREE;
+                default:
+                    break;
+            }
         }
+        return SubscriptionPlan.FREE;
     }
 
     /**

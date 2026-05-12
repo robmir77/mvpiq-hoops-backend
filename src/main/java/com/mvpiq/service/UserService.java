@@ -10,9 +10,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 public class UserService {
 
     private User createUserFromRole(UserRole role, RegisterDTO dto, String hash) {
-        if (role == UserRole.player) {
+        if (role == UserRole.PLAYER) {
             Player p = new Player();
-            p.setRole(UserRole.player);
             p.setUsername(dto.getUsername());
             p.setEmail(dto.getEmail());
             p.setDisplayName(dto.getDisplayName());
@@ -21,7 +20,6 @@ public class UserService {
         }
 
         User u = new User();
-        u.setRole(role);
         u.setUsername(dto.getUsername());
         u.setEmail(dto.getEmail());
         u.setDisplayName(dto.getDisplayName());

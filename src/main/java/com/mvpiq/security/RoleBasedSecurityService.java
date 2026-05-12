@@ -1,16 +1,16 @@
 package com.mvpiq.security;
 
 import com.mvpiq.enums.UserRole;
+import com.mvpiq.model.UserRoleAssignment;
+import com.mvpiq.repositories.UserRoleRepository;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
-import java.util.Arrays;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 @Slf4j
@@ -18,6 +18,9 @@ public class RoleBasedSecurityService {
 
     @Inject
     SecurityIdentity securityIdentity;
+
+    @Inject
+    UserRoleRepository userRoleRepository;
 
     public boolean hasRole(UserRole role) {
         // Debug del token JWT (commentato perché sistema funzionante)
@@ -56,14 +59,6 @@ public class RoleBasedSecurityService {
     public boolean hasAllRoles(UserRole... roles) {
         return Arrays.stream(roles)
                 .allMatch(role -> securityIdentity.hasRole(role.name()));
-    }
-
-    public boolean isCreator() {
-        return Boolean.TRUE.equals(securityIdentity.getAttribute("is_creator"));
-    }
-
-    public boolean isTrainer() {
-        return Boolean.TRUE.equals(securityIdentity.getAttribute("is_trainer"));
     }
 
     public boolean isOwner(UUID resourceOwnerId) {
@@ -109,7 +104,7 @@ public class RoleBasedSecurityService {
 
     public boolean canAccessResource(UUID resourceOwnerId, UserRole... allowedRoles) {
         // Admin can access everything
-        if (hasRole(UserRole.admin)) {
+        if (hasRole(UserRole.ADMIN)) {
             return true;
         }
         
@@ -123,25 +118,23 @@ public class RoleBasedSecurityService {
     }
 
     public boolean canScout() {
-        return hasRole(UserRole.scout) || 
-               hasRole(UserRole.admin) || 
-               hasRole(UserRole.trainer);
+        return hasRole(UserRole.SCOUT) || 
+               hasRole(UserRole.ADMIN) || 
+               hasRole(UserRole.TRAINER);
     }
 
     public boolean canTrain() {
-        return hasRole(UserRole.trainer) || 
-               hasRole(UserRole.admin) || 
-               isTrainer();
+        return hasRole(UserRole.TRAINER) || 
+               hasRole(UserRole.ADMIN);
     }
 
     public boolean canCreateContent() {
-        return hasRole(UserRole.creator) || 
-               hasRole(UserRole.admin) || 
-               isCreator();
+        return hasRole(UserRole.CREATOR) || 
+               hasRole(UserRole.ADMIN);
     }
 
     public boolean canManageUsers() {
-        return hasRole(UserRole.admin);
+        return hasRole(UserRole.ADMIN);
     }
 
     public Set<String> getCurrentRoles() {
@@ -153,13 +146,23 @@ public class RoleBasedSecurityService {
     }
 
     public UserSecurityInfo getCurrentUserSecurityInfo() {
+        UUID userId = getCurrentUserId();
+        Set<String> roleCodes = new HashSet<>();
+        
+        // Fetch actual roles from database using RBAC
+        if (userId != null) {
+            List<UserRoleAssignment> userRoles = userRoleRepository.findByUserId(userId);
+            roleCodes = userRoles.stream()
+                    .map(ur -> ur.getRole().getCode())
+                    .collect(Collectors.toSet());
+        }
+        
         return UserSecurityInfo.builder()
-                .userId(getCurrentUserId())
+                .userId(userId)
                 .username(getCurrentUsername())
                 .email(getCurrentEmail())
                 .roles(getCurrentRoles())
-                .isCreator(isCreator())
-                .isTrainer(isTrainer())
+                .roleCodes(roleCodes)
                 .build();
     }
 
@@ -170,7 +173,6 @@ public class RoleBasedSecurityService {
         private String username;
         private String email;
         private Set<String> roles;
-        private Boolean isCreator;
-        private Boolean isTrainer;
+        private Set<String> roleCodes;
     }
 }

@@ -77,7 +77,7 @@ public class NavigationService {
         }
         
         // Admin può accedere a tutto
-        if (hasRole(UserRole.admin)) {
+        if (hasRole(UserRole.ADMIN)) {
             return true;
         }
         

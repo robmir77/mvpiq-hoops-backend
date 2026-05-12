@@ -16,7 +16,6 @@ public class UserDTO {
     private String username;
     private String email;
     private String displayName;
-    private UserRole role;
 
     // Conversione da entity a DTO
     public static UserDTO fromEntity(User user) {
@@ -26,7 +25,6 @@ public class UserDTO {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
-                .role(user.getRole())
                 .build();
     }
 }

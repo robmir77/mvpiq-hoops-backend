@@ -25,7 +25,7 @@ public class AthletePoints {
 
     @ManyToOne
     @JoinColumn(name = "player_id", nullable = false)
-    private PlayerProfile player;
+    private User player;
 
     @Column(name = "total_points")
     @JsonProperty("total_points")

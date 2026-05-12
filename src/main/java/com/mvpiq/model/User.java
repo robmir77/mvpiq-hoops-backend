@@ -34,10 +34,6 @@ public class User {
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    private UserRole role = UserRole.player;
-
     @Column(name = "display_name", length = 100)
     private String displayName;
 
@@ -62,11 +58,9 @@ public class User {
     @Column(name = "bio", columnDefinition = "TEXT")
     private String bio;
 
-    @Column(name = "is_creator")
-    private Boolean isCreator = false;
-
-    @Column(name = "is_trainer")
-    private Boolean isTrainer = false;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private java.util.Set<com.mvpiq.model.UserRoleAssignment> userRoles = new java.util.HashSet<>();
 
     @PrePersist
     protected void onCreate() {

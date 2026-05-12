@@ -40,7 +40,7 @@ public class RankingDTO {
         if (dto == null) return null;
         Ranking ranking = new Ranking();
         ranking.setId(dto.getId());
-        // Note: player relationship needs to be set separately using PlayerProfileRepository
+        // Note: player relationship needs to be set separately using UserRepository
         // ranking.setPlayer(null); // This needs to be set by the caller
         ranking.setScope(dto.getRankScope());
         ranking.setScopeValue(dto.getScopeValue());

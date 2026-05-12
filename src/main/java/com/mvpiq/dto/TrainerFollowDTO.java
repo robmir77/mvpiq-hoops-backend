@@ -20,5 +20,5 @@ public class TrainerFollowDTO {
     
     // Nested objects
     private UserDTO trainer;
-    private PlayerProfileDTO player;
+    private PlayerDTO player;
 }

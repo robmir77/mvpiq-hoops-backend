@@ -82,7 +82,6 @@ public class UserResource {
                             .username(user.getUsername())
                             .email(user.getEmail())
                             .displayName(user.getDisplayName())
-                            .role(user.getRole())
                             .avatarUrl(user.getAvatarUrl())
                             .lastActivityAt(latestActivity.getCreatedAt())
                             .activityType(latestActivity.getActivityType())
@@ -102,7 +101,6 @@ public class UserResource {
         private String username;
         private String email;
         private String displayName;
-        private com.mvpiq.enums.UserRole role;
         private String avatarUrl;
         private OffsetDateTime lastActivityAt;
         private String activityType;

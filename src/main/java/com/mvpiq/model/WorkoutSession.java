@@ -28,7 +28,7 @@ public class WorkoutSession {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_id", nullable = false)
-    private PlayerProfile player;
+    private Player player;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "camera_mode", nullable = false)

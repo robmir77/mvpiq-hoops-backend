@@ -10,7 +10,7 @@ import com.mvpiq.dto.ai.TrainingProgramDTO;
 import com.mvpiq.enums.GenerationStatus;
 import com.mvpiq.enums.SourceType;
 import com.mvpiq.model.AthleteGoal;
-import com.mvpiq.model.PlayerProfile;
+import com.mvpiq.model.Player;
 import com.mvpiq.model.TrainingProgram;
 import com.mvpiq.repositories.AthleteGoalsRepository;
 import com.mvpiq.repositories.PlayerRepository;
@@ -53,7 +53,7 @@ public class AiTrainingService {
     public TrainingProgram generateTrainingProgram(TrainingGenerationRequestDTO request) {
         try {
             // Retrieve athlete profile
-            PlayerProfile athlete = playerRepository.findByIdOptional(request.getAthleteId())
+            Player athlete = playerRepository.findByIdOptional(request.getAthleteId())
                     .orElseThrow(() -> new RuntimeException("Athlete not found"));
             
             // Retrieve goal if specified

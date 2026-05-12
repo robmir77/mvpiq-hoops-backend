@@ -13,4 +13,24 @@ public class PlayerCvRepository implements PanacheRepository<PlayerCv> {
     public Optional<PlayerCv> findByPlayer(UUID playerId) {
         return find("player.id", playerId).firstResultOptional();
     }
+
+    public Optional<PlayerCv> findByPlayerId(UUID playerId) {
+        return find("player.id", playerId).firstResultOptional();
+    }
+
+    public Optional<PlayerCv> findByPlayerIdDirect(UUID playerId) {
+        return find("player.id", playerId).firstResultOptional();
+    }
+
+    public Optional<PlayerCv> findByPlayerIdNative(UUID playerId) {
+        return find("player.id", playerId).firstResultOptional();
+    }
+
+    public Optional<PlayerCv> findByPlayerIdColumn(UUID playerId) {
+        return find("player.id", playerId).firstResultOptional();
+    }
+
+    public Optional<PlayerCv> findByPlayerIdNativeQuery(UUID playerId) {
+        return find("SELECT cv FROM PlayerCv cv WHERE cv.player.id = ?1", playerId).firstResultOptional();
+    }
 }

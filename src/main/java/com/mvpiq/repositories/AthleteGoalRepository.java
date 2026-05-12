@@ -1,7 +1,6 @@
 package com.mvpiq.repositories;
 
 import com.mvpiq.model.AthleteGoal;
-import com.mvpiq.model.PlayerProfile;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -17,9 +16,7 @@ public class AthleteGoalRepository implements PanacheRepositoryBase<AthleteGoal,
     }
 
     public List<AthleteGoal> findByPlayerIdAndStatus(UUID playerId, String status) {
-        PlayerProfile player = new PlayerProfile();
-        player.setId(playerId);
-        return list("player", player);
+        return list("from AthleteGoal where player.id = ?1 and status = ?2", playerId, status);
     }
 
     public List<AthleteGoal> findByPlayerIdAndStatusOrderByCreatedAtDesc(UUID playerId, String status) {

@@ -34,10 +34,18 @@ public class PlayerCvService {
     // ===============================
     public PlayerCvDTO getCv(UUID playerId) {
 
-        PlayerCv cv = cvRepository.findByPlayer(playerId)
-                .orElseThrow(() -> new NotFoundException("CV not found"));
+        // Try to find existing CV, create empty one if not found
+        PlayerCv cv = cvRepository.findByPlayerIdNativeQuery(playerId)
+                .orElseGet(() -> {
+                    Player player = playerRepository.findByIdOptional(playerId)
+                            .orElseThrow(() -> new NotFoundException("Player not found"));
+                    PlayerCv newCv = new PlayerCv();
+                    newCv.setPlayer(player);
+                    cvRepository.persist(newCv);
+                    return newCv;
+                });
 
-        List<PlayerCvTeam> teams = teamRepository.findByPlayer(playerId);
+        List<PlayerCvTeam> teams = teamRepository.findByPlayerIdColumn(playerId);
 
         return toDTO(cv, teams);
     }
@@ -48,11 +56,11 @@ public class PlayerCvService {
     @Transactional
     public PlayerCvDTO updateCv(UUID playerId, PlayerCvDTO dto) {
 
-        PlayerProfile player = playerRepository.findByIdOptional(playerId)
+        Player player = playerRepository.findByIdOptional(playerId)
                 .orElseThrow(() -> new NotFoundException("Player not found"));
 
         // 1️⃣ Load or create CV
-        PlayerCv cv = cvRepository.findByPlayer(playerId)
+        PlayerCv cv = cvRepository.findByPlayerIdNativeQuery(playerId)
                 .orElseGet(() -> {
                     PlayerCv newCv = new PlayerCv();
                     newCv.setPlayer(player);

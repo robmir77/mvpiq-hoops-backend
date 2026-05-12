@@ -94,7 +94,7 @@ Il backend segue un'architettura a strati tipica di applicazioni enterprise Java
 @Table(name = "workout_sessions")
 public class WorkoutSession {
     - id: UUID (PK)
-    - player: PlayerProfile (FK)
+    - player: Player (FK)
     - cameraMode: CameraMode (LATERAL, FRONTAL, ANGLE_45)
     - courtType: CourtType (HALF_COURT, FULL_COURT)
     - startTime: OffsetDateTime
@@ -160,8 +160,10 @@ public class CourtCalibration {
 
 ### 3.2 Altre Entità Principali
 
-- **PlayerProfile**: Profilo giocatore
-- **User**: Utente del sistema
+- **Player**: Profilo giocatore (estende User, contiene attributi fisici e background)
+- **User**: Utente del sistema (classe base per tutti gli utenti)
+- **Role**: Catalogo ruoli applicativi (RBAC)
+- **UserRoleAssignment**: Associazione molti-a-molti utenti-ruoli (RBAC)
 - **JournalEntry**: Diario allenamenti/partite
 - **TrainingSession**: Sessioni di training
 - **Exercise**: Esercizi
@@ -170,6 +172,14 @@ public class CourtCalibration {
 - **VideoAnalysisSession**: Sessioni analisi video
 - **Conversation**: Conversazioni messaggistica
 - **Notification**: Notifiche push
+
+**Nota sulla Struttura del Database:**
+- La tabella `players` estende `users` tramite table-per-type inheritance
+- Foreign keys puntano a `users` per: athlete_badges, athlete_goals, athlete_points, player_cv, rankings, trainer_follows, training_sessions
+- Foreign key punta a `players` per: workout_sessions
+- L'entità `PlayerProfile` è stata rimossa in favore di `Player`
+- **Sistema RBAC**: Ruoli gestiti tramite tabelle `roles` e `user_roles` (molti-a-molti)
+- **Campi rimossi da `users`**: `role`, `is_creator`, `is_trainer` (gestiti tramite RBAC)
 
 ---
 
@@ -412,8 +422,10 @@ Query personalizzate per eventi tiro:
 ### 6.3 Altri Repository
 
 - **CourtCalibrationRepository**: Dati calibrazione
-- **PlayerProfileRepository**: Profili giocatori
+- **PlayerRepository**: Profili giocatori (Player entity)
 - **UserRepository**: Utenti sistema
+- **RoleRepository**: Catalogo ruoli RBAC
+- **UserRoleRepository**: Assegnazioni ruoli utenti (RBAC)
 - **JournalEntryRepository**: Diario
 - **VideoAnalysisSessionRepository**: Sessioni analisi video
 - **BadgeRepository**: Gamification
@@ -473,18 +485,44 @@ quarkus.http.cors.methods=GET,PUT,POST,DELETE
 ### 8.1 Autenticazione
 
 - **JWT Token-based**: SmallRye JWT
-- **Ruoli**: PLAYER, TRAINER, ADMIN, SCOUT, CREATOR
+- **Ruoli**: ADMIN, TRAINER, PLAYER, SCOUT, CREATOR, GUEST
 - **Public/Private Key**: Chiavi RSA per firma/verifica
 
-### 8.2 Autorizzazione
+### 8.2 Sistema RBAC (Role-Based Access Control)
+
+**Architettura RBAC:**
+- **Tabella `roles`**: Catalogo ruoli applicativi (PLAYER, TRAINER, SCOUT, CREATOR, ADMIN, GUEST)
+- **Tabella `user_roles`**: Associazioni molti-a-molti utenti-ruoli
+- **Multi-role support**: Un utente può avere più ruoli contemporaneamente
+- **Fine boolean flags**: Campi `is_creator` e `is_trainer` rimossi, gestiti tramite ruoli
+
+**Entità RBAC:**
+- `Role`: Entità per catalogo ruoli (code, name, description)
+- `UserRoleAssignment`: Entità per assegnazioni utente-ruolo (user_id, role_id, assigned_at)
+
+**Servizi RBAC:**
+- `RoleRepository`: Repository per gestione ruoli
+- `UserRoleRepository`: Repository per gestione assegnazioni ruoli
+- `SecurityIdentityRoleMapper`: Mapper per recuperare ruoli dal database in JWT
+- `RoleBasedSecurityService`: Servizio per verifiche permessi basate su ruoli
+
+### 8.3 Autorizzazione
 
 Le API per workout richiedono ruolo:
 - `@RolesAllowed({"PLAYER", "TRAINER"})`
 
-### 8.3 Protezione Endpoints
+**Verifiche Ruoli:**
+- `hasRole(UserRole.ROLE)`: Verifica ruolo specifico
+- `hasAnyRole(UserRole...)`: Verifica uno tra più ruoli
+- `canTrain()`: Verifica permessi training (TRAINER o ADMIN)
+- `canScout()`: Verifica permessi scouting (SCOUT, TRAINER o ADMIN)
+- `canCreateContent()`: Verifica permessi creazione contenuti (CREATOR o ADMIN)
+
+### 8.4 Protezione Endpoints
 
 - **@Authenticated**: Richiede autenticazione
 - **Verifica proprietà**: Le query verificano che l'utente abbia accesso alle risorse
+- **RBAC integration**: Ruoli recuperati dal database per ogni richiesta
 
 ---
 
@@ -496,9 +534,10 @@ Le API per workout richiedono ruolo:
 - POST /api/auth/logout
 
 ### 9.2 Profili Giocatori
-- CRUD PlayerProfile
+- CRUD Player (entità principale per giocatori)
 - Filtri per paese, livello, posizione, età
 - Statistiche e rankings
+- Gestione posizioni (main position, secondary positions)
 
 ### 9.3 Trainer
 - Follow/Unfollow giocatori
@@ -704,7 +743,76 @@ CMD ["/application/run-application.sh"]
 
 ---
 
-## 16. Conclusioni
+## 17. Fix Applicati (Maggio 2026)
+
+### 17.1 Correzioni Database e Entità
+
+**PlayerPosition Entity:**
+- **Problema**: Errore SQL `column p1_0.profile_id does not exist`
+- **Causa**: Mismatch tra nome colonna database (`player_id`) e definizione entità (`profile_id`)
+- **Soluzione**: Aggiornato `@JoinColumn(name = "player_id")` e unique constraint
+
+### 17.2 Correzioni API Endpoints
+
+**Player CV Endpoint:**
+- **Problema**: Errore 404 su `/api/athlet/{playerId}/cv`
+- **Causa**: Path mismatch tra client (`/api/athlet/`) e server (`/api/players/`)
+- **Soluzione**: Allineato client a usare `/api/players/{playerId}/cv`
+
+**Auto-creazione CV:**
+- **Problema**: 404 quando CV non esiste
+- **Soluzione**: Modificato `PlayerCvService.getCv()` per creare CV vuoto automaticamente
+
+### 17.3 Correzioni Query Hibernate
+
+**PlayerCvRepository:**
+- **Problema**: `Could not interpret path expression 'player.id'`
+- **Causa**: Query Panache non funzionava con path expression complessi
+- **Soluzione**: Aggiunto metodo `findByPlayerIdColumn()` con query diretta su colonna
+
+**PlayerCvTeamRepository:**
+- **Problema**: Path expression errata per accedere al player
+- **Causa**: `PlayerCvTeam` → `PlayerCv` → `Player` richiede path `cv.player.id`
+- **Soluzione**: Aggiornato query a `"cv.player.id"` e aggiunto metodo alternativo
+
+### 17.4 Correzioni Navigazione
+
+**Sezioni PLAYER:**
+- **Problema**: Utenti PLAYER vedevano 0 sezioni di navigazione
+- **Causa**: Database non conteneva sezioni configurate per ruolo PLAYER
+- **Soluzione**: Creato migration `V1.7__Add_Player_Navigation_Sections.sql` con sezioni base (Home, Profile, Goals, Training, Journal, Statistics)
+
+### 17.5 Correzioni Enum RBAC
+
+**UserRole Constants:**
+- **Problema**: `No enum constant com.mvpiq.enums.UserRole.GUEST`
+- **Causa**: Enum constants in minuscolo non corrispondevano a valori database
+- **Soluzione**: Convertito tutti i valori enum in maiuscolo (ADMIN, TRAINER, PLAYER, SCOUT, CREATOR, GUEST)
+
+---
+
+## 18. Stato Attuale Sistema
+
+### 18.1 Funzionalità Verificate
+
+✅ **Autenticazione**: Login con JWT funzionante  
+✅ **RBAC**: Sistema ruoli multipli operativo  
+✅ **Navigazione**: Sezioni correttamente configurate per PLAYER  
+✅ **Player Profile**: Caricamento e aggiornamento profili  
+✅ **Player CV**: Creazione automatica e gestione CV  
+✅ **Positions**: Gestione posizioni giocatori  
+✅ **Goals**: Sistema obiettivi atleta  
+
+### 18.2 Architettura Stabile
+
+- **Backend Quarkus**: Performance ottimali
+- **Database PostgreSQL**: Schema consistente
+- **Sicurezza**: JWT + RBAC completo
+- **API REST**: Endpoints allineati e funzionanti
+
+---
+
+## 19. Conclusioni
 
 Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che implementa tutte le funzionalità richieste per il tracking dei tiri di basket, incluse le API del punto 21 della specifica tecnica.
 
@@ -712,9 +820,10 @@ Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che
 - Architettura a strati chiara e manutenibile
 - Integrazione AI/ML avanzata (DJL, YOLOv5)
 - API REST complete e documentate
-- Sicurezza robusta (JWT, role-based)
+- Sicurezza robusta (JWT, RBAC-based)
 - Performance ottimizzate
 - Database PostgreSQL con JSONB per flessibilità
+- Sistema RBAC completo per gestione ruoli multipli
 
 **Stato Implementazione:**
 - ✅ Tutte le API tracking tiri implementate
@@ -722,5 +831,21 @@ Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che
 - ✅ Analytics e statistiche complete
 - ✅ Calibrazione campo
 - ✅ Integrazione mobile pronta
+- ✅ Sistema RBAC completo implementato
+- ✅ Multi-role support per utenti
+
+**Migrazioni Recenti (Maggio 2026):**
+- ✅ Rimozione entità `PlayerProfile` in favore di `Player`
+- ✅ Rimozione campi `role`, `is_creator`, `is_trainer` da `users`
+- ✅ Implementazione sistema RBAC con tabelle `roles` e `user_roles`
+- ✅ Nuove entità `Role` e `UserRoleAssignment`
+- ✅ Aggiornamento tutti i servizi per RBAC
+- ✅ Aggiornamento enum `UserRole` a valori maiuscoli
+- ✅ Rinomino tabella `player_profile_positions` in `player_positions`
+- ✅ Fix PlayerPosition entity per usare `player_id` invece di `profile_id`
+- ✅ Fix endpoint path CV da `/api/athlet/{id}/cv` a `/api/players/{id}/cv`
+- ✅ Implementazione auto-creazione CV vuoto quando non esiste
+- ✅ Fix query Hibernate per CV e CV teams
+- ✅ Creazione sezioni navigazione per ruolo PLAYER
 
 Il backend è pronto per l'integrazione con l'app mobile React Native già sviluppata.

@@ -2,7 +2,6 @@ package com.mvpiq.service;
 
 import com.mvpiq.model.ScoutSavedFilter;
 import com.mvpiq.model.User;
-import com.mvpiq.repositories.PlayerProfileRepository;
 import com.mvpiq.repositories.ScoutSavedFilterRepository;
 import com.mvpiq.repositories.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -23,8 +22,6 @@ public class ScoutService {
     @Inject
     ScoutSavedFilterRepository scoutSavedFilterRepository;
 
-    @Inject
-    PlayerProfileRepository playerProfileRepository;
 
     @Inject
     UserRepository userRepository;
@@ -99,7 +96,7 @@ public class ScoutService {
         log.info("Searching players with filters: {}", filters);
         
         // Build dynamic query based on filters
-        StringBuilder query = new StringBuilder("SELECT p FROM PlayerProfile p WHERE 1=1");
+        StringBuilder query = new StringBuilder("SELECT p FROM Player p WHERE 1=1");
         
         if (filters.containsKey("country")) {
             query.append(" AND p.country = :country");

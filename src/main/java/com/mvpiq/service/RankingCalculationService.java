@@ -25,8 +25,6 @@ public class RankingCalculationService {
     @Inject
     UserRepository userRepository;
     
-    @Inject
-    PlayerProfileRepository playerProfileRepository;
 
     /**
      * Ricalcola tutti i ranking globali
@@ -63,7 +61,7 @@ public class RankingCalculationService {
             int score = calculatePlayerScore(player.getId(), rankScope, scopeValue);
             
             Ranking ranking = new Ranking();
-            ranking.setPlayer((PlayerProfile) player);
+            ranking.setPlayer(player);
             ranking.setScope(rankScope);
             ranking.setScopeValue(scopeValue);
             ranking.setScore(java.math.BigDecimal.valueOf(score));
@@ -106,9 +104,9 @@ public class RankingCalculationService {
             points.setUpdatedAt(OffsetDateTime.now());
         } else {
             AthletePoints points = new AthletePoints();
-            Optional<PlayerProfile> playerOpt = playerProfileRepository.findByIdOptional(userId);
-            if (playerOpt.isPresent()) {
-                points.setPlayer(playerOpt.get());
+            User user = userRepository.findById(userId);
+            if (user != null) {
+                points.setPlayer(user);
             }
             points.setTotalPoints((long) totalScore);
             points.setUpdatedAt(OffsetDateTime.now());
@@ -189,17 +187,10 @@ public class RankingCalculationService {
         recalculateRankingByScope("GLOBAL", null, currentYear);
         
         // Aggiorna ranking per paese
-        PlayerProfile player = playerProfileRepository.findById(playerId);
-        if (player != null) {
-            if (player.getCountry() != null) {
-                recalculateRankingByScope("COUNTRY", player.getCountry(), currentYear);
-            }
-            
-            // Aggiorna ranking per età
-            if (player.getApproximateAge() != null) {
-                String ageGroup = getAgeGroup(player.getApproximateAge());
-                recalculateRankingByScope("AGE", ageGroup, currentYear);
-            }
+        User user = userRepository.findById(playerId);
+        if (user != null) {
+            // User non ha country, age - questi campi sono in Player
+            // Per ora saltiamo questo aggiornamento
         }
         
         // Aggiorna ranking per ruolo

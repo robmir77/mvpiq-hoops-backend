@@ -2,10 +2,10 @@ package com.mvpiq.service;
 
 import com.mvpiq.model.TrainerFollow;
 import com.mvpiq.model.User;
-import com.mvpiq.model.PlayerProfile;
+import com.mvpiq.model.UserRoleAssignment;
 import com.mvpiq.repositories.TrainerFollowRepository;
 import com.mvpiq.repositories.UserRepository;
-import com.mvpiq.repositories.PlayerProfileRepository;
+import com.mvpiq.repositories.UserRoleRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -28,7 +28,8 @@ public class TrainerService {
     UserRepository userRepository;
 
     @Inject
-    PlayerProfileRepository playerProfileRepository;
+    UserRoleRepository userRoleRepository;
+
 
     @Transactional
     public TrainerFollow followPlayer(UUID trainerId, UUID playerId) {
@@ -36,12 +37,20 @@ public class TrainerService {
         
         // Check if trainer exists and has trainer role
         User trainer = userRepository.findById(trainerId);
-        if (trainer == null || !trainer.getIsTrainer()) {
-            throw new IllegalArgumentException("Trainer not found or not authorized: " + trainerId);
+        if (trainer == null) {
+            throw new IllegalArgumentException("Trainer not found: " + trainerId);
+        }
+        
+        // Check if user has trainer role using RBAC
+        boolean hasTrainerRole = userRoleRepository.findByUserId(trainerId).stream()
+                .anyMatch(ur -> "TRAINER".equals(ur.getRole().getCode()));
+        
+        if (!hasTrainerRole) {
+            throw new IllegalArgumentException("User is not a trainer: " + trainerId);
         }
         
         // Check if player exists
-        PlayerProfile player = playerProfileRepository.findByUserId(playerId);
+        User player = userRepository.findById(playerId);
         if (player == null) {
             throw new IllegalArgumentException("Player not found: " + playerId);
         }

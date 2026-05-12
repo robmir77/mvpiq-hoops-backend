@@ -5,11 +5,11 @@ import com.mvpiq.dto.WorkoutSessionRequest;
 import com.mvpiq.dto.WorkoutSessionResponse;
 import com.mvpiq.exception.ResourceNotFoundException;
 import com.mvpiq.model.CourtCalibration;
-import com.mvpiq.model.PlayerProfile;
+import com.mvpiq.model.Player;
 import com.mvpiq.model.ShotEvent;
 import com.mvpiq.model.WorkoutSession;
 import com.mvpiq.repositories.CourtCalibrationRepository;
-import com.mvpiq.repositories.PlayerProfileRepository;
+import com.mvpiq.repositories.PlayerRepository;
 import com.mvpiq.repositories.ShotEventRepository;
 import com.mvpiq.repositories.WorkoutSessionRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -36,11 +36,11 @@ public class WorkoutService {
     CourtCalibrationRepository courtCalibrationRepository;
 
     @Inject
-    PlayerProfileRepository playerProfileRepository;
+    PlayerRepository playerRepository;
 
     @Transactional
     public WorkoutSession createWorkoutSession(UUID playerId, WorkoutSessionRequest request) {
-        PlayerProfile player = playerProfileRepository.findByIdOptional(playerId)
+        Player player = playerRepository.findByIdOptional(playerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Player not found with id: " + playerId));
 
         // Check if there's an active session

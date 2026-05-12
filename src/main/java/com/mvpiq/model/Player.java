@@ -3,9 +3,8 @@ package com.mvpiq.model;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.OffsetDateTime;
-
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,10 +44,13 @@ public class Player extends User {
     @Column(name = "gender", length = 10)
     private String gender;
 
+    @Column(name = "created_at")
+    private OffsetDateTime createdAt;
+
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
-    // NUOVA RELAZIONE POSITIONS
+    // RELAZIONE POSITIONS
     @OneToMany(mappedBy = "player", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayerPosition> positions = new ArrayList<>();
 }

@@ -1,6 +1,6 @@
 package com.mvpiq.resource;
 
-import com.mvpiq.dto.PlayerProfileDTO;
+import com.mvpiq.dto.PlayerDTO;
 import com.mvpiq.repositories.PlayerRepository;
 import com.mvpiq.service.PlayerPositionService;
 import jakarta.enterprise.context.RequestScoped;
@@ -29,8 +29,8 @@ public class AtletaResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAthleteProfiles() {
 
-        List<PlayerProfileDTO> list = playerRepository.findAll().stream()
-                .map(PlayerProfileDTO::fromEntity)
+        List<PlayerDTO> list = playerRepository.findAll().stream()
+                .map(PlayerDTO::fromEntity)
                 .toList();
 
         return Response.ok(list).build();
@@ -43,7 +43,7 @@ public class AtletaResource {
     public Response getAthleteProfile(@PathParam("id") UUID id) {
 
         return playerRepository.findByIdOptional(id)
-                .map(PlayerProfileDTO::fromEntity)
+                .map(PlayerDTO::fromEntity)
                 .map(Response::ok)
                 .orElse(Response.status(Response.Status.NOT_FOUND))
                 .build();
@@ -56,7 +56,7 @@ public class AtletaResource {
     public Response getAthleteProfileByUserId(@PathParam("userId") UUID userId) {
 
         return playerRepository.findByIdOptional(userId)
-                .map(PlayerProfileDTO::fromEntity)
+                .map(PlayerDTO::fromEntity)
                 .map(Response::ok)
                 .orElse(Response.status(Response.Status.NOT_FOUND))
                 .build();
@@ -68,7 +68,7 @@ public class AtletaResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
     public Response updateAthleteProfile(@PathParam("id") UUID id,
-                                         PlayerProfileDTO dto) {
+                                         PlayerDTO dto) {
 
         return playerRepository.findByIdOptional(id)
                 .map(player -> {
@@ -84,7 +84,7 @@ public class AtletaResource {
                     );
 
                     return Response.ok(
-                            PlayerProfileDTO.fromEntity(player)
+                            PlayerDTO.fromEntity(player)
                     ).build();
                 })
                 .orElse(Response.status(Response.Status.NOT_FOUND).build());

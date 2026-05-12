@@ -1,6 +1,6 @@
 package com.mvpiq.repositories;
 
-import com.mvpiq.model.PlayerProfile;
+import com.mvpiq.model.Player;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -9,22 +9,21 @@ import java.util.Optional;
 import java.util.UUID;
 
 @ApplicationScoped
-public class PlayerRepository implements PanacheRepositoryBase<PlayerProfile, UUID> {
+public class PlayerRepository implements PanacheRepositoryBase<Player, UUID> {
 
-    public Optional<PlayerProfile> findByUsername(String username) {
-        return find("username", username).firstResultOptional();
+    public Optional<Player> findByUserId(UUID userId) {
+        return findByIdOptional(userId);
     }
 
-    public List<PlayerProfile> findByCountry(String country) {
+    public List<Player> findByCountry(String country) {
         return list("country", country);
     }
 
-    public List<PlayerProfile> findVerifiedPlayers() {
-        return list("verified", true);
+    public List<Player> findByLevel(String level) {
+        return list("level", level);
     }
 
-    public Optional<PlayerProfile> findByUserId(UUID id) {
-        // semanticamente ora è semplicemente id
-        return findByIdOptional(id);
+    public List<Player> findByAgeRange(int minAge, int maxAge) {
+        return list("approximateAge between ?1 and ?2", minAge, maxAge);
     }
 }

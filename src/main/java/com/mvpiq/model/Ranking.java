@@ -27,7 +27,7 @@ public class Ranking {
 
     @ManyToOne
     @JoinColumn(name = "player_id", nullable = false)
-    private PlayerProfile player;
+    private User player;
 
     @Column(name = "scope", length = 50, nullable = false)
     @JsonProperty("scope")
