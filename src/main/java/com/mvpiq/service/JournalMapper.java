@@ -44,6 +44,14 @@ public class JournalMapper {
         if (entity.getItemValues() != null) {
             dto.setItems(
                     entity.getItemValues().stream()
+                            .sorted((a, b) -> {
+                                Integer sortOrderA = a.getTemplateItem().getSortOrder();
+                                Integer sortOrderB = b.getTemplateItem().getSortOrder();
+                                if (sortOrderA == null && sortOrderB == null) return 0;
+                                if (sortOrderA == null) return 1;
+                                if (sortOrderB == null) return -1;
+                                return sortOrderA.compareTo(sortOrderB);
+                            })
                             .map(this::toItemDTO)
                             .toList()
             );
