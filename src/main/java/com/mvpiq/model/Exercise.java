@@ -54,6 +54,18 @@ public class Exercise {
     @JsonProperty("instructions")
     private String instructions;
 
+    @Column(name = "equipment", columnDefinition = "jsonb")
+    @JsonProperty("equipment")
+    private String equipment;
+
+    @Column(name = "tags", columnDefinition = "jsonb")
+    @JsonProperty("tags")
+    private String tags;
+
+    @Column(name = "calories_estimate")
+    @JsonProperty("calories_estimate")
+    private Integer caloriesEstimate;
+
     @Column(name = "created_at")
     @JsonProperty("created_at")
     private OffsetDateTime createdAt = OffsetDateTime.now();

@@ -65,6 +65,14 @@ public class AthleteGoal {
     @JsonProperty("status")
     private String status = "ACTIVE";
 
+    @Column(name = "priority", length = 20, nullable = false)
+    @JsonProperty("priority")
+    private String priority = "MEDIUM";
+
+    @Column(name = "progress_percentage", precision = 5, scale = 2, nullable = false)
+    @JsonProperty("progress_percentage")
+    private java.math.BigDecimal progressPercentage = java.math.BigDecimal.ZERO;
+
     // Metodo helper per ottenere l'ID dell'atleta
     public UUID getAthleteId() {
         return player != null ? player.getId() : null;

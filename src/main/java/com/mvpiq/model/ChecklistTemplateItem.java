@@ -47,6 +47,15 @@ public class ChecklistTemplateItem {
     @Column(name = "select_query", columnDefinition = "TEXT")
     private String selectQuery; // Query SQL da eseguire quando select_source = 'SQL'
 
+    @Column(name = "placeholder", length = 255)
+    private String placeholder;
+
+    @Column(name = "help_text", columnDefinition = "TEXT")
+    private String helpText;
+
+    @Column(name = "validation_rules", columnDefinition = "jsonb")
+    private String validationRules;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

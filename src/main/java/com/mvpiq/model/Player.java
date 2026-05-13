@@ -44,6 +44,16 @@ public class Player extends User {
     @Column(name = "gender", length = 10)
     private String gender;
 
+    @Column(name = "wingspan_cm")
+    private Short wingspanCm;
+
+    @Column(name = "vertical_jump_cm")
+    private Short verticalJumpCm;
+
+    @ManyToOne
+    @JoinColumn(name = "preferred_position_id")
+    private PositionMetadata preferredPosition;
+
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 

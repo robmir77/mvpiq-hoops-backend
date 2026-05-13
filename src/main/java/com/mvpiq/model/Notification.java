@@ -56,6 +56,10 @@ public class Notification {
     @JsonProperty("read_at")
     private OffsetDateTime readAt;
 
+    @Column(name = "is_read", nullable = false)
+    @JsonProperty("is_read")
+    private Boolean isRead = false;
+
     @Column(name = "created_at", nullable = false)
     @JsonProperty("created_at")
     private OffsetDateTime createdAt = OffsetDateTime.now();

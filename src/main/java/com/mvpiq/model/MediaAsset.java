@@ -45,6 +45,15 @@ public class MediaAsset {
     @Column(name = "is_official")
     private Boolean isOfficial;
 
+    @Column(name = "mime_type", length = 100)
+    private String mimeType;
+
+    @Column(name = "file_size_bytes")
+    private Long fileSizeBytes;
+
+    @Column(name = "visibility", length = 20)
+    private String visibility = "PRIVATE";
+
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 }

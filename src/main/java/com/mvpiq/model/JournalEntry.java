@@ -59,6 +59,15 @@ public class JournalEntry {
     @Column(name = "visibility", length = 20, nullable = false)
     private String visibility; // PRIVATE | TRAINER | PUBLIC
 
+    @Column(name = "checklist_completed", nullable = false)
+    private Boolean checklistCompleted = false;
+
+    @Column(name = "tags", columnDefinition = "jsonb")
+    private String tags;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

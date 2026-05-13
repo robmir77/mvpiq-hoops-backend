@@ -66,6 +66,12 @@ public class ShotEvent {
     @Column(name = "video_clip_path")
     private String videoClipPath;
 
+    @Column(name = "shot_zone", length = 50)
+    private String shotZone;
+
+    @Column(name = "release_time_ms")
+    private Integer releaseTimeMs;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 

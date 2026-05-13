@@ -46,6 +46,14 @@ public class Badge {
     @JsonProperty("category")
     private String category;
 
+    @Column(name = "rarity", length = 20, nullable = false)
+    @JsonProperty("rarity")
+    private String rarity = "COMMON";
+
+    @Column(name = "active", nullable = false)
+    @JsonProperty("active")
+    private Boolean active = true;
+
     @Column(name = "created_at")
     @JsonProperty("created_at")
     private OffsetDateTime createdAt = OffsetDateTime.now();

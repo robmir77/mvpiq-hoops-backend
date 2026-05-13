@@ -101,21 +101,21 @@ public class PlayerDTO {
 
     public void updateEntity(Player p) {
 
-        // Campi User modificabili
-        p.setDisplayName(displayName);
-        p.setAvatarUrl(avatarUrl);
-        p.setPublicProfile(publicProfile);
-        p.setBio(bio);
+        // Campi User modificabili - solo se non null
+        if (displayName != null) p.setDisplayName(displayName);
+        if (avatarUrl != null) p.setAvatarUrl(avatarUrl);
+        if (publicProfile != null) p.setPublicProfile(publicProfile);
+        if (bio != null) p.setBio(bio);
 
-        // Campi Player
-        p.setBirthDate(birthDate);
-        p.setHeightCm(heightCm);
-        p.setWeightKg(weightKg);
-        p.setLevel(level);
-        p.setDominantHand(dominantHand);
-        p.setCountry(country);
-        p.setCity(city);
-        p.setGender(gender);
+        // Campi Player - solo se non null
+        if (birthDate != null) p.setBirthDate(birthDate);
+        if (heightCm != null) p.setHeightCm(heightCm);
+        if (weightKg != null) p.setWeightKg(weightKg);
+        if (level != null) p.setLevel(level);
+        if (dominantHand != null) p.setDominantHand(dominantHand);
+        if (country != null) p.setCountry(country);
+        if (city != null) p.setCity(city);
+        if (gender != null) p.setGender(gender);
 
         // 🔥 Le posizioni si aggiornano nel PlayerPositionService
     }

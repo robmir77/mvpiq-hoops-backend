@@ -49,4 +49,10 @@ public class AthleteGoalDTO {
 
     @JsonProperty("status")
     private String status; // ACTIVE | COMPLETED | CANCELLED
+
+    @JsonProperty("priority")
+    private String priority; // LOW | MEDIUM | HIGH
+
+    @JsonProperty("progress_percentage")
+    private BigDecimal progressPercentage;
 }

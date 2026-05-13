@@ -56,6 +56,15 @@ public class WorkoutSession {
     @Column(name = "calibration_data", columnDefinition = "jsonb")
     private String calibrationData;
 
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
+    @Column(name = "average_shot_distance")
+    private Double averageShotDistance;
+
+    @Column(name = "workout_score", precision = 5, scale = 2)
+    private java.math.BigDecimal workoutScore;
+
     @OneToMany(mappedBy = "workoutSession", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"workoutSession"})
     private List<ShotEvent> shots;

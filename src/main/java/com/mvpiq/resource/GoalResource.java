@@ -2,7 +2,9 @@ package com.mvpiq.resource;
 
 import com.mvpiq.dto.AthleteGoalDTO;
 import com.mvpiq.model.AthleteGoal;
+import com.mvpiq.model.User;
 import com.mvpiq.repositories.AthleteGoalsRepository;
+import com.mvpiq.repositories.PlayerRepository;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -22,6 +24,9 @@ public class GoalResource {
     @Inject
     AthleteGoalsRepository athleteGoalsRepository;
 
+    @Inject
+    PlayerRepository playerRepository;
+
     // --- GET athlete goals ---
     @GET
     @Path("/goals/{athleteId}")
@@ -40,14 +45,21 @@ public class GoalResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
     public Response createAthleteGoal(@PathParam("athleteId") UUID athleteId, AthleteGoalDTO dto) {
+        User player = playerRepository.findById(athleteId);
+        if (player == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
         AthleteGoal goal = AthleteGoal.builder()
-                .athleteId(athleteId)
+                .player(player)
                 .title(dto.getTitle())
                 .description(dto.getDescription())
                 .currentValue(dto.getCurrentValue())
                 .targetValue(dto.getTargetValue())
                 .unit(dto.getUnit())
                 .status(dto.getStatus() != null ? dto.getStatus() : "ACTIVE")
+                .priority(dto.getPriority() != null ? dto.getPriority() : "MEDIUM")
+                .progressPercentage(dto.getProgressPercentage() != null ? dto.getProgressPercentage() : java.math.BigDecimal.ZERO)
                 .createdAt(OffsetDateTime.now())
                 .build();
         athleteGoalsRepository.save(goal);
@@ -73,6 +85,8 @@ public class GoalResource {
         goal.setStatus(dto.getStatus());
         goal.setDueDate(dto.getDueDate());
         goal.setCompletedAt(dto.getCompletedAt());
+        if (dto.getPriority() != null) goal.setPriority(dto.getPriority());
+        if (dto.getProgressPercentage() != null) goal.setProgressPercentage(dto.getProgressPercentage());
 
         athleteGoalsRepository.save(goal); // persist o update
         return Response.ok(toDTO(goal)).build();
@@ -90,6 +104,8 @@ public class GoalResource {
                 .status(goal.getStatus())
                 .dueDate(goal.getDueDate())
                 .completedAt(goal.getCompletedAt())
+                .priority(goal.getPriority())
+                .progressPercentage(goal.getProgressPercentage())
                 .build();
     }
 }

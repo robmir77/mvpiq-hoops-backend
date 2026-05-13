@@ -45,6 +45,18 @@ public class TrainingSession {
     @JsonProperty("duration_seconds")
     private Integer durationSeconds;
 
+    @Column(name = "calories_burned")
+    @JsonProperty("calories_burned")
+    private Integer caloriesBurned;
+
+    @Column(name = "average_heart_rate")
+    @JsonProperty("average_heart_rate")
+    private Integer averageHeartRate;
+
+    @Column(name = "perceived_effort")
+    @JsonProperty("perceived_effort")
+    private Short perceivedEffort;
+
     @Column(name = "created_at")
     @JsonProperty("created_at")
     private OffsetDateTime createdAt = OffsetDateTime.now();

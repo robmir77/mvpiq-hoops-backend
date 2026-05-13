@@ -33,6 +33,12 @@ public class VideoAnalysisSession extends PanacheEntityBase {
 
     public String status;
 
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    public String errorMessage;
+
+    @Column(name = "retry_count", nullable = false)
+    public Integer retryCount = 0;
+
     @Column(name = "created_at")
     public OffsetDateTime createdAt;
 

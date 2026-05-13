@@ -58,6 +58,23 @@ public class TrainingProgram {
     @JsonProperty("updated_at")
     private OffsetDateTime updatedAt = OffsetDateTime.now();
 
+    @Column(name = "estimated_duration_minutes")
+    @JsonProperty("estimated_duration_minutes")
+    private Integer estimatedDurationMinutes;
+
+    @Column(name = "difficulty", length = 20)
+    @JsonProperty("difficulty")
+    private String difficulty;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "tags", columnDefinition = "jsonb")
+    @JsonProperty("tags")
+    private Object tags;
+
+    @Column(name = "published_at")
+    @JsonProperty("published_at")
+    private OffsetDateTime publishedAt;
+
     // AI-related fields
     @Enumerated(EnumType.STRING)
     @Column(name = "source_type", nullable = false, length = 20)

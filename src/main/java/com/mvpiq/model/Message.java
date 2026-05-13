@@ -40,6 +40,16 @@ public class Message {
     @Column(name = "message_type", length = 20)
     private String messageType = "text";
 
+    @Column(name = "edited_at")
+    private OffsetDateTime editedAt;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    @ManyToOne
+    @JoinColumn(name = "reply_to_message_id")
+    private Message replyToMessage;
+
     @Column(name = "created_at")
     @JsonProperty("created_at")
     private OffsetDateTime createdAt = OffsetDateTime.now();

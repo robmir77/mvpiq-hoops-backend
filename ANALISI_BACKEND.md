@@ -791,9 +791,241 @@ CMD ["/application/run-application.sh"]
 
 ---
 
-## 18. Stato Attuale Sistema
+## 18. Migrazione Database - Maggio 2026
 
-### 18.1 Funzionalità Verificate
+### 18.1 Panoramica Modifiche
+
+Migration SQL applicata per migliorare lo schema del database con nuove funzionalità, indici, constraint e campi di audit.
+
+**Estensioni PostgreSQL:**
+- `pgcrypto`: Funzioni crittografiche
+- `citext`: Case-insensitive text
+
+### 18.2 Dettaglio Modifiche per Entità
+
+#### User
+**Nuovi campi:**
+- `updated_at`: Timestamp ultimo aggiornamento (con trigger automatico)
+- `deleted_at`: Timestamp soft delete
+- `status`: Stato utente (ACTIVE, SUSPENDED, DELETED) con default ACTIVE
+
+**Constraint aggiunti:**
+- `users_status_ck`: Verifica valori status validi
+
+**Indici aggiunti:**
+- `idx_users_email`, `idx_users_username`, `idx_users_status`, `idx_users_created_at`
+
+#### Player
+**Nuovi campi:**
+- `wingspan_cm`: Apertura alare in cm (Short)
+- `vertical_jump_cm`: Verticale in cm (Short)
+- `preferred_position_id`: FK a player_position_metadata
+
+**Constraint aggiunti:**
+- `players_preferred_position_fk`: Foreign key a position_metadata
+- `players_height_ck`: Verifica altezza tra 50-300cm
+- `players_weight_ck`: Verifica peso tra 20-300kg
+- `players_age_ck`: Verifica età tra 1-100 anni
+
+**Indici aggiunti:**
+- `idx_players_city`, `idx_players_level`, `idx_players_preferred_position`
+
+#### JournalEntry
+**Nuovi campi:**
+- `checklist_completed`: Boolean per completamento checklist (default false)
+- `tags`: JSONB per tagging flessibile
+- `deleted_at`: Timestamp soft delete
+
+**Constraint aggiunti:**
+- `journal_entries_mood_ck`: Verifica mood rating 1-5
+- `journal_entries_performance_ck`: Verifica performance rating 1-5
+- `journal_entries_duration_ck`: Verifica durata >= 0
+
+**Indici aggiunti:**
+- `idx_journal_entries_tags`: GIN index per query JSONB
+
+#### ChecklistTemplateItem
+**Nuovi campi:**
+- `placeholder`: Placeholder per input (varchar 255)
+- `help_text`: Testo di aiuto (TEXT)
+- `validation_rules`: JSONB per regole di validazione dinamiche
+
+**Indici aggiunti:**
+- `idx_checklist_template_items_template`
+
+#### AthleteGoal
+**Nuovi campi:**
+- `priority`: Priorità obiettivo (LOW, MEDIUM, HIGH) con default MEDIUM
+- `progress_percentage`: Progresso percentuale (numeric 5,2) con default 0
+
+**Constraint aggiunti:**
+- `athlete_goals_priority_ck`: Verifica valori priority validi
+- `athlete_goals_progress_ck`: Verifica progresso 0-100
+
+**Indici aggiunti:**
+- `idx_athlete_goals_status`, `idx_athlete_goals_due_date`
+
+#### TrainingProgram
+**Nuovi campi:**
+- `estimated_duration_minutes`: Durata stimata in minuti
+- `difficulty`: Difficoltà (BEGINNER, INTERMEDIATE, ADVANCED)
+- `tags`: JSONB per tagging programmi
+- `published_at`: Timestamp pubblicazione
+
+**Constraint aggiunti:**
+- `training_programs_difficulty_ck`: Verifica valori difficulty validi
+
+**Indici aggiunti:**
+- `idx_training_programs_tags`: GIN index per query JSONB
+
+#### TrainingSession
+**Nuovi campi:**
+- `calories_burned`: Calorie bruciate
+- `average_heart_rate`: Frequenza cardiaca media
+- `perceived_effort': Sforzo percepito 1-10 (Short)
+
+**Constraint aggiunti:**
+- `training_sessions_effort_ck`: Verifica sforzo 1-10
+
+**Indici aggiunti:**
+- `idx_training_sessions_program`, `idx_training_sessions_date`
+
+#### MediaAsset
+**Nuovi campi:**
+- `mime_type`: Tipo MIME (varchar 100)
+- `file_size_bytes`: Dimensione file in bytes
+- `visibility`: Visibilità (PRIVATE, PUBLIC, UNLISTED) con default PRIVATE
+
+**Constraint aggiunti:**
+- `media_assets_visibility_ck`: Verifica valori visibility validi
+
+**Indici aggiunti:**
+- `idx_media_visibility`
+
+#### Exercise
+**Nuovi campi:**
+- `equipment`: JSONB per lista attrezzature
+- `tags`: JSONB per tagging esercizi
+- `calories_estimate`: Stima calorie
+
+**Indici aggiunti:**
+- `idx_exercises_tags`: GIN index per query JSONB
+
+#### Message
+**Nuovi campi:**
+- `edited_at`: Timestamp ultima modifica
+- `deleted_at`: Timestamp soft delete
+- `reply_to_message_id`: FK self-reference per thread messaggi
+
+**Constraint aggiunti:**
+- `messages_reply_fk`: Foreign key self-reference con ON DELETE SET NULL
+
+**Indici aggiunti:**
+- `idx_messages_conversation_created`
+
+#### Notification
+**Modifiche:**
+- `created_at`: Tipo cambiato a timestamptz
+- `is_read`: Boolean per lettura (default false)
+
+**Indici aggiunti:**
+- `idx_notifications_user`, `idx_notifications_read`
+
+#### VideoAnalysisSession
+**Nuovi campi:**
+- `error_message`: Messaggio di errore (TEXT)
+- `retry_count`: Contatore retry (default 0)
+
+**Constraint aggiunti:**
+- `video_analysis_sessions_status_ck`: Verifica status (UPLOADED, PROCESSING, COMPLETED, FAILED)
+
+**Indici aggiunti:**
+- `idx_video_analysis_sessions_status`
+
+#### ShotEvent
+**Nuovi campi:**
+- `shot_zone`: Zona tiro (varchar 50)
+- `release_time_ms`: Tempo rilascio in ms
+
+**Indici aggiunti:**
+- `idx_shot_events_zone`
+
+#### WorkoutSession
+**Nuovi campi:**
+- `notes`: Note sessione (TEXT)
+- `average_shot_distance`: Distanza media tiri
+- `workout_score`: Punteggio sessione (numeric 5,2)
+
+**Indici aggiunti:**
+- `idx_workout_sessions_player_status`
+
+#### Badge
+**Nuovi campi:**
+- `rarity`: Rarità (COMMON, RARE, EPIC, LEGENDARY) con default COMMON
+- `active`: Boolean per attivazione (default true)
+
+**Constraint aggiunti:**
+- `badges_rarity_ck`: Verifica valori rarity validi
+
+**Indici aggiunti:**
+- `idx_badges_category`
+
+### 18.3 Miglioramenti Architetturali
+
+**Uniformazione Audit:**
+- `updated_at` aggiunto dove mancante con trigger automatico
+- `deleted_at` per soft delete su entità principali
+- `status` per gestione stati applicativi
+
+**Performance Query:**
+- Indici su tutte le foreign keys principali
+- Indici su campi di ricerca frequenti
+- GIN indexes su campi JSONB per query efficienti
+
+**Integrità Dati:**
+- CHECK constraints su tutti i campi numerici
+- Foreign key constraints con appropriate cascade rules
+- Default values per campi obbligatori
+
+**Tagging System:**
+- Supporto JSONB + GIN per tagging flessibile
+- Applicato a: JournalEntry, TrainingProgram, Exercise
+
+**Messaging:**
+- Supporto thread con reply_to_message_id
+- Tracking edit/delete con timestamp
+
+**Video Analysis:**
+- Miglioramento tracking errori con error_message e retry_count
+- Status constraint per stati validi
+
+### 18.4 Trigger Automatici
+
+Trigger `update_updated_at_column` applicati a:
+- `users`
+- `training_programs`
+- `training_sessions`
+- `messages`
+
+Questi trigger aggiornano automaticamente `updated_at` su ogni UPDATE.
+
+### 18.5 Note Architetturali
+
+**Scalabilità:**
+- Indici ottimizzati per query dashboard e feed
+- JSONB per dati flessibili senza alterare schema
+- Soft delete per preservare dati storici
+
+**Mantenibilità:**
+- Constraint database per validazione a livello di DB
+- Uniformazione naming e tipi
+- Documentazione inline tramite commenti SQL
+
+---
+
+## 19. Stato Attuale Sistema
+
+### 19.1 Funzionalità Verificate
 
 ✅ **Autenticazione**: Login con JWT funzionante  
 ✅ **RBAC**: Sistema ruoli multipli operativo  
@@ -802,17 +1034,19 @@ CMD ["/application/run-application.sh"]
 ✅ **Player CV**: Creazione automatica e gestione CV  
 ✅ **Positions**: Gestione posizioni giocatori  
 ✅ **Goals**: Sistema obiettivi atleta  
+✅ **Database Migration**: Migrazione Maggio 2026 applicata con successo  
 
-### 18.2 Architettura Stabile
+### 19.2 Architettura Stabile
 
 - **Backend Quarkus**: Performance ottimali
-- **Database PostgreSQL**: Schema consistente
+- **Database PostgreSQL**: Schema migliorato con indici e constraint
 - **Sicurezza**: JWT + RBAC completo
 - **API REST**: Endpoints allineati e funzionanti
+- **Entità Java**: Tutte aggiornate per riflettere migration database
 
 ---
 
-## 19. Conclusioni
+## 20. Conclusioni
 
 Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che implementa tutte le funzionalità richieste per il tracking dei tiri di basket, incluse le API del punto 21 della specifica tecnica.
 
@@ -847,5 +1081,11 @@ Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che
 - ✅ Implementazione auto-creazione CV vuoto quando non esiste
 - ✅ Fix query Hibernate per CV e CV teams
 - ✅ Creazione sezioni navigazione per ruolo PLAYER
+- ✅ Migration database miglioramenti: nuovi campi, indici, constraint
+- ✅ Aggiornamento 15 entità Java per riflettere migration database
+- ✅ Implementazione tagging system con JSONB + GIN indexes
+- ✅ Aggiunta soft delete e audit fields su entità principali
+- ✅ Miglioramento sistema messaging con thread support
+- ✅ Implementazione sistema rarità badge e gamification avanzata
 
 Il backend è pronto per l'integrazione con l'app mobile React Native già sviluppata.
