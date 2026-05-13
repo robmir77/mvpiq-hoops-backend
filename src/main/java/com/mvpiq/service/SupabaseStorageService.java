@@ -21,6 +21,9 @@ public class SupabaseStorageService {
     @ConfigProperty(name = "supabase.service.key")
     String serviceKey;
 
+    @ConfigProperty(name = "supabase.bucket.profile-images")
+    String profileImagesBucket;
+
     public String uploadVideo(File file, String path) {
 
         try {
@@ -43,6 +46,34 @@ public class SupabaseStorageService {
             }
 
             return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String uploadProfileImage(File file, String path, String contentType) {
+
+        try {
+
+            HttpClient client = HttpClient.newHttpClient();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(supabaseUrl + "/storage/v1/object/" + profileImagesBucket + "/" + path))
+                    .header("Authorization", "Bearer " + serviceKey)
+                    .header("apikey", serviceKey)
+                    .header("Content-Type", contentType)
+                    .PUT(HttpRequest.BodyPublishers.ofFile(file.toPath()))
+                    .build();
+
+            HttpResponse<String> response =
+                    client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200 && response.statusCode() != 201) {
+                throw new RuntimeException("Upload failed: " + response.body());
+            }
+
+            return supabaseUrl + "/storage/v1/object/public/" + profileImagesBucket + "/" + path;
 
         } catch (Exception e) {
             throw new RuntimeException(e);
