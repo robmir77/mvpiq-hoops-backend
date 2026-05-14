@@ -92,6 +92,19 @@ public class GoalResource {
         return Response.ok(toDTO(goal)).build();
     }
 
+    // --- DELETE athlete goal ---
+    @DELETE
+    @Path("/goals/{goalId}")
+    @Transactional
+    public Response deleteAthleteGoal(@PathParam("goalId") UUID goalId) {
+        AthleteGoal goal = athleteGoalsRepository.findById(goalId);
+        if (goal == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        athleteGoalsRepository.delete(goal);
+        return Response.noContent().build();
+    }
+
     private AthleteGoalDTO toDTO(AthleteGoal goal) {
         return AthleteGoalDTO.builder()
                 .id(goal.getId())
