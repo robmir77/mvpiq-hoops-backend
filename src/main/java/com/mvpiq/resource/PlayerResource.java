@@ -62,8 +62,9 @@ public class PlayerResource {
             // Determine content type
             String contentType = getContentType(fileName);
 
-            // Create path: {username}/profile.{ext}
-            String path = player.getUsername() + "/profile" + getFileExtension(fileName);
+            // Create path: {username}/profile-{timestamp}.{ext}
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            String path = player.getUsername() + "/profile-" + timestamp + getFileExtension(fileName);
 
             // Upload to Supabase
             String imageUrl = supabaseStorageService.uploadProfileImage(tempFile, path, contentType);
