@@ -144,6 +144,7 @@ public class PlayerResource {
 
     public static class ProfileImageUploadForm {
 
+        @org.jboss.resteasy.annotations.jaxrs.FormParam("file")
         public File file;
 
         public java.io.InputStream getFileInputStream() throws IOException {
