@@ -19,11 +19,11 @@ public class RankingRepository implements PanacheRepositoryBase<Ranking, UUID> {
 
     // Trova tutti i ranking globali
     public List<Ranking> findGlobalRanking() {
-        return list("rankScope = ?1", "GLOBAL");
+        return list("scope = ?1 order by rankPosition asc", "GLOBAL");
     }
 
     public List<Ranking> findByRoleCode(String roleCode) {
-        return list("rankScope = :scope AND scopeValue = :value ORDER BY score DESC",
+        return list("scope = :scope AND scopeValue = :value ORDER BY score DESC",
                 Parameters.with("scope", "ROLE").and("value", roleCode));
     }
 

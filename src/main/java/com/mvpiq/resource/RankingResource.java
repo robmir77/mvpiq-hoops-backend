@@ -28,6 +28,19 @@ public class RankingResource {
 
     private static final Set<String> ALLOWED_POSITION_CODES = Set.of("PG","SG","SF","PF","C");
 
+    // Ottieni ranking globale — deve stare PRIMA di /{role} per evitare il path conflict
+    @GET
+    @Path("/ranking/global")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getGlobalRanking() {
+        List<Ranking> rankings = rankingRepository.findGlobalRanking();
+        List<RankingDTO> dtos = rankings.stream()
+                .map(RankingDTO::fromEntity)
+                .collect(Collectors.toList());
+
+        return Response.ok(ApiResponse.success(dtos, "Global ranking retrieved successfully")).build();
+    }
+
     @GET
     @Path("/ranking/{role}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -52,18 +65,5 @@ public class RankingResource {
                 .collect(Collectors.toList());
 
         return Response.ok(ApiResponse.success(dtos, "Ranking retrieved successfully")).build();
-    }
-
-    // Ottieni ranking globale
-    @GET
-    @Path("/ranking/global")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response getGlobalRanking() {
-        List<Ranking> rankings = rankingRepository.findGlobalRanking();
-        List<RankingDTO> dtos = rankings.stream()
-                .map(RankingDTO::fromEntity)
-                .collect(Collectors.toList());
-
-        return Response.ok(ApiResponse.success(dtos, "Global ranking retrieved successfully")).build();
     }
 }

@@ -6,6 +6,7 @@ import com.mvpiq.service.storage.SupabaseStorageService;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.io.File;
@@ -29,25 +30,34 @@ public class VideoAnalysisProcessor {
     @Inject
     SupabaseStorageService storageService;
 
+    @Transactional
     public void processSessionAsync(UUID sessionId) {
 
         VideoAnalysisSession session = sessionRepository.findById(sessionId);
+        if (session == null) {
+            throw new RuntimeException("Session not found: " + sessionId);
+        }
 
-        session.status = "PROCESSING";
+        try {
+            session.status = "PROCESSING";
 
-        String videoUrl = session.videoUrl;
+            String videoUrl = session.videoUrl;
+            File videoFile = storageService.downloadVideo(videoUrl);
 
-        File videoFile = storageService.downloadVideo(videoUrl);
+            var frames = frameService.extractFrames(videoFile, session, searchFrames);
 
-        var frames = frameService.extractFrames(videoFile, session, searchFrames);
+            frameService.persistFrames(session, frames);
 
-        // 3️⃣ Persistenza dei frame → dentro transazione breve
-        frameService.persistFrames(session, frames);
+            aiService.analyzeFrames(session, frames);
 
-        aiService.analyzeFrames(session, frames);
+            session.status = "COMPLETED";
 
-        session.status = "COMPLETED";
-
-        storageService.deleteVideo(videoUrl);
+            storageService.deleteVideo(videoUrl);
+        } catch (Exception e) {
+            session.status = "FAILED";
+            session.errorMessage = e.getMessage();
+            session.retryCount = (session.retryCount == null ? 0 : session.retryCount) + 1;
+            throw new RuntimeException("Processing failed for session: " + sessionId, e);
+        }
     }
 }

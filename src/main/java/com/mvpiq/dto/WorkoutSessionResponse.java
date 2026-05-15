@@ -1,5 +1,7 @@
 package com.mvpiq.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.mvpiq.dto.ShotEventResponse;
 import com.mvpiq.model.WorkoutSession;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,8 +17,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WorkoutSessionResponse {
-    
-    private UUID sessionId;
+
+    // Campo principale usato dal FE
+    private UUID id;
     private UUID playerId;
     private WorkoutSession.CameraMode cameraMode;
     private WorkoutSession.CourtType courtType;
@@ -24,20 +27,23 @@ public class WorkoutSessionResponse {
     private OffsetDateTime endTime;
     private Integer totalShots;
     private Integer madeShots;
+    // "status" usato dal FE, "sessionStatus" mantenuto per retrocompatibilità
+    private String status;
+    @JsonProperty("sessionStatus")
     private String sessionStatus;
     private Double shootingPercentage;
     private List<ShotEventResponse> recentShots;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
-    
+
     public static WorkoutSessionResponse from(com.mvpiq.model.WorkoutSession session) {
         Double percentage = null;
         if (session.getTotalShots() != null && session.getTotalShots() > 0) {
             percentage = (session.getMadeShots() != null ? session.getMadeShots() : 0) * 100.0 / session.getTotalShots();
         }
-        
+
         return WorkoutSessionResponse.builder()
-                .sessionId(session.getId())
+                .id(session.getId())
                 .playerId(session.getPlayer() != null ? session.getPlayer().getId() : null)
                 .cameraMode(session.getCameraMode())
                 .courtType(session.getCourtType())
@@ -45,6 +51,7 @@ public class WorkoutSessionResponse {
                 .endTime(session.getEndTime())
                 .totalShots(session.getTotalShots())
                 .madeShots(session.getMadeShots())
+                .status(session.getSessionStatus())
                 .sessionStatus(session.getSessionStatus())
                 .shootingPercentage(percentage)
                 .createdAt(session.getCreatedAt())

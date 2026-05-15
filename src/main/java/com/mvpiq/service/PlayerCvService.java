@@ -118,7 +118,7 @@ public class PlayerCvService {
             throw new BadRequestException("Start year is required");
         }
 
-        if (start < 1900 || start > currentYear) {
+        if (start < 1000 || start > currentYear) {
             throw new BadRequestException("Start year is not valid");
         }
 

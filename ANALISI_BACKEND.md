@@ -789,6 +789,13 @@ CMD ["/application/run-application.sh"]
 - **Causa**: Enum constants in minuscolo non corrispondevano a valori database
 - **Soluzione**: Convertito tutti i valori enum in maiuscolo (ADMIN, TRAINER, PLAYER, SCOUT, CREATOR, GUEST)
 
+### 17.6 Correzioni DTO
+
+**WorkoutSessionResponse Package:**
+- **Problema**: `Cannot resolve symbol 'WorkoutSessionResponse'` in WorkoutService.java
+- **Causa**: WorkoutSessionResponse.java mancava della dichiarazione del package
+- **Soluzione**: Aggiunto `package com.mvpiq.dto;` all'inizio del file
+
 ---
 
 ## 18. Migrazione Database - Maggio 2026

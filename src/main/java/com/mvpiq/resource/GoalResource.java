@@ -2,6 +2,7 @@ package com.mvpiq.resource;
 
 import com.mvpiq.dto.AthleteGoalDTO;
 import com.mvpiq.model.AthleteGoal;
+import com.mvpiq.model.Player;
 import com.mvpiq.model.User;
 import com.mvpiq.repositories.AthleteGoalsRepository;
 import com.mvpiq.repositories.PlayerRepository;
@@ -45,9 +46,11 @@ public class GoalResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
     public Response createAthleteGoal(@PathParam("athleteId") UUID athleteId, AthleteGoalDTO dto) {
-        User player = playerRepository.findById(athleteId);
+        Player player = playerRepository.findByIdOptional(athleteId).orElse(null);
         if (player == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("Player not found with id: " + athleteId)
+                    .build();
         }
 
         AthleteGoal goal = AthleteGoal.builder()

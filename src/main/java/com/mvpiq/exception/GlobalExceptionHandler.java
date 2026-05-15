@@ -24,7 +24,7 @@ public class GlobalExceptionHandler implements ExceptionMapper<Exception> {
         } else if (exception instanceof jakarta.ws.rs.NotFoundException) {
             errorResponse = ErrorResponse.notFound("Resource not found", getCurrentPath());
         } else if (exception instanceof jakarta.ws.rs.BadRequestException) {
-            errorResponse = ErrorResponse.badRequest("Invalid request", getCurrentPath());
+            errorResponse = ErrorResponse.badRequest(exception.getMessage(), getCurrentPath());
         } else if (exception instanceof jakarta.ws.rs.ForbiddenException) {
             errorResponse = ErrorResponse.forbidden("Access forbidden", getCurrentPath());
         } else if (exception instanceof jakarta.ws.rs.NotAuthorizedException) {

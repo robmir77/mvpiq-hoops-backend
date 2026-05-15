@@ -45,6 +45,7 @@ public class VideoAnalysisService {
     @Inject
     VideoAnalysisProcessor processor;
 
+    @Transactional
     public AnalysisSessionResponseDTO createSession(CreateAnalysisSessionRequestDTO request) {
 
         AnalisysType analisysType = AnalisysType.fromString(request.getAnalysisCode());

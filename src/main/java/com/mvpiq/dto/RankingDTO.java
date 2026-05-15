@@ -15,6 +15,7 @@ public class RankingDTO {
 
     private UUID id;
     private UUID playerId;
+    private String playerName;
     private String rankScope;
     private String scopeValue;
     private Integer rankPosition;
@@ -24,9 +25,16 @@ public class RankingDTO {
     // --- Conversione da Entity a DTO ---
     public static RankingDTO fromEntity(Ranking ranking) {
         if (ranking == null) return null;
+        String playerName = null;
+        if (ranking.getPlayer() != null) {
+            playerName = ranking.getPlayer().getDisplayName() != null
+                    ? ranking.getPlayer().getDisplayName()
+                    : ranking.getPlayer().getUsername();
+        }
         return RankingDTO.builder()
                 .id(ranking.getId())
                 .playerId(ranking.getPlayer() != null ? ranking.getPlayer().getId() : null)
+                .playerName(playerName)
                 .rankScope(ranking.getScope())
                 .scopeValue(ranking.getScopeValue())
                 .rankPosition(ranking.getRankPosition())
