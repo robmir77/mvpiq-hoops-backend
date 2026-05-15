@@ -2,10 +2,12 @@ package com.mvpiq.resource;
 
 import com.mvpiq.dto.PlayerCvDTO;
 import com.mvpiq.model.PlayerCvHighlight;
+import com.mvpiq.service.PdfGenerationService;
 import com.mvpiq.service.PlayerCvService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import java.util.List;
 import java.util.Map;
@@ -18,6 +20,9 @@ public class PlayerCvResource {
 
     @Inject
     PlayerCvService service;
+
+    @Inject
+    PdfGenerationService pdfGenerationService;
 
     @GET
     public PlayerCvDTO get(@PathParam("playerId") UUID playerId) {
@@ -80,5 +85,19 @@ public class PlayerCvResource {
             @PathParam("playerId") UUID playerId,
             @PathParam("highlightId") UUID highlightId) {
         service.deleteHighlight(playerId, highlightId);
+    }
+
+    // ===============================
+    // PDF GENERATION ENDPOINTS
+    // ===============================
+    @GET
+    @Path("/pdf")
+    @Produces("application/pdf")
+    public Response generatePdf(@PathParam("playerId") UUID playerId) {
+        byte[] pdf = pdfGenerationService.generatePdf(playerId);
+        String filename = "cv_" + playerId.toString() + ".pdf";
+        return Response.ok(pdf)
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .build();
     }
 }
