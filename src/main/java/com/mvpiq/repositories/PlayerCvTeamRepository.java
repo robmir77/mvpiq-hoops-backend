@@ -21,4 +21,8 @@ public class PlayerCvTeamRepository implements PanacheRepository<PlayerCvTeam> {
     public List<PlayerCvTeam> findByPlayerIdColumn(UUID playerId) {
         return list("cv.player.id", playerId);
     }
+
+    public List<PlayerCvTeam> findByCvId(UUID cvId) {
+        return list("cv.id", cvId);
+    }
 }

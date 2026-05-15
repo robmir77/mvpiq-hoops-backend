@@ -1053,7 +1053,390 @@ Questi trigger aggiornano automaticamente `updated_at` su ogni UPDATE.
 
 ---
 
-## 20. Conclusioni
+## 20. CV Sportivo Pubblico Condivisibile con Highlights
+
+### 20.1 Obiettivo della Funzionalità
+
+Consentire ai giocatori di creare un CV sportivo digitale professionale, condivisibile tramite link pubblico permanente, arricchito con highlights video e informazioni sportive rilevanti.
+
+La funzionalità trasforma il profilo atleta da semplice area personale interna ad uno strumento reale di recruiting sportivo.
+
+Il CV deve poter essere:
+- visualizzato senza autenticazione
+- condiviso via link
+- consultabile da mobile e desktop
+- professionale nella presentazione
+- facilmente aggiornabile dal giocatore
+
+### 20.2 Obiettivi Business
+
+- Aumentare retention utenti
+- Incentivare compilazione profilo
+- Favorire condivisione organica
+- Creare valore recruiting
+- Migliorare percezione premium della piattaforma
+
+### 20.3 Attori Coinvolti
+
+| Attore | Descrizione |
+|--------|-------------|
+| Giocatore | Gestisce il proprio CV |
+| Scout | Consulta il CV pubblico |
+| Coach | Analizza atleta e highlights |
+| Squadra | Riceve CV condiviso |
+| Sistema | Genera link e serve contenuti pubblici |
+
+### 20.4 Scope MVP
+
+**Incluso:**
+- Profilo pubblico (dati anagrafici, fisico, ruolo, carriera squadre, statistiche, highlights video)
+- Condivisione (generazione link pubblico, copia link, condivisione mail/social)
+- Highlights (upload video piccoli, supporto link YouTube/Vimeo, gestione multipla clip)
+- Pagina pubblica (responsive, mobile first, accessibile senza login)
+
+**Escluso MVP:**
+- Analytics recruiter
+- Tracking visualizzazioni
+- PDF export
+- AI tagging highlights
+- Commenti recruiter
+- Chat diretta scout/player
+
+### 20.5 User Journey
+
+**5.1 Creazione CV**
+Il giocatore accede alla sezione CV, inserisce informazioni sportive, salva il CV.
+
+**5.2 Gestione Highlights**
+Il giocatore può caricare video MP4, aggiungere link YouTube/Vimeo, eliminare highlights, riordinare highlights.
+
+**5.3 Condivisione**
+Il giocatore preme "Condividi CV", il sistema genera token pubblico, viene mostrato link condivisibile.
+
+Esempio: `https://app.domain.com/public/cv/uuid-token`
+
+**5.4 Visualizzazione Pubblica**
+Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta statistiche e carriera. Senza login.
+
+### 20.6 Requisiti Funzionali
+
+| ID | Requisito |
+|----|-----------|
+| RF-01 | Il giocatore può creare/modificare il CV |
+| RF-02 | Il giocatore può condividere il CV |
+| RF-03 | Il sistema genera un token pubblico univoco |
+| RF-04 | Il link pubblico è accessibile senza autenticazione |
+| RF-05 | Il giocatore può revocare la condivisione |
+| RF-06 | Il giocatore può caricare highlights |
+| RF-07 | Il giocatore può usare link esterni |
+| RF-08 | Il CV pubblico mostra highlights |
+| RF-09 | Il sistema supporta più highlights |
+| RF-10 | La pagina pubblica è responsive |
+| RF-11 | Gli highlights possono essere ordinati |
+| RF-12 | Il link pubblico è permanente |
+
+### 20.7 Requisiti Non Funzionali
+
+| Categoria | Requisito |
+|-----------|-----------|
+| Performance | Pagina caricata < 2 sec |
+| Sicurezza | Token UUID non predicibili |
+| Mobile | UI ottimizzata smartphone |
+| Scalabilità | Supporto storage CDN |
+| UX | Esperienza professionale |
+| Compatibilità | Browser mobile e desktop |
+
+### 20.8 Architettura Generale
+
+**Backend:**
+- Quarkus REST API
+- PostgreSQL (Supabase)
+- Supabase Storage
+
+**Frontend App:**
+- Gestione CV
+- Upload highlights
+- Condivisione link
+
+**Frontend Pubblico:**
+- Pagina web pubblica
+- Rendering CV condivisibile
+
+### 20.9 Modello Dati
+
+#### Tabelle Coinvolte
+
+| Tabella | Stato |
+|---------|-------|
+| users | esistente |
+| players | esistente |
+| player_cv | estesa |
+| player_cv_teams | esistente |
+| player_cv_highlights | estesa |
+| media_assets | estesa |
+
+### 20.10 Evoluzione Schema Database
+
+#### player_cv
+
+**Nuovi campi:**
+- `share_token` (uuid)
+- `share_enabled` (boolean)
+- `public_updated_at` (timestamptz)
+- `public_slug` (varchar 100)
+
+**Responsabilità:**
+- Gestione pubblicazione CV
+- Accesso pubblico
+- Invalidazione link
+
+#### player_cv_highlights
+
+**Nuovi campi:**
+- `external_url` (text)
+- `sort_order` (int)
+- `thumbnail_url` (text)
+
+**Modello Supportato:**
+- Upload interno: media_id != null, external_url = null
+- Video esterno: media_id = null, external_url != null
+
+#### media_assets
+
+**Nuovi metadata storage:**
+- storage_provider
+- storage_bucket
+- storage_path
+
+### 20.11 Storage Video
+
+**Strategia scelta:** Supabase Storage
+
+**Bucket:** cv-highlights
+
+**Limiti upload:**
+| Parametro | Valore |
+|-----------|--------|
+| Max size | 20 MB |
+| Max durata | 90 sec |
+| Formato | MP4 |
+| Codec | H264 |
+| Max highlights | 5 |
+
+**Motivazioni:**
+- Controllo costi
+- Upload rapidi
+- UX mobile
+- Storage sostenibile
+
+### 20.12 Gestione Highlights
+
+#### Upload Video
+
+**Flow:**
+1. Frontend richiede upload
+2. Backend genera metadata
+3. Frontend upload diretto Supabase
+4. Backend salva media asset
+
+#### Link Esterni
+
+**Supportati:**
+- YouTube
+- Vimeo
+- Hudl
+
+### 20.13 API Backend
+
+#### Condivisione CV
+
+**POST /players/{id}/cv/share**
+
+Genera token pubblico e URL condivisibile.
+
+#### Revoca condivisione
+
+**DELETE /players/{id}/cv/share**
+
+Disabilita accesso pubblico.
+
+#### CV pubblico
+
+**GET /public/cv/{shareToken}**
+
+Pubblico, senza auth. Restituisce dati player, statistiche, carriera, highlights.
+
+#### Upload Highlight
+
+**POST /players/{id}/cv/highlights**
+
+Upload metadata.
+
+#### Highlight esterno
+
+**POST /players/{id}/cv/highlights/link**
+
+Aggiunge URL esterno.
+
+#### Eliminazione Highlight
+
+**DELETE /players/{id}/cv/highlights/{highlightId}**
+
+### 20.14 Sicurezza
+
+**Token pubblico:**
+- Usare UUID v4
+- Mai ID incrementali
+
+**Validazioni:**
+- Verificare ownership CV
+- Verificare mime type
+- Verificare file size
+- Verificare max numero highlights
+
+**Privacy:**
+Il CV pubblico espone dati personali. Serve:
+- Consenso esplicito
+- Toggle pubblicazione
+
+### 20.15 Frontend Mobile
+
+#### CvScreen
+
+**Nuove sezioni:**
+- Preview CV
+- Highlights
+- Stato condivisione
+- Share button
+
+#### EditCvScreen
+
+**Supporta:**
+- Upload
+- Link esterni
+- Reorder
+- Delete
+
+#### Share Sheet
+
+**Azioni:**
+- Copia link
+- Mail
+- WhatsApp
+- Share OS native
+
+### 20.16 Pagina Pubblica Web
+
+**Obiettivo UX:** Esperienza simile a LinkedIn athlete profile, Hudl profile, recruiting card.
+
+**Contenuti:**
+
+**Header:**
+- Foto
+- Nome
+- Età
+- Ruolo
+- Fisico
+
+**Carriera:**
+- Timeline squadre
+
+**Statistiche:**
+- Card responsive
+
+**Highlights:**
+- Player video embedded
+
+### 20.17 Performance
+
+**Ottimizzazioni:**
+
+**Video:**
+- Thumbnail preview
+- Preload metadata
+- Lazy loading
+
+**API:**
+- Cache-control
+- ETag
+- Query ottimizzate
+
+### 20.18 SEO e Sharing
+
+Aggiungere:
+- OpenGraph
+- Twitter cards
+
+Per preview su WhatsApp, LinkedIn, Telegram.
+
+### 20.19 Architettura Consigliata MVP
+
+**Backend:**
+- Quarkus
+- PostgreSQL Supabase
+- Supabase Storage
+
+**Frontend:**
+- App mobile esistente
+- Pagina pubblica React/web
+
+**Video:**
+- Upload piccoli
+- Supporto link esterni
+
+### 20.20 Roadmap Implementativa
+
+**FASE 1 — Database:**
+- Migration schema
+- Indici
+- Constraint
+
+**FASE 2 — Backend:**
+- Endpoint sharing
+- Endpoint pubblico
+- Gestione highlights
+
+**FASE 3 — Frontend App:**
+- UI CV
+- Upload highlights
+- Sharing
+
+**FASE 4 — Pagina Pubblica:**
+- Rendering CV
+- Player video
+- Responsive UI
+
+### 20.21 Evoluzioni Future
+
+**Recruiting:**
+- Contatta atleta
+- Invito tryout
+
+**Analytics:**
+- Visualizzazioni CV
+- Click highlights
+
+**Media:**
+- Thumbnail automatica
+- Compressione server-side
+
+**Export:**
+- PDF CV
+- QR Code
+
+### 20.22 Conclusione Funzionalità
+
+La funzionalità introduce un vero profilo atleta pubblico professionale, trasformando il CV da semplice archivio interno a strumento concreto di scouting e recruiting.
+
+L'architettura scelta:
+- Riutilizza il dominio esistente
+- Minimizza complessità
+- Sfrutta Supabase Storage
+- Consente evoluzioni future senza refactor strutturali
+
+---
+
+## 21. Conclusioni
 
 Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che implementa tutte le funzionalità richieste per il tracking dei tiri di basket, incluse le API del punto 21 della specifica tecnica.
 

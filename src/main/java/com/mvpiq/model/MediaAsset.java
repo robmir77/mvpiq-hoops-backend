@@ -56,4 +56,13 @@ public class MediaAsset {
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
+
+    @Column(name = "storage_provider", length = 30)
+    private String storageProvider = "SUPABASE";
+
+    @Column(name = "storage_bucket", length = 100)
+    private String storageBucket;
+
+    @Column(name = "storage_path", columnDefinition = "TEXT")
+    private String storagePath;
 }

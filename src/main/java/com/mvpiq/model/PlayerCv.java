@@ -48,4 +48,20 @@ public class PlayerCv {
     @Column(name = "updated_at")
     @JsonProperty("updated_at")
     private OffsetDateTime updatedAt = OffsetDateTime.now();
+
+    @Column(name = "share_token", unique = true)
+    @JsonProperty("share_token")
+    private UUID shareToken;
+
+    @Column(name = "share_enabled", nullable = false)
+    @JsonProperty("share_enabled")
+    private Boolean shareEnabled = false;
+
+    @Column(name = "public_updated_at")
+    @JsonProperty("public_updated_at")
+    private OffsetDateTime publicUpdatedAt;
+
+    @Column(name = "public_slug", length = 100)
+    @JsonProperty("public_slug")
+    private String publicSlug;
 }

@@ -27,7 +27,7 @@ public class PlayerCvHighlight {
     private PlayerCv cv;
 
     @ManyToOne
-    @JoinColumn(name = "media_id", nullable = false)
+    @JoinColumn(name = "media_id")
     private MediaAsset media;
 
     @Column(name = "title", length = 150)
@@ -41,4 +41,16 @@ public class PlayerCvHighlight {
     @Column(name = "created_at")
     @JsonProperty("created_at")
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Column(name = "external_url", columnDefinition = "TEXT")
+    @JsonProperty("external_url")
+    private String externalUrl;
+
+    @Column(name = "sort_order", nullable = false)
+    @JsonProperty("sort_order")
+    private Integer sortOrder = 0;
+
+    @Column(name = "thumbnail_url", columnDefinition = "TEXT")
+    @JsonProperty("thumbnail_url")
+    private String thumbnailUrl;
 }

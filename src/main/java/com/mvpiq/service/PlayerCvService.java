@@ -10,6 +10,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 
+import java.time.OffsetDateTime;
 import java.time.Year;
 import java.util.*;
 
@@ -25,6 +26,12 @@ public class PlayerCvService {
 
     @Inject
     PlayerCvTeamRepository teamRepository;
+
+    @Inject
+    PlayerCvHighlightRepository highlightRepository;
+
+    @Inject
+    MediaAssetRepository mediaAssetRepository;
 
     @Inject
     PositionMetadataRepository positionRepository;
@@ -162,5 +169,132 @@ public class PlayerCvService {
         dto.setTeams(teamDTOs);
 
         return dto;
+    }
+
+    // ===============================
+    // SHARE CV
+    // ===============================
+    public Map<String, Object> enableSharing(UUID playerId) {
+        PlayerCv cv = cvRepository.findByPlayerIdNativeQuery(playerId)
+                .orElseThrow(() -> new NotFoundException("CV not found"));
+
+        // Generate new share token if not exists
+        if (cv.getShareToken() == null) {
+            cv.setShareToken(UUID.randomUUID());
+        }
+
+        cv.setShareEnabled(true);
+        cv.setPublicUpdatedAt(OffsetDateTime.now());
+        cvRepository.persist(cv);
+
+        String publicUrl = "https://app.mvpiq-hoops.com/public/cv/" + cv.getShareToken();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("shareToken", cv.getShareToken());
+        response.put("publicUrl", publicUrl);
+        response.put("shareEnabled", true);
+        response.put("publicUpdatedAt", cv.getPublicUpdatedAt());
+
+        return response;
+    }
+
+    public Map<String, Object> disableSharing(UUID playerId) {
+        PlayerCv cv = cvRepository.findByPlayerIdNativeQuery(playerId)
+                .orElseThrow(() -> new NotFoundException("CV not found"));
+
+        cv.setShareEnabled(false);
+        cv.setPublicUpdatedAt(OffsetDateTime.now());
+        cvRepository.persist(cv);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("shareEnabled", false);
+        response.put("publicUpdatedAt", cv.getPublicUpdatedAt());
+
+        return response;
+    }
+
+    public PlayerCvDTO getPublicCv(UUID shareToken) {
+        PlayerCv cv = cvRepository.findByShareToken(shareToken)
+                .orElseThrow(() -> new NotFoundException("CV not found or not shared"));
+
+        if (!cv.getShareEnabled()) {
+            throw new NotFoundException("CV is not publicly shared");
+        }
+
+        List<PlayerCvTeam> teams = teamRepository.findByCvId(cv.getId());
+        return toDTO(cv, teams);
+    }
+
+    // ===============================
+    // HIGHLIGHTS
+    // ===============================
+    public PlayerCvHighlight addHighlight(UUID playerId, UUID mediaId, String title, String description) {
+        PlayerCv cv = cvRepository.findByPlayerIdNativeQuery(playerId)
+                .orElseThrow(() -> new NotFoundException("CV not found"));
+
+        MediaAsset media = mediaAssetRepository.findByIdOptional(mediaId)
+                .orElseThrow(() -> new NotFoundException("Media asset not found"));
+
+        // Get current max sort order
+        Integer maxSortOrder = highlightRepository.findMaxSortOrderByCvId(cv.getId());
+        Integer newSortOrder = maxSortOrder != null ? maxSortOrder + 1 : 0;
+
+        PlayerCvHighlight highlight = PlayerCvHighlight.builder()
+                .cv(cv)
+                .media(media)
+                .title(title)
+                .description(description)
+                .sortOrder(newSortOrder)
+                .build();
+
+        highlightRepository.persist(highlight);
+        return highlight;
+    }
+
+    public PlayerCvHighlight addExternalHighlight(UUID playerId, String externalUrl, String title, String description) {
+        PlayerCv cv = cvRepository.findByPlayerIdNativeQuery(playerId)
+                .orElseThrow(() -> new NotFoundException("CV not found"));
+
+        // Validate URL format
+        if (externalUrl == null || externalUrl.trim().isEmpty()) {
+            throw new BadRequestException("External URL is required");
+        }
+
+        // Get current max sort order
+        Integer maxSortOrder = highlightRepository.findMaxSortOrderByCvId(cv.getId());
+        Integer newSortOrder = maxSortOrder != null ? maxSortOrder + 1 : 0;
+
+        PlayerCvHighlight highlight = PlayerCvHighlight.builder()
+                .cv(cv)
+                .externalUrl(externalUrl)
+                .title(title)
+                .description(description)
+                .sortOrder(newSortOrder)
+                .build();
+
+        highlightRepository.persist(highlight);
+        return highlight;
+    }
+
+    public void deleteHighlight(UUID playerId, UUID highlightId) {
+        PlayerCv cv = cvRepository.findByPlayerIdNativeQuery(playerId)
+                .orElseThrow(() -> new NotFoundException("CV not found"));
+
+        PlayerCvHighlight highlight = highlightRepository.findByIdOptional(highlightId)
+                .orElseThrow(() -> new NotFoundException("Highlight not found"));
+
+        // Verify ownership
+        if (!highlight.getCv().getId().equals(cv.getId())) {
+            throw new BadRequestException("Highlight does not belong to this CV");
+        }
+
+        highlightRepository.delete(highlight);
+    }
+
+    public List<PlayerCvHighlight> getHighlights(UUID playerId) {
+        PlayerCv cv = cvRepository.findByPlayerIdNativeQuery(playerId)
+                .orElseThrow(() -> new NotFoundException("CV not found"));
+
+        return highlightRepository.findByCvIdOrderBySortOrder(cv.getId());
     }
 }
