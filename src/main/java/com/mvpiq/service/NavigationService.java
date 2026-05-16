@@ -118,6 +118,7 @@ public class NavigationService {
                 .title(section.getTitle())
                 .description(section.getDescription())
                 .icon(section.getIcon())
+                .iconColor(section.getIconColor())
                 .accessible(canAccessSection(section.getSectionKey()))
                 .sortOrder(section.getSortOrder())
                 .build();
@@ -130,6 +131,7 @@ public class NavigationService {
         private String title;
         private String description;
         private String icon;
+        private String iconColor;
         private Boolean accessible;
         private Integer sortOrder;
     }

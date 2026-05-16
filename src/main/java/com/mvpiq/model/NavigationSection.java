@@ -37,6 +37,9 @@ public class NavigationSection extends PanacheEntityBase {
     @Column(name = "icon", length = 50)
     private String icon;
 
+    @Column(name = "icon_color", length = 50)
+    private String iconColor;
+
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
 
