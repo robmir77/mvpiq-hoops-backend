@@ -81,7 +81,7 @@ public class PlayerCvService {
         cv.setStats(dto.getStats());
 
         // 3️⃣ Delete old teams by CV (CORRETTO)
-        teamRepository.delete("cv.id", cv.getId());
+        teamRepository.deleteByCvId(cv.getId());
 
         // 4️⃣ Rebuild teams
         if (dto.getTeams() != null && !dto.getTeams().isEmpty()) {

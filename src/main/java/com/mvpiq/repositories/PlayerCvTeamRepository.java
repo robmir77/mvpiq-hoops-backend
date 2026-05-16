@@ -25,4 +25,8 @@ public class PlayerCvTeamRepository implements PanacheRepository<PlayerCvTeam> {
     public List<PlayerCvTeam> findByCvId(UUID cvId) {
         return list("cv.id", cvId);
     }
+
+    public void deleteByCvId(UUID cvId) {
+        delete("cv.id", cvId);
+    }
 }
