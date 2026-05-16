@@ -796,6 +796,11 @@ CMD ["/application/run-application.sh"]
 - **Causa**: WorkoutSessionResponse.java mancava della dichiarazione del package
 - **Soluzione**: Aggiunto `package com.mvpiq.dto;` all'inizio del file
 
+**PlayerCvHighlightDTO ExternalUrl:**
+- **Problema**: `Cannot resolve method 'getExternalUrl' in 'MediaAsset'` a linea 28
+- **Causa**: Il codice cercava di ottenere `externalUrl` da `MediaAsset`, ma questo campo esiste sull'entità `PlayerCvHighlight`, non su `MediaAsset`
+- **Soluzione**: Spostato `externalUrl = h.getExternalUrl()` fuori dal check null di media, poiché è un campo diretto di PlayerCvHighlight
+
 ---
 
 ## 18. Migrazione Database - Maggio 2026
