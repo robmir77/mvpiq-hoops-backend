@@ -77,7 +77,10 @@ public class WorkoutResource {
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId) {
         workoutService.pauseSession(sessionId, userId);
-        return Response.ok().build();
+        // ✅ Fix: restituisce la sessione aggiornata invece di 200 OK vuoto
+        // Il FE tipizza questa chiamata come Promise<WorkoutSession> e legge response.data
+        var session = workoutService.getSession(sessionId, userId);
+        return Response.ok(session).build();
     }
 
     @POST
@@ -87,7 +90,9 @@ public class WorkoutResource {
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId) {
         workoutService.resumeSession(sessionId, userId);
-        return Response.ok().build();
+        // ✅ Fix: restituisce la sessione aggiornata invece di 200 OK vuoto
+        var session = workoutService.getSession(sessionId, userId);
+        return Response.ok(session).build();
     }
 
     @GET

@@ -6,8 +6,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -75,8 +78,9 @@ public class CourtCalibration {
     @Column(name = "sideline_right_y")
     private Double sidelineRightY;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "homography_matrix", columnDefinition = "jsonb")
-    private String homographyMatrix;
+    private List<Double> homographyMatrix;
 
     @Column(name = "calibration_confidence")
     private Double calibrationConfidence;

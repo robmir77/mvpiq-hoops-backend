@@ -1,5 +1,6 @@
 package com.mvpiq.resource;
 
+import com.mvpiq.dto.CareerStatsDTO;
 import com.mvpiq.dto.ShotChartResponse;
 import com.mvpiq.model.ShotEvent;
 import com.mvpiq.service.ShotAnalyticsService;
@@ -106,7 +107,7 @@ public class ShotAnalyticsResource {
     @Path("/career-stats")
     @RolesAllowed({"PLAYER", "TRAINER"})
     public Response getCareerStats(@QueryParam("userId") UUID userId) {
-        var careerStats = analyticsService.getPlayerCareerStats(userId);
+        CareerStatsDTO careerStats = analyticsService.getPlayerCareerStats(userId);
         return Response.ok(careerStats).build();
     }
 
