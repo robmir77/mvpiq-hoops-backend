@@ -160,7 +160,7 @@ public class PlayerCvService {
 
     // ─── GET PUBLIC CV (senza auth, via shareToken) ───────────
     public PlayerCvDTO getPublicCv(UUID shareToken) {
-        PlayerCv cv = cvRepository.findByShareToken(shareToken)
+        PlayerCv cv = cvRepository.findByShareTokenAndEnabled(shareToken)
                 .orElseThrow(() -> new NotFoundException("CV not found or not public"));
 
         List<PlayerCvTeam>      teams      = teamRepository.findByPlayerIdColumn(cv.getPlayer().getId());
@@ -192,11 +192,14 @@ public class PlayerCvService {
     }
 
     private CvSharingDTO buildSharingDTO(PlayerCv cv) {
+        // Boolean wrapper può essere null su righe pre-migration: usiamo Boolean.TRUE.equals()
+        boolean enabled = Boolean.TRUE.equals(cv.getShareEnabled());
+        UUID token = cv.getShareToken();
         return CvSharingDTO.builder()
-                .shareToken(cv.getShareToken().toString())
-                .shareEnabled(cv.getShareEnabled())
-                .publicUrl(cv.getShareEnabled()
-                        ? publicBaseUrl + "/public/cv/" + cv.getShareToken()
+                .shareToken(token != null ? token.toString() : null)
+                .shareEnabled(enabled)
+                .publicUrl(enabled && token != null
+                        ? publicBaseUrl + "/public/cv/" + token
                         : null)
                 .build();
     }

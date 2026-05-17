@@ -29,7 +29,7 @@ public class UserResource {
     @Inject
     RoleBasedSecurityService securityService;
 
-    // --- Recupera i dati dell'utente corrente ---
+    // ─── GET CURRENT USER ─────────────────────────────────────
     @GET
     @Path("/users/me/{userId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -38,7 +38,6 @@ public class UserResource {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("Missing userId parameter").build();
         }
-
         return userRepository.findByIdOptional(userId)
                 .map(UserDTO::fromEntity)
                 .map(dto -> Response.ok(dto).build())
@@ -46,10 +45,38 @@ public class UserResource {
                         .entity("User not found").build());
     }
 
-    /**
-     * GET /api/users/online
-     * Recupera gli utenti con attività recente (online) - solo admin
-     */
+    // ─── SEARCH USERS ─────────────────────────────────────────
+    // Chiamato da NewChatScreen: GET /api/users/search?q=mario
+    // Cerca per username o displayName (case insensitive, min 2 caratteri)
+    @GET
+    @Path("/users/search")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response searchUsers(@QueryParam("q") String query) {
+        if (query == null || query.trim().length() < 2) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Query must be at least 2 characters").build();
+        }
+
+        String q = "%" + query.trim().toLowerCase() + "%";
+
+        List<User> users = userRepository
+                .find("lower(username) like ?1 or lower(displayName) like ?1 and deletedAt is null and status = 'ACTIVE'", q)
+                .page(0, 20)
+                .list();
+
+        List<SearchUserDTO> results = users.stream()
+                .map(u -> SearchUserDTO.builder()
+                        .id(u.getId())
+                        .username(u.getUsername())
+                        .displayName(u.getDisplayName())
+                        .avatarUrl(u.getAvatarUrl())
+                        .build())
+                .collect(Collectors.toList());
+
+        return Response.ok(results).build();
+    }
+
+    // ─── GET ONLINE USERS ─────────────────────────────────────
     @GET
     @Path("/users/online")
     @Produces(MediaType.APPLICATION_JSON)
@@ -60,7 +87,6 @@ public class UserResource {
 
         List<UserActivityLog> recentActivities = activityLogRepository.findUniqueUsersWithRecentActivity(minutesAgo);
 
-        // Raggruppa per userId e prendi l'attività più recente per ogni utente
         Map<UUID, UserActivityLog> latestActivityByUser = new HashMap<>();
         for (UserActivityLog activity : recentActivities) {
             UserActivityLog existing = latestActivityByUser.get(activity.getUserId());
@@ -69,14 +95,12 @@ public class UserResource {
             }
         }
 
-        // Recupera i dettagli degli utenti
         List<OnlineUserDTO> onlineUsers = latestActivityByUser.entrySet().stream()
                 .map(entry -> {
                     UUID userId = entry.getKey();
                     UserActivityLog latestActivity = entry.getValue();
                     User user = userRepository.findById(userId);
                     if (user == null) return null;
-
                     return OnlineUserDTO.builder()
                             .userId(user.getId())
                             .username(user.getUsername())
@@ -92,6 +116,17 @@ public class UserResource {
                 .collect(Collectors.toList());
 
         return Response.ok(onlineUsers).build();
+    }
+
+    // ─── DTOs interni ─────────────────────────────────────────
+
+    @lombok.Builder
+    @lombok.Data
+    public static class SearchUserDTO {
+        private UUID id;
+        private String username;
+        private String displayName;
+        private String avatarUrl;
     }
 
     @lombok.Builder

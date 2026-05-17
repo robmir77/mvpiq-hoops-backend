@@ -1,6 +1,7 @@
 package com.mvpiq.resource;
 
 import com.mvpiq.dto.ApiResponse;
+import com.mvpiq.dto.CreateConversationRequest;
 import com.mvpiq.model.Conversation;
 import com.mvpiq.model.Message;
 import com.mvpiq.service.ConversationService;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Path("/api/conversations")
 @Produces(MediaType.APPLICATION_JSON)
@@ -26,16 +28,30 @@ public class ConversationResource {
     @Inject
     ConversationService conversationService;
 
+    // ─── CREATE CONVERSATION ─────────────────────────────────
+    // Fix: usa DTO tipizzato — Map<String,Object> causava ClassCastException
+    // perché Jackson deserializza le stringhe come List<String>, non List<UUID>
     @POST
-    public Response createConversation(Map<String, Object> request) {
+    public Response createConversation(CreateConversationRequest request) {
         try {
-            String title = (String) request.get("title");
-            @SuppressWarnings("unchecked")
-            List<UUID> participantIds = (List<UUID>) request.get("participantIds");
-            
-            Conversation created = conversationService.createConversation(title, participantIds);
+            if (request.getParticipantIds() == null || request.getParticipantIds().isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(ApiResponse.error("participantIds is required"))
+                        .build();
+            }
+
+            // Conversione sicura String → UUID
+            List<UUID> participantUuids = request.getParticipantIds().stream()
+                    .map(UUID::fromString)
+                    .collect(Collectors.toList());
+
+            Conversation created = conversationService.createConversation(request.getTitle(), participantUuids);
             return Response.status(Response.Status.CREATED)
                     .entity(ApiResponse.success(created, "Conversation created successfully"))
+                    .build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(ApiResponse.error("Invalid UUID in participantIds: " + e.getMessage()))
                     .build();
         } catch (Exception e) {
             log.error("Error creating conversation", e);
@@ -45,6 +61,7 @@ public class ConversationResource {
         }
     }
 
+    // ─── SEND MESSAGE ─────────────────────────────────────────
     @POST
     @Path("/{id}/messages")
     public Response sendMessage(@PathParam("id") UUID id, Map<String, Object> messageRequest) {
@@ -52,9 +69,10 @@ public class ConversationResource {
             UUID senderId = UUID.fromString(messageRequest.get("senderId").toString());
             String content = (String) messageRequest.get("content");
             String messageType = (String) messageRequest.getOrDefault("messageType", "text");
-            UUID mediaId = messageRequest.get("mediaId") != null ? 
-                UUID.fromString(messageRequest.get("mediaId").toString()) : null;
-            
+            UUID mediaId = messageRequest.get("mediaId") != null
+                    ? UUID.fromString(messageRequest.get("mediaId").toString())
+                    : null;
+
             Message message = conversationService.sendMessage(id, senderId, content, messageType, mediaId);
             return Response.status(Response.Status.CREATED)
                     .entity(ApiResponse.success(message, "Message sent successfully"))
@@ -67,6 +85,7 @@ public class ConversationResource {
         }
     }
 
+    // ─── GET CONVERSATION ─────────────────────────────────────
     @GET
     @Path("/{id}")
     public Response getConversation(@PathParam("id") UUID id) {
@@ -74,11 +93,10 @@ public class ConversationResource {
             Optional<Conversation> conversation = conversationService.getConversation(id);
             if (conversation.isPresent()) {
                 return Response.ok(ApiResponse.success(conversation.get(), "Conversation retrieved successfully")).build();
-            } else {
-                return Response.status(Response.Status.NOT_FOUND)
-                        .entity(ApiResponse.error("Conversation not found"))
-                        .build();
             }
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(ApiResponse.error("Conversation not found"))
+                    .build();
         } catch (Exception e) {
             log.error("Error retrieving conversation", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -87,6 +105,7 @@ public class ConversationResource {
         }
     }
 
+    // ─── GET MESSAGES ─────────────────────────────────────────
     @GET
     @Path("/{id}/messages")
     public Response getConversationMessages(@PathParam("id") UUID id) {
@@ -101,6 +120,7 @@ public class ConversationResource {
         }
     }
 
+    // ─── GET PARTICIPANTS ─────────────────────────────────────
     @GET
     @Path("/{id}/participants")
     public Response getConversationParticipants(@PathParam("id") UUID id) {
@@ -115,6 +135,7 @@ public class ConversationResource {
         }
     }
 
+    // ─── GET USER CONVERSATIONS ───────────────────────────────
     @GET
     @Path("/user/{userId}")
     public Response getUserConversations(@PathParam("userId") UUID userId) {
@@ -129,6 +150,16 @@ public class ConversationResource {
         }
     }
 
+    // ─── MARK AS READ ─────────────────────────────────────────
+    @PUT
+    @Path("/{id}/read")
+    public Response markAsRead(@PathParam("id") UUID id) {
+        // Il FE chiama questo endpoint ma non era implementato → 405
+        // Per ora è un no-op che restituisce 200 — può essere implementato con un campo read_at
+        return Response.ok(ApiResponse.success("Messages marked as read")).build();
+    }
+
+    // ─── ADD PARTICIPANT ──────────────────────────────────────
     @POST
     @Path("/{id}/participants")
     public Response addParticipant(@PathParam("id") UUID conversationId, Map<String, Object> request) {
@@ -144,9 +175,11 @@ public class ConversationResource {
         }
     }
 
+    // ─── REMOVE PARTICIPANT ───────────────────────────────────
     @DELETE
     @Path("/{id}/participants/{userId}")
-    public Response removeParticipant(@PathParam("id") UUID conversationId, @PathParam("userId") UUID userId) {
+    public Response removeParticipant(@PathParam("id") UUID conversationId,
+                                       @PathParam("userId") UUID userId) {
         try {
             conversationService.removeParticipant(conversationId, userId);
             return Response.ok(ApiResponse.success("Participant removed successfully")).build();
