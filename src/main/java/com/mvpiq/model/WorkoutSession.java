@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -53,7 +55,8 @@ public class WorkoutSession {
     @Column(name = "session_status", nullable = false)
     private String sessionStatus = "ACTIVE"; // ACTIVE, COMPLETED, PAUSED
 
-    @Column(name = "calibration_data", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "calibration_data")
     private String calibrationData;
 
     @Column(name = "notes", columnDefinition = "TEXT")

@@ -58,6 +58,8 @@ public class WorkoutService {
                 .madeShots(0)
                 .sessionStatus("ACTIVE")
                 .calibrationData(request.getCalibrationData())
+                .createdAt(OffsetDateTime.now())
+                .updatedAt(OffsetDateTime.now())
                 .build();
 
         workoutSessionRepository.persist(session);
