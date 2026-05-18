@@ -540,9 +540,121 @@ Le API per workout richiedono ruolo:
 - Gestione posizioni (main position, secondary positions)
 
 ### 9.3 Trainer
-- Follow/Unfollow giocatori
-- Feedback e progress
-- Statistiche allenatore
+
+Il sistema Trainer permette agli allenatori di seguire i giocatori, monitorare i loro progressi e fornire feedback.
+
+#### Entità TrainerFollows
+
+```java
+@Entity
+@Table(name = "trainer_follows")
+public class TrainerFollows {
+    - id: UUID (PK)
+    - trainer: User (FK)
+    - player: User (FK)
+    - createdAt: OffsetDateTime
+}
+```
+
+#### API Trainer
+
+**POST /api/trainer/follow**
+- Segue un giocatore
+- Verifica che l'utente abbia ruolo TRAINER tramite RBAC
+- Previene duplicazioni
+
+**Request:**
+```json
+{
+  "trainerId": "uuid",
+  "playerId": "uuid"
+}
+```
+
+**DELETE /api/trainer/follow?trainerId={uuid}&playerId={uuid}**
+- Smette di seguire un giocatore
+
+**GET /api/trainer/follows/{trainerId}**
+- Recupera tutti i giocatori seguiti da un allenatore
+
+**GET /api/trainer/followers/{playerId}**
+- Recupera tutti gli allenatori che seguono un giocatore
+
+**GET /api/trainer/follow/check?trainerId={uuid}&playerId={uuid}**
+- Verifica se un allenatore segue un giocatore
+
+**Response:**
+```json
+{
+  "isFollowing": true
+}
+```
+
+**GET /api/trainer/stats/{trainerId}**
+- Recupera statistiche allenatore
+
+**Response:**
+```json
+{
+  "followedPlayers": 15,
+  "trainerId": "uuid"
+}
+```
+
+**GET /api/trainer/players/{trainerId}/progress**
+- Recupera il progresso dei giocatori seguiti (placeholder)
+
+**GET /api/trainer/players/{playerId}/details?trainerId={uuid}**
+- Recupera dettagli giocatore per allenatore (verifica follow)
+
+**POST /api/trainer/feedback**
+- Aggiunge feedback per un giocatore
+
+**Request:**
+```json
+{
+  "trainerId": "uuid",
+  "playerId": "uuid",
+  "feedback": "Ottimo progresso nel tiro da 3 punti"
+}
+```
+
+**GET /api/trainer/follow-count/{trainerId}**
+- Conta giocatori seguiti
+
+**GET /api/trainer/follower-count/{playerId}**
+- Conta follower di un giocatore
+
+#### TrainerService
+
+Servizio business logic per gestione trainer:
+
+- **followPlayer**: Segue giocatore con verifica RBAC
+- **unfollowPlayer**: Smette di seguire
+- **getTrainerFollows**: Lista giocatori seguiti
+- **getPlayerFollowers**: Lista allenatori follower
+- **isFollowingPlayer**: Verifica stato follow
+- **getTrainerFollowCount**: Conta follows
+- **getPlayerFollowerCount**: Conta follower
+- **getTrainerStats**: Statistiche allenatore
+- **getTrainerPlayersProgress**: Progresso giocatori (placeholder)
+- **getPlayerDetailsForTrainer**: Dettagli giocatore (placeholder)
+- **addPlayerFeedback**: Aggiunge feedback (placeholder)
+
+#### TrainerFollowRepository
+
+Query personalizzate:
+
+- `findByTrainerId`: Follows di un allenatore
+- `findByPlayerId`: Followers di un giocatore
+- `findByTrainerAndPlayer`: Relazione specifica
+- `existsByTrainerAndPlayer`: Verifica esistenza
+- `countByTrainerId`: Conta follows allenatore
+- `countByPlayerId`: Conta follower giocatore
+
+#### Integrazione RBAC
+
+Il sistema verifica che l'utente abbia ruolo TRAINER prima di permettere operazioni di follow, utilizzando `UserRoleRepository` per controllare le assegnazioni ruoli.
 
 ### 9.4 Journal
 - CRUD diario allenamenti/partite
