@@ -1,7 +1,7 @@
 package com.mvpiq.resource;
 
 import com.mvpiq.dto.ApiResponse;
-import com.mvpiq.model.TrainerFollow;
+import com.mvpiq.model.TrainerFollows;
 import com.mvpiq.service.TrainerService;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
@@ -32,7 +32,7 @@ public class TrainerResource {
             UUID trainerId = UUID.fromString(request.get("trainerId").toString());
             UUID playerId = UUID.fromString(request.get("playerId").toString());
             
-            TrainerFollow follow = trainerService.followPlayer(trainerId, playerId);
+            TrainerFollows follow = trainerService.followPlayer(trainerId, playerId);
             return Response.status(Response.Status.CREATED)
                     .entity(ApiResponse.success(follow, "Player followed successfully"))
                     .build();
@@ -62,7 +62,7 @@ public class TrainerResource {
     @Path("/follows/{trainerId}")
     public Response getTrainerFollows(@PathParam("trainerId") UUID trainerId) {
         try {
-            List<TrainerFollow> follows = trainerService.getTrainerFollows(trainerId);
+            List<TrainerFollows> follows = trainerService.getTrainerFollows(trainerId);
             return Response.ok(ApiResponse.success(follows, "Trainer follows retrieved successfully")).build();
         } catch (Exception e) {
             log.error("Error retrieving trainer follows", e);
@@ -76,7 +76,7 @@ public class TrainerResource {
     @Path("/followers/{playerId}")
     public Response getPlayerFollowers(@PathParam("playerId") UUID playerId) {
         try {
-            List<TrainerFollow> followers = trainerService.getPlayerFollowers(playerId);
+            List<TrainerFollows> followers = trainerService.getPlayerFollowers(playerId);
             return Response.ok(ApiResponse.success(followers, "Player followers retrieved successfully")).build();
         } catch (Exception e) {
             log.error("Error retrieving player followers", e);

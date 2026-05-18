@@ -231,6 +231,18 @@
           <version>3.5.2</version>
       </dependency>
 
+      <!-- Quarkus WebSocket support -->
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-websockets</artifactId>
+      </dependency>
+
+      <!-- Quarkus Scheduler support -->
+      <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-scheduler</artifactId>
+      </dependency>
+
   </dependencies>
   <build>
     <plugins>

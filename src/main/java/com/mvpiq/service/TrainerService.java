@@ -1,8 +1,7 @@
 package com.mvpiq.service;
 
-import com.mvpiq.model.TrainerFollow;
+import com.mvpiq.model.TrainerFollows;
 import com.mvpiq.model.User;
-import com.mvpiq.model.UserRoleAssignment;
 import com.mvpiq.repositories.TrainerFollowRepository;
 import com.mvpiq.repositories.UserRepository;
 import com.mvpiq.repositories.UserRoleRepository;
@@ -32,7 +31,7 @@ public class TrainerService {
 
 
     @Transactional
-    public TrainerFollow followPlayer(UUID trainerId, UUID playerId) {
+    public TrainerFollows followPlayer(UUID trainerId, UUID playerId) {
         log.info("Trainer {} following player {}", trainerId, playerId);
         
         // Check if trainer exists and has trainer role
@@ -60,7 +59,7 @@ public class TrainerService {
             throw new IllegalArgumentException("Trainer is already following this player");
         }
         
-        TrainerFollow follow = new TrainerFollow();
+        TrainerFollows follow = new TrainerFollows();
         follow.setTrainer(trainer);
         follow.setPlayer(player);
         follow.setCreatedAt(OffsetDateTime.now());
@@ -74,18 +73,18 @@ public class TrainerService {
     public void unfollowPlayer(UUID trainerId, UUID playerId) {
         log.info("Trainer {} unfollowing player {}", trainerId, playerId);
         
-        TrainerFollow follow = trainerFollowRepository.findByTrainerAndPlayer(trainerId, playerId);
+        TrainerFollows follow = trainerFollowRepository.findByTrainerAndPlayer(trainerId, playerId);
         if (follow != null) {
             trainerFollowRepository.delete(follow);
             log.info("Trainer {} unfollowed player {}", trainerId, playerId);
         }
     }
 
-    public List<TrainerFollow> getTrainerFollows(UUID trainerId) {
+    public List<TrainerFollows> getTrainerFollows(UUID trainerId) {
         return trainerFollowRepository.findByTrainerId(trainerId);
     }
 
-    public List<TrainerFollow> getPlayerFollowers(UUID playerId) {
+    public List<TrainerFollows> getPlayerFollowers(UUID playerId) {
         return trainerFollowRepository.findByPlayerId(playerId);
     }
 
@@ -107,7 +106,7 @@ public class TrainerService {
     public List<Map<String, Object>> getTrainerPlayersProgress(UUID trainerId) {
         log.info("Getting progress for trainer's players: {}", trainerId);
         
-        List<TrainerFollow> follows = trainerFollowRepository.findByTrainerId(trainerId);
+        List<TrainerFollows> follows = trainerFollowRepository.findByTrainerId(trainerId);
         
         // For each followed player, collect their progress data
         // This would include training sessions, goals, achievements, etc.

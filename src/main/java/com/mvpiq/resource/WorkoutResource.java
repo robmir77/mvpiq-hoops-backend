@@ -1,11 +1,18 @@
 package com.mvpiq.resource;
 
+import com.mvpiq.dto.CalibrationRequest;
+import com.mvpiq.dto.FrameDataRequest;
+import com.mvpiq.dto.FrameDataResponse;
+import com.mvpiq.dto.PoseAnalysisRequest;
+import com.mvpiq.dto.PoseAnalysisResponse;
+import com.mvpiq.dto.RealtimeStatsResponse;
 import com.mvpiq.dto.ShotEventRequest;
 import com.mvpiq.dto.ShotEventResponse;
 import com.mvpiq.dto.WorkoutSessionRequest;
 import com.mvpiq.dto.WorkoutSessionResponse;
-import com.mvpiq.model.CourtCalibration;
+import com.mvpiq.model.PoseAnalysis;
 import com.mvpiq.model.ShotEvent;
+import com.mvpiq.model.WorkoutFrameData;
 import com.mvpiq.service.WorkoutService;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
@@ -127,10 +134,10 @@ public class WorkoutResource {
     public Response saveCalibration(
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId,
-            @Valid CourtCalibration calibration) {
-        var savedCalibration = workoutService.saveCalibration(sessionId, userId, calibration);
+            @Valid CalibrationRequest request) {
+        var sessionResponse = workoutService.saveCalibration(sessionId, userId, request);
         return Response.status(Response.Status.CREATED)
-                .entity(savedCalibration)
+                .entity(sessionResponse)
                 .build();
     }
 
@@ -140,5 +147,45 @@ public class WorkoutResource {
     public Response getActiveSession(@QueryParam("userId") UUID userId) {
         var session = workoutService.getActiveSession(userId);
         return Response.ok(WorkoutSessionResponse.from(session)).build();
+    }
+
+    @POST
+    @Path("/sessions/{sessionId}/frames")
+    @RolesAllowed({"PLAYER", "TRAINER"})
+    public Response saveFrameData(
+            @PathParam("sessionId") UUID sessionId,
+            @QueryParam("userId") UUID userId,
+            @Valid FrameDataRequest request) {
+        var frameData = workoutService.saveFrameData(sessionId, userId, request);
+        // ✅ Fix: restituisce FrameDataResponse (DTO) invece dell'entity WorkoutFrameData
+        // che ha session con FetchType.LAZY → LazyInitializationException fuori transazione
+        return Response.status(Response.Status.CREATED)
+                .entity(FrameDataResponse.from(frameData))
+                .build();
+    }
+
+    @POST
+    @Path("/sessions/{sessionId}/pose-analysis")
+    @RolesAllowed({"PLAYER", "TRAINER"})
+    public Response savePoseAnalysis(
+            @PathParam("sessionId") UUID sessionId,
+            @QueryParam("userId") UUID userId,
+            @Valid PoseAnalysisRequest request) {
+        var poseAnalysis = workoutService.savePoseAnalysis(sessionId, userId, request);
+        // ✅ Fix: restituisce PoseAnalysisResponse (DTO) invece dell'entity PoseAnalysis
+        // che ha shotEvent con FetchType.LAZY → LazyInitializationException fuori transazione
+        return Response.status(Response.Status.CREATED)
+                .entity(PoseAnalysisResponse.from(poseAnalysis))
+                .build();
+    }
+
+    @GET
+    @Path("/sessions/{sessionId}/realtime-stats")
+    @RolesAllowed({"PLAYER", "TRAINER"})
+    public Response getRealtimeStats(
+            @PathParam("sessionId") UUID sessionId,
+            @QueryParam("userId") UUID userId) {
+        var stats = workoutService.getRealtimeStats(sessionId, userId);
+        return Response.ok(stats).build();
     }
 }

@@ -65,4 +65,8 @@ public class MediaAsset {
 
     @Column(name = "storage_path", columnDefinition = "TEXT")
     private String storagePath;
+
+    // Aggiunto con migration CV: URL esterno (YouTube, Vimeo, ecc.)
+    @Column(name = "external_url", columnDefinition = "TEXT")
+    private String externalUrl;
 }

@@ -1,25 +1,24 @@
 package com.mvpiq.repositories;
 
-import com.mvpiq.model.TrainerFollow;
+import com.mvpiq.model.TrainerFollows;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @ApplicationScoped
-public class TrainerFollowRepository implements PanacheRepositoryBase<TrainerFollow, UUID> {
+public class TrainerFollowRepository implements PanacheRepositoryBase<TrainerFollows, UUID> {
 
-    public List<TrainerFollow> findByTrainerId(UUID trainerId) {
+    public List<TrainerFollows> findByTrainerId(UUID trainerId) {
         return find("trainer.id", trainerId).list();
     }
 
-    public List<TrainerFollow> findByPlayerId(UUID playerId) {
+    public List<TrainerFollows> findByPlayerId(UUID playerId) {
         return find("player.id", playerId).list();
     }
 
-    public TrainerFollow findByTrainerAndPlayer(UUID trainerId, UUID playerId) {
+    public TrainerFollows findByTrainerAndPlayer(UUID trainerId, UUID playerId) {
         return find("trainer.id = ?1 AND player.id = ?2", trainerId, playerId).firstResult();
     }
 
