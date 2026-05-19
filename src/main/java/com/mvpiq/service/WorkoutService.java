@@ -35,6 +35,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
+import static io.quarkus.arc.impl.UncaughtExceptions.LOGGER;
+
 @ApplicationScoped
 public class WorkoutService {
 
@@ -207,6 +209,15 @@ public class WorkoutService {
                 .orElseThrow(() -> new ResourceNotFoundException("Workout session not found"));
 
         return shotEventRepository.findByWorkoutSession(sessionId);
+    }
+
+    @Transactional
+    public void deleteSession(UUID sessionId, UUID playerId) {
+        WorkoutSession session = workoutSessionRepository.findByIdAndPlayer(sessionId, playerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workout session not found"));
+
+        workoutSessionRepository.delete(session);
+        LOGGER.info("Deleted workout session: " + sessionId + " for player: " + playerId);
     }
 
     @Transactional

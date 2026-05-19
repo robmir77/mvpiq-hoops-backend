@@ -67,6 +67,17 @@ public class WorkoutResource {
         return Response.ok(sessions).build();
     }
 
+    // ── DELETE sessione ────────────────────────────────────────────────────────
+    @DELETE
+    @Path("/sessions/{sessionId}")
+    @RolesAllowed({"PLAYER", "TRAINER"})
+    public Response deleteWorkoutSession(
+            @PathParam("sessionId") UUID sessionId,
+            @QueryParam("userId") UUID userId) {
+        workoutService.deleteSession(sessionId, userId);
+        return Response.noContent().build();
+    }
+
     @POST
     @Path("/sessions/{sessionId}/end")
     @RolesAllowed({"PLAYER", "TRAINER"})
@@ -84,8 +95,6 @@ public class WorkoutResource {
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId) {
         workoutService.pauseSession(sessionId, userId);
-        // ✅ Fix: restituisce la sessione aggiornata invece di 200 OK vuoto
-        // Il FE tipizza questa chiamata come Promise<WorkoutSession> e legge response.data
         var session = workoutService.getSession(sessionId, userId);
         return Response.ok(session).build();
     }
@@ -97,7 +106,6 @@ public class WorkoutResource {
             @PathParam("sessionId") UUID sessionId,
             @QueryParam("userId") UUID userId) {
         workoutService.resumeSession(sessionId, userId);
-        // ✅ Fix: restituisce la sessione aggiornata invece di 200 OK vuoto
         var session = workoutService.getSession(sessionId, userId);
         return Response.ok(session).build();
     }
@@ -157,8 +165,6 @@ public class WorkoutResource {
             @QueryParam("userId") UUID userId,
             @Valid FrameDataRequest request) {
         var frameData = workoutService.saveFrameData(sessionId, userId, request);
-        // ✅ Fix: restituisce FrameDataResponse (DTO) invece dell'entity WorkoutFrameData
-        // che ha session con FetchType.LAZY → LazyInitializationException fuori transazione
         return Response.status(Response.Status.CREATED)
                 .entity(FrameDataResponse.from(frameData))
                 .build();
@@ -172,8 +178,6 @@ public class WorkoutResource {
             @QueryParam("userId") UUID userId,
             @Valid PoseAnalysisRequest request) {
         var poseAnalysis = workoutService.savePoseAnalysis(sessionId, userId, request);
-        // ✅ Fix: restituisce PoseAnalysisResponse (DTO) invece dell'entity PoseAnalysis
-        // che ha shotEvent con FetchType.LAZY → LazyInitializationException fuori transazione
         return Response.status(Response.Status.CREATED)
                 .entity(PoseAnalysisResponse.from(poseAnalysis))
                 .build();
