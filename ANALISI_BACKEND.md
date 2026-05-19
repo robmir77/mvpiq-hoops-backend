@@ -158,6 +158,32 @@ public class CourtCalibration {
 }
 ```
 
+#### WorkoutFrameData
+
+```java
+@Entity
+@Table(name = "workout_frame_data")
+public class WorkoutFrameData {
+    - id: UUID (PK)
+    - session: WorkoutSession (FK)
+    - frameTimestamp: Long
+    - ballX: Double
+    - ballY: Double
+    - ballConfidence: Double
+    - hoopX: Double
+    - hoopY: Double
+    - hoopConfidence: Double
+    - poseData: Map<String, Object> (JSONB)
+    - trajectoryData: Map<String, Object> (JSONB)
+    - ballVelocityX: Double
+    - ballVelocityY: Double
+    - shotDetected: Boolean
+    - createdAt: OffsetDateTime
+}
+```
+
+**Descrizione:** Memorizza dati frame video per analisi in tempo reale durante sessioni workout, inclusi tracking palla, canestro, pose giocatore e traiettorie.
+
 ### 3.2 Altre Entità Principali
 
 - **Player**: Profilo giocatore (estende User, contiene attributi fisici e background)
@@ -231,7 +257,120 @@ Riprende una sessione in pausa
 #### GET /api/workouts/sessions/active
 Recupera la sessione attiva di un giocatore
 
-### 4.2 Shot Events
+#### DELETE /api/workouts/sessions/{sessionId}
+Elimina una sessione di workout
+
+**Response:** 204 No Content
+
+#### POST /api/workouts/sessions/{sessionId}/frames
+Salva dati frame video per analisi in tempo reale
+
+**Request:**
+```json
+{
+  "frameTimestamp": 123456,
+  "ballX": 320.5,
+  "ballY": 240.2,
+  "ballConfidence": 0.95,
+  "hoopX": 640.0,
+  "hoopY": 480.0,
+  "hoopConfidence": 0.98,
+  "poseData": {...},
+  "trajectoryData": {...},
+  "ballVelocityX": 5.2,
+  "ballVelocityY": -8.1,
+  "shotDetected": false
+}
+```
+
+**Response:**
+```json
+{
+  "id": "frame-123",
+  "sessionId": "session-123",
+  "frameTimestamp": 123456,
+  "ballX": 320.5,
+  "ballY": 240.2,
+  "ballConfidence": 0.95,
+  "hoopX": 640.0,
+  "hoopY": 480.0,
+  "hoopConfidence": 0.98,
+  "poseData": {...},
+  "trajectoryData": {...},
+  "ballVelocityX": 5.2,
+  "ballVelocityY": -8.1,
+  "shotDetected": false,
+  "createdAt": "2026-05-19T10:00:00Z"
+}
+```
+
+#### POST /api/workouts/sessions/{sessionId}/pose-analysis
+Salva dati di analisi pose del giocatore
+
+**Request:**
+```json
+{
+  "timestampMs": 123456,
+  "poseLandmarks": [...],
+  "poseConfidence": 0.92
+}
+```
+
+**Response:**
+```json
+{
+  "id": "pose-123",
+  "sessionId": "session-123",
+  "timestampMs": 123456,
+  "poseLandmarks": [...],
+  "poseConfidence": 0.92,
+  "createdAt": "2026-05-19T10:00:00Z"
+}
+```
+
+#### GET /api/workouts/sessions/{sessionId}/realtime-stats
+Recupera statistiche in tempo reale della sessione
+
+**Response:**
+```json
+{
+  "sessionId": "session-123",
+  "shotCount": 25,
+  "fieldGoalPercentage": 68.0,
+  "shotStreak": 5,
+  "releaseAngleAvg": 47.5,
+  "releaseVelocityAvg": 12.3,
+  "heatZones": {
+    "PAINT": 8,
+    "MID_RANGE": 10,
+    "THREE_POINT": 7
+  },
+  "recentShots": [
+    {
+      "courtX": 4.2,
+      "courtY": 6.8,
+      "result": "MADE",
+      "timestamp": 123456
+    }
+  ],
+  "sessionDuration": 1800
+}
+```
+
+### 4.2 WebSocket Live Updates
+
+#### WS /api/workouts/live/{sessionId}?userId={userId}
+WebSocket per aggiornamenti in tempo reale delle statistiche
+
+**Funzionalità:**
+- Connessione WebSocket per streaming statistiche live
+- Broadcast automatico ogni secondo delle statistiche
+- Push manuale dopo ogni tiro
+- Supporto multi-client per stessa sessione
+
+**Messaggi:** JSON con struttura `RealtimeStatsResponse`
+
+### 4.3 Shot Events
 
 #### GET /api/workouts/sessions/{sessionId}/shots
 Recupera tutti i tiri di una sessione
@@ -350,6 +489,11 @@ Gestisce la logica di business per le sessioni di workout:
 - **saveCalibration**: Salva dati calibrazione
 - **pauseSession/resumeSession**: Gestisce stati sessione
 - **updateSessionStatistics**: Aggiorna contatori tiri in tempo reale
+- **deleteSession**: Elimina una sessione di workout
+- **saveFrameData**: Salva dati frame video per analisi real-time (tracking palla, canestro, pose)
+- **savePoseAnalysis**: Salva dati di analisi pose del giocatore
+- **getRealtimeStats**: Calcola statistiche in tempo reale (tiri, percentuale, streak, heat zones)
+- **getSessionShots**: Recupera tutti i tiri di una sessione
 
 ### 5.2 ShotAnalyticsService
 
@@ -422,6 +566,7 @@ Query personalizzate per eventi tiro:
 ### 6.3 Altri Repository
 
 - **CourtCalibrationRepository**: Dati calibrazione
+- **WorkoutFrameDataRepository**: Dati frame video per analisi real-time
 - **PlayerRepository**: Profili giocatori (Player entity)
 - **UserRepository**: Utenti sistema
 - **RoleRepository**: Catalogo ruoli RBAC
@@ -1324,6 +1469,7 @@ Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta
 - storage_provider
 - storage_bucket
 - storage_path
+- external_url: URL esterno per video (YouTube, Vimeo, Hudl) - aggiunto con migration CV
 
 ### 20.11 Storage Video
 
