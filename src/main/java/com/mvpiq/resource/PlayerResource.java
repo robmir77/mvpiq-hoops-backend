@@ -15,6 +15,7 @@ import org.jboss.resteasy.annotations.providers.multipart.MultipartForm;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Map;
 import java.util.UUID;
 
 @Path("/api")
@@ -30,12 +31,12 @@ public class PlayerResource {
     // --- Upload profile image ---
     @PUT
     @Path("/players/{playerId}/profile-image")
-    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_JSON})
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
     public Response uploadProfileImage(
             @PathParam("playerId") UUID playerId,
-            @MultipartForm ProfileImageUploadForm form) {
+            Object request) {
 
         Player player = playerRepository.findById(playerId);
         if (player == null) {
@@ -45,38 +46,67 @@ public class PlayerResource {
         }
 
         try {
-            if (form.getFileInputStream() == null) {
+            // Handle JSON request (avatarUrl update)
+            if (request instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> jsonMap = (Map<String, Object>) request;
+                String avatarUrl = (String) jsonMap.get("avatarUrl");
+                if (avatarUrl != null) {
+                    player.setAvatarUrl(avatarUrl);
+                    playerRepository.persist(player);
+                    return Response.ok("{\"avatarUrl\": \"" + avatarUrl + "\"}").build();
+                }
+                // Check if frontend is trying to send file as JSON (which won't work)
+                if (jsonMap.containsKey("file")) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("{\"error\": \"File uploads must use multipart/form-data, not JSON\"}")
+                            .build();
+                }
                 return Response.status(Response.Status.BAD_REQUEST)
-                        .entity("{\"error\": \"No file provided\"}")
+                        .entity("{\"error\": \"avatarUrl is required\"}")
                         .build();
             }
 
-            // Create temporary file
-            String fileName = form.getFileName();
-            java.nio.file.Path tempPath = Files.createTempFile("profile-image-", getFileExtension(fileName));
-            File tempFile = tempPath.toFile();
-            
-            // Copy input stream to temp file
-            Files.copy(form.getFileInputStream(), tempPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            // Handle multipart form data (file upload)
+            if (request instanceof ProfileImageUploadForm) {
+                ProfileImageUploadForm form = (ProfileImageUploadForm) request;
+                if (form.getFileInputStream() == null) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("{\"error\": \"No file provided\"}")
+                            .build();
+                }
 
-            // Determine content type
-            String contentType = getContentType(fileName);
+                // Create temporary file
+                String fileName = form.getFileName();
+                java.nio.file.Path tempPath = Files.createTempFile("profile-image-", getFileExtension(fileName));
+                File tempFile = tempPath.toFile();
 
-            // Create path: {username}/profile-{timestamp}.{ext}
-            String timestamp = String.valueOf(System.currentTimeMillis());
-            String path = player.getUsername() + "/profile-" + timestamp + getFileExtension(fileName);
+                // Copy input stream to temp file
+                Files.copy(form.getFileInputStream(), tempPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
-            // Upload to Supabase
-            String imageUrl = supabaseStorageService.uploadProfileImage(tempFile, path, contentType);
+                // Determine content type
+                String contentType = getContentType(fileName);
 
-            // Update player avatarUrl
-            player.setAvatarUrl(imageUrl);
-            playerRepository.persist(player);
+                // Create path: {username}/profile-{timestamp}.{ext}
+                String timestamp = String.valueOf(System.currentTimeMillis());
+                String path = player.getUsername() + "/profile-" + timestamp + getFileExtension(fileName);
 
-            // Clean up temp file
-            Files.deleteIfExists(tempPath);
+                // Upload to Supabase
+                String imageUrl = supabaseStorageService.uploadProfileImage(tempFile, path, contentType);
 
-            return Response.ok("{\"avatarUrl\": \"" + imageUrl + "\"}").build();
+                // Update player avatarUrl
+                player.setAvatarUrl(imageUrl);
+                playerRepository.persist(player);
+
+                // Clean up temp file
+                Files.deleteIfExists(tempPath);
+
+                return Response.ok("{\"avatarUrl\": \"" + imageUrl + "\"}").build();
+            }
+
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"error\": \"Invalid request format\"}")
+                    .build();
 
         } catch (IOException e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -104,7 +134,6 @@ public class PlayerResource {
     // --- Update player profile ---
     @PUT
     @Path("/players/{playerId}")
-    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
     public Response updatePlayer(@PathParam("playerId") UUID playerId, PlayerDTO dto) {

@@ -64,7 +64,6 @@ public class AtletaResource {
 
     @PUT
     @Path("/athlet/{id}")
-    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
     public Response updateAthleteProfile(@PathParam("id") UUID id,
