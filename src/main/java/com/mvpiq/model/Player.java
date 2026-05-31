@@ -54,12 +54,6 @@ public class Player extends User {
     @JoinColumn(name = "preferred_position_id")
     private PositionMetadata preferredPosition;
 
-    @Column(name = "created_at")
-    private OffsetDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private OffsetDateTime updatedAt;
-
     // RELAZIONE POSITIONS
     @OneToMany(mappedBy = "player", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayerPosition> positions = new ArrayList<>();

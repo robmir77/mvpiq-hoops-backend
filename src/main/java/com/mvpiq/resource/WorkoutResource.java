@@ -150,7 +150,7 @@ public class WorkoutResource {
     }
 
     @GET
-    @Path("/sessions/active")
+    @Path("/sessions/active-session")  // era /sessions/active
     @RolesAllowed({"PLAYER", "TRAINER"})
     public Response getActiveSession(@QueryParam("userId") UUID userId) {
         var session = workoutService.getActiveSession(userId);

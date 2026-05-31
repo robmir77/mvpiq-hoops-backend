@@ -58,6 +58,8 @@ public class AuthService {
             player.setEmail(dto.getEmail());
             player.setDisplayName(dto.getDisplayName());
             player.setPasswordHash(hashedPassword);
+            player.setCreatedAt(java.time.OffsetDateTime.now());
+            player.setUpdatedAt(java.time.OffsetDateTime.now());
 
             playerRepository.persist(player);
             user = player;
@@ -68,6 +70,8 @@ public class AuthService {
             user.setEmail(dto.getEmail());
             user.setDisplayName(dto.getDisplayName());
             user.setPasswordHash(hashedPassword);
+            user.setCreatedAt(java.time.OffsetDateTime.now());
+            user.setUpdatedAt(java.time.OffsetDateTime.now());
 
             userRepository.persist(user);
         }
