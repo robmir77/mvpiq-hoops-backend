@@ -1304,6 +1304,8 @@ Questi trigger aggiornano automaticamente `updated_at` su ogni UPDATE.
 ✅ **Positions**: Gestione posizioni giocatori  
 ✅ **Goals**: Sistema obiettivi atleta  
 ✅ **Database Migration**: Migrazione Maggio 2026 applicata con successo  
+✅ **CV Pubblico Condivisibile**: Sistema sharing CV con token pubblico e pagina HTML  
+✅ **Gestione Errori Centralizzata**: GlobalExceptionHandler con ErrorResponse standardizzato  
 
 ### 19.2 Architettura Stabile
 
@@ -1315,9 +1317,67 @@ Questi trigger aggiornano automaticamente `updated_at` su ogni UPDATE.
 
 ---
 
-## 20. CV Sportivo Pubblico Condivisibile con Highlights
+## 20. Sistema di Gestione Errori Centralizzata
 
-### 20.1 Obiettivo della Funzionalità
+### 20.1 GlobalExceptionHandler
+
+Il sistema implementa un gestore di eccezioni centralizzato per standardizzare le risposte di errore across tutte le API.
+
+#### Componenti
+
+**GlobalExceptionHandler.java**
+- Implementa `ExceptionMapper<Exception>` per catturare tutte le eccezioni
+- Fornisce risposte JSON standardizzate con status code appropriati
+- Logga gli errori con dettagli su path e content-type
+
+**ErrorResponse.java**
+DTO per risposte di errore con struttura:
+```java
+{
+  "status": 404,
+  "error": "Not Found",
+  "message": "Resource not found",
+  "path": "/api/players/123",
+  "timestamp": 1717234567890
+}
+```
+
+**Metodi statici helper:**
+- `badRequest(message, path)` → 400
+- `notFound(message, path)` → 404
+- `unauthorized(message, path)` → 401
+- `forbidden(message, path)` → 403
+- `internalServerError(message, path)` → 500
+
+**ResourceNotFoundException.java**
+Eccezione custom per risorse non trovate, gestita specificamente dal GlobalExceptionHandler.
+
+### 20.2 Tipi di Eccezioni Gestite
+
+| Tipo Eccezione | Status Code | Log Level |
+|----------------|-------------|------------|
+| ResourceNotFoundException | 404 | WARN |
+| IllegalStateException | 400 | WARN |
+| jakarta.ws.rs.NotFoundException | 404 | - |
+| jakarta.ws.rs.BadRequestException | 400 | - |
+| jakarta.ws.rs.ForbiddenException | 403 | - |
+| jakarta.ws.rs.NotAuthorizedException | 401 | - |
+| IllegalArgumentException | 400 | - |
+| RuntimeException | 500 | ERROR |
+| Altre eccezioni | 500 | ERROR |
+
+### 20.3 Vantaggi
+
+- **Consistenza**: Tutte le API restituiscono errori nello stesso formato
+- **Debugging**: Logging dettagliato con path e content-type
+- **Client-friendly**: Messaggi di errore chiari e strutturati
+- **Manutenibilità**: Logica di gestione errori centralizzata
+
+---
+
+## 21. CV Sportivo Pubblico Condivisibile con Highlights
+
+### 21.1 Obiettivo della Funzionalità
 
 Consentire ai giocatori di creare un CV sportivo digitale professionale, condivisibile tramite link pubblico permanente, arricchito con highlights video e informazioni sportive rilevanti.
 
@@ -1330,7 +1390,7 @@ Il CV deve poter essere:
 - professionale nella presentazione
 - facilmente aggiornabile dal giocatore
 
-### 20.2 Obiettivi Business
+### 21.2 Obiettivi Business
 
 - Aumentare retention utenti
 - Incentivare compilazione profilo
@@ -1338,7 +1398,7 @@ Il CV deve poter essere:
 - Creare valore recruiting
 - Migliorare percezione premium della piattaforma
 
-### 20.3 Attori Coinvolti
+### 21.3 Attori Coinvolti
 
 | Attore | Descrizione |
 |--------|-------------|
@@ -1348,7 +1408,7 @@ Il CV deve poter essere:
 | Squadra | Riceve CV condiviso |
 | Sistema | Genera link e serve contenuti pubblici |
 
-### 20.4 Scope MVP
+### 21.4 Scope MVP
 
 **Incluso:**
 - Profilo pubblico (dati anagrafici, fisico, ruolo, carriera squadre, statistiche, highlights video)
@@ -1364,7 +1424,7 @@ Il CV deve poter essere:
 - Commenti recruiter
 - Chat diretta scout/player
 
-### 20.5 User Journey
+### 21.5 User Journey
 
 **5.1 Creazione CV**
 Il giocatore accede alla sezione CV, inserisce informazioni sportive, salva il CV.
@@ -1380,7 +1440,7 @@ Esempio: `https://app.domain.com/public/cv/uuid-token`
 **5.4 Visualizzazione Pubblica**
 Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta statistiche e carriera. Senza login.
 
-### 20.6 Requisiti Funzionali
+### 21.6 Requisiti Funzionali
 
 | ID | Requisito |
 |----|-----------|
@@ -1397,7 +1457,7 @@ Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta
 | RF-11 | Gli highlights possono essere ordinati |
 | RF-12 | Il link pubblico è permanente |
 
-### 20.7 Requisiti Non Funzionali
+### 21.7 Requisiti Non Funzionali
 
 | Categoria | Requisito |
 |-----------|-----------|
@@ -1408,7 +1468,7 @@ Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta
 | UX | Esperienza professionale |
 | Compatibilità | Browser mobile e desktop |
 
-### 20.8 Architettura Generale
+### 21.8 Architettura Generale
 
 **Backend:**
 - Quarkus REST API
@@ -1424,7 +1484,7 @@ Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta
 - Pagina web pubblica
 - Rendering CV condivisibile
 
-### 20.9 Modello Dati
+### 21.9 Modello Dati
 
 #### Tabelle Coinvolte
 
@@ -1437,7 +1497,7 @@ Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta
 | player_cv_highlights | estesa |
 | media_assets | estesa |
 
-### 20.10 Evoluzione Schema Database
+### 21.10 Evoluzione Schema Database
 
 #### player_cv
 
@@ -1471,7 +1531,7 @@ Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta
 - storage_path
 - external_url: URL esterno per video (YouTube, Vimeo, Hudl) - aggiunto con migration CV
 
-### 20.11 Storage Video
+### 21.11 Storage Video
 
 **Strategia scelta:** Supabase Storage
 
@@ -1492,7 +1552,7 @@ Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta
 - UX mobile
 - Storage sostenibile
 
-### 20.12 Gestione Highlights
+### 21.12 Gestione Highlights
 
 #### Upload Video
 
@@ -1509,43 +1569,90 @@ Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta
 - Vimeo
 - Hudl
 
-### 20.13 API Backend
+### 21.13 API Backend Implementate
+
+#### Gestione CV (PlayerCvResource)
+
+**GET /api/players/{playerId}/cv**
+- Ruoli: PLAYER, TRAINER, SCOUT, ADMIN
+- Recupera il CV completo di un giocatore
+
+**PUT /api/players/{playerId}/cv**
+- Ruoli: PLAYER, ADMIN
+- Aggiorna il CV di un giocatore
 
 #### Condivisione CV
 
-**POST /players/{id}/cv/share**
+**POST /api/players/{playerId}/cv/share**
+- Ruoli: PLAYER, ADMIN
+- Abilita la condivisione del CV
+- Genera/ritorna il token pubblico e URL condivisibile
+- Response: `CvSharingDTO` con shareToken, shareEnabled, publicUrl
 
-Genera token pubblico e URL condivisibile.
+**DELETE /api/players/{playerId}/cv/share**
+- Ruoli: PLAYER, ADMIN
+- Disabilita la condivisione del CV
+- Response: `CvSharingDTO` con shareEnabled=false
 
-#### Revoca condivisione
+#### Endpoint Pubblici (PublicCvResource)
 
-**DELETE /players/{id}/cv/share**
+**GET /public/cv/{token}**
+- Permessi: @PermitAll (pubblico, senza autenticazione)
+- Restituisce il CV in formato JSON
+- Usato dall'app mobile o integrazioni
 
-Disabilita accesso pubblico.
+**GET /public/cv/{token}/view**
+- Permessi: @PermitAll (pubblico, senza autenticazione)
+- Restituisce il CV in formato HTML
+- Aperto direttamente nel browser o inviato via mail
+- Include header X-Frame-Options: SAMEORIGIN
+- Cache-Control: public, max-age=300
 
-#### CV pubblico
+#### Gestione Highlights
 
-**GET /public/cv/{shareToken}**
+**GET /api/players/{playerId}/cv/highlights**
+- Ruoli: PLAYER, TRAINER, SCOUT, ADMIN
+- Recupera tutti gli highlights del CV
 
-Pubblico, senza auth. Restituisce dati player, statistiche, carriera, highlights.
+**POST /api/players/{playerId}/cv/highlights**
+- Ruoli: PLAYER, ADMIN
+- Aggiunge un highlight (supporta link esterni o mediaId esistente)
+- Request: `AddHighlightRequest` con title, description, externalUrl o mediaId
+- Response: `PlayerCvHighlightDTO`
 
-#### Upload Highlight
+**DELETE /api/players/{playerId}/cv/highlights/{highlightId}**
+- Ruoli: PLAYER, ADMIN
+- Elimina un highlight specifico
 
-**POST /players/{id}/cv/highlights**
+### 21.14 Dettagli Implementativi PlayerCvService
 
-Upload metadata.
+Il servizio PlayerCvService implementa la logica di business per la gestione del CV pubblico:
 
-#### Highlight esterno
+**Metodi principali:**
+- `getCv(UUID playerId)`: Recupera o crea automaticamente il CV di un giocatore
+- `updateCv(UUID playerId, PlayerCvDTO dto)`: Aggiorna il CV e ricostruisce le squadre
+- `enableSharing(UUID playerId)`: Abilita la condivisione generando/ritornando il token
+- `disableSharing(UUID playerId)`: Disabilita la condivisione
+- `getPublicCv(UUID shareToken)`: Recupera il CV pubblico tramite token (senza auth)
+- `getPublicCvHtml(UUID shareToken)`: Genera HTML pubblico del CV
+- `addHighlight(UUID playerId, AddHighlightRequest req)`: Aggiunge highlight (link esterno o mediaId)
+- `deleteHighlight(UUID playerId, UUID highlightId)`: Elimina un highlight
 
-**POST /players/{id}/cv/highlights/link**
+**Generazione HTML:**
+Il metodo `buildHtml()` genera una pagina HTML responsive con:
+- Header con badge MVPiQ Hoops, headline e summary
+- Sezione Carriera con timeline squadre
+- Sezione Highlights Video con link ai video
+- Footer con data generazione
+- Styling CSS inline per dark theme professionale
+- Cache-Control: public, max-age=300
 
-Aggiunge URL esterno.
+**Validazioni:**
+- `validateTeamYears()`: Verifica validità anni (start ≥ 1900, end ≥ start, non futuri)
+- Verifica ownership CV prima di operazioni
+- Verifica esistenza MediaAsset per mediaId
 
-#### Eliminazione Highlight
-
-**DELETE /players/{id}/cv/highlights/{highlightId}**
-
-### 20.14 Sicurezza
+### 21.15 Sicurezza
 
 **Token pubblico:**
 - Usare UUID v4
@@ -1562,7 +1669,7 @@ Il CV pubblico espone dati personali. Serve:
 - Consenso esplicito
 - Toggle pubblicazione
 
-### 20.15 Frontend Mobile
+### 21.16 Frontend Mobile
 
 #### CvScreen
 
@@ -1588,7 +1695,7 @@ Il CV pubblico espone dati personali. Serve:
 - WhatsApp
 - Share OS native
 
-### 20.16 Pagina Pubblica Web
+### 21.17 Pagina Pubblica Web
 
 **Obiettivo UX:** Esperienza simile a LinkedIn athlete profile, Hudl profile, recruiting card.
 
@@ -1610,7 +1717,7 @@ Il CV pubblico espone dati personali. Serve:
 **Highlights:**
 - Player video embedded
 
-### 20.17 Performance
+### 21.18 Performance
 
 **Ottimizzazioni:**
 
@@ -1624,7 +1731,7 @@ Il CV pubblico espone dati personali. Serve:
 - ETag
 - Query ottimizzate
 
-### 20.18 SEO e Sharing
+### 21.19 SEO e Sharing
 
 Aggiungere:
 - OpenGraph
@@ -1632,7 +1739,7 @@ Aggiungere:
 
 Per preview su WhatsApp, LinkedIn, Telegram.
 
-### 20.19 Architettura Consigliata MVP
+### 21.20 Architettura Consigliata MVP
 
 **Backend:**
 - Quarkus
@@ -1647,7 +1754,7 @@ Per preview su WhatsApp, LinkedIn, Telegram.
 - Upload piccoli
 - Supporto link esterni
 
-### 20.20 Roadmap Implementativa
+### 21.21 Roadmap Implementativa
 
 **FASE 1 — Database:**
 - Migration schema
@@ -1669,7 +1776,7 @@ Per preview su WhatsApp, LinkedIn, Telegram.
 - Player video
 - Responsive UI
 
-### 20.21 Evoluzioni Future
+### 21.22 Evoluzioni Future
 
 **Recruiting:**
 - Contatta atleta
@@ -1687,7 +1794,7 @@ Per preview su WhatsApp, LinkedIn, Telegram.
 - PDF CV
 - QR Code
 
-### 20.22 Conclusione Funzionalità
+### 21.23 Conclusione Funzionalità
 
 La funzionalità introduce un vero profilo atleta pubblico professionale, trasformando il CV da semplice archivio interno a strumento concreto di scouting e recruiting.
 
@@ -1699,7 +1806,7 @@ L'architettura scelta:
 
 ---
 
-## 21. Conclusioni
+## 22. Conclusioni
 
 Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che implementa tutte le funzionalità richieste per il tracking dei tiri di basket, incluse le API del punto 21 della specifica tecnica.
 
@@ -1740,5 +1847,16 @@ Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che
 - ✅ Aggiunta soft delete e audit fields su entità principali
 - ✅ Miglioramento sistema messaging con thread support
 - ✅ Implementazione sistema rarità badge e gamification avanzata
+
+**Implementazioni Recenti (Giugno 2026):**
+- ✅ Sistema di gestione errori centralizzato con GlobalExceptionHandler
+- ✅ ErrorResponse DTO per risposte errore standardizzate
+- ✅ ResourceNotFoundException eccezione custom
+- ✅ CV pubblico condivisibile con token UUID
+- ✅ PublicCvResource per endpoint pubblici senza autenticazione
+- ✅ PlayerCvService con metodi enable/disable sharing
+- ✅ Generazione HTML pubblico del CV con styling responsive
+- ✅ Supporto highlights con link esterni (YouTube, Vimeo, Hudl)
+- ✅ API complete per gestione CV e sharing
 
 Il backend è pronto per l'integrazione con l'app mobile React Native già sviluppata.
