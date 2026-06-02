@@ -176,6 +176,14 @@ public class WorkoutService {
         return WorkoutSessionResponse.from(session);
     }
 
+    public CourtCalibration getCalibration(UUID sessionId, UUID playerId) {
+        WorkoutSession session = workoutSessionRepository.findByIdAndPlayer(sessionId, playerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workout session not found"));
+
+        return courtCalibrationRepository.findLatestByWorkoutSession(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Calibration not found for session: " + sessionId));
+    }
+
     private void updateSessionStatistics(WorkoutSession session) {
         long totalShots = shotEventRepository.countByWorkoutSession(session.getId());
         long madeShots = shotEventRepository.countByWorkoutSessionAndResult(session.getId(), ShotEvent.ShotResult.MADE);

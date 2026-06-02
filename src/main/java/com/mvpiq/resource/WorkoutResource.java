@@ -1,6 +1,7 @@
 package com.mvpiq.resource;
 
 import com.mvpiq.dto.CalibrationRequest;
+import com.mvpiq.dto.CalibrationResponse;
 import com.mvpiq.dto.FrameDataRequest;
 import com.mvpiq.dto.FrameDataResponse;
 import com.mvpiq.dto.PoseAnalysisRequest;
@@ -147,6 +148,16 @@ public class WorkoutResource {
         return Response.status(Response.Status.CREATED)
                 .entity(sessionResponse)
                 .build();
+    }
+
+    @GET
+    @Path("/sessions/{sessionId}/calibration")
+    @RolesAllowed({"PLAYER", "TRAINER"})
+    public Response getCalibration(
+            @PathParam("sessionId") UUID sessionId,
+            @QueryParam("userId") UUID userId) {
+        var calibration = workoutService.getCalibration(sessionId, userId);
+        return Response.ok(CalibrationResponse.from(calibration)).build();
     }
 
     @GET
