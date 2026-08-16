@@ -2,7 +2,7 @@ package com.mvpiq.resource;
 
 import com.mvpiq.dto.*;
 import com.mvpiq.service.PlayerCvService;
-import jakarta.annotation.security.PermitAll;
+import com.mvpiq.service.PdfGenerationService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -20,11 +20,26 @@ public class PlayerCvResource {
     @Inject
     PlayerCvService service;
 
+    @Inject
+    PdfGenerationService pdfService;
+
     // ─── GET CV ───────────────────────────────────────────────
     @GET
     @RolesAllowed({"PLAYER", "TRAINER", "SCOUT", "ADMIN"})
     public PlayerCvDTO get(@PathParam("playerId") UUID playerId) {
         return service.getCv(playerId);
+    }
+
+    // ─── DOWNLOAD PDF CV ───────────────────────────────────────
+    @GET
+    @Path("/pdf")
+    @RolesAllowed({"PLAYER", "TRAINER", "SCOUT", "ADMIN"})
+    @Produces("application/pdf")
+    public Response downloadPdf(@PathParam("playerId") UUID playerId) {
+        byte[] pdfBytes = pdfService.generatePdf(playerId);
+        return Response.ok(pdfBytes)
+                .header("Content-Disposition", "attachment; filename=\"cv-" + playerId + ".pdf\"")
+                .build();
     }
 
     // ─── UPDATE CV ────────────────────────────────────────────
@@ -60,8 +75,6 @@ public class PlayerCvResource {
     }
 
     // ─── ADD HIGHLIGHT ────────────────────────────────────────
-    // Accetta sia { "externalUrl": "https://youtube.com/..." }
-    // che         { "mediaId": "uuid-già-caricato" }
     @POST
     @Path("/highlights")
     @RolesAllowed({"PLAYER", "ADMIN"})

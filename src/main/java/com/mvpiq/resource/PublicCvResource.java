@@ -2,6 +2,7 @@ package com.mvpiq.resource;
 
 import com.mvpiq.dto.PlayerCvDTO;
 import com.mvpiq.service.PlayerCvService;
+import com.mvpiq.service.PdfGenerationService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -13,9 +14,6 @@ import java.util.UUID;
 /**
  * Endpoint pubblici per il CV condiviso.
  * Non richiedono autenticazione — accessibili da chiunque abbia il link.
- *
- * GET /public/cv/{token}       → JSON (usato dall'app)
- * GET /public/cv/{token}/view  → HTML (aperto dal browser / mail)
  */
 @Path("/public/cv")
 @PermitAll
@@ -23,6 +21,9 @@ public class PublicCvResource {
 
     @Inject
     PlayerCvService service;
+
+    @Inject
+    PdfGenerationService pdfService;
 
     // ─── JSON (per uso da app o integrazioni) ─────────────────
     @GET
@@ -41,6 +42,17 @@ public class PublicCvResource {
         return Response.ok(html)
                 .header("X-Frame-Options", "SAMEORIGIN")
                 .header("Cache-Control", "public, max-age=300")
+                .build();
+    }
+
+    // ─── DOWNLOAD PDF CV PUBBLICO ─────────────────────────────
+    @GET
+    @Path("/{token}/pdf")
+    @Produces("application/pdf")
+    public Response downloadPublicPdf(@PathParam("token") UUID token) {
+        byte[] pdfBytes = pdfService.generatePublicPdf(token);
+        return Response.ok(pdfBytes)
+                .header("Content-Disposition", "attachment; filename=\"cv-" + token + ".pdf\"")
                 .build();
     }
 }

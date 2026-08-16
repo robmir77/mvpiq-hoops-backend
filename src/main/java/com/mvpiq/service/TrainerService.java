@@ -1,20 +1,14 @@
 package com.mvpiq.service;
 
-import com.mvpiq.model.TrainerFollows;
-import com.mvpiq.model.User;
-import com.mvpiq.repositories.TrainerFollowRepository;
-import com.mvpiq.repositories.UserRepository;
-import com.mvpiq.repositories.UserRoleRepository;
+import com.mvpiq.model.*;
+import com.mvpiq.repositories.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @ApplicationScoped
@@ -29,6 +23,20 @@ public class TrainerService {
     @Inject
     UserRoleRepository userRoleRepository;
 
+    @Inject
+    TrainerFeedbackRepository trainerFeedbackRepository;
+
+    @Inject
+    PlayerRepository playerRepository;
+
+    @Inject
+    AthleteGoalRepository athleteGoalRepository;
+
+    @Inject
+    WorkoutSessionRepository workoutSessionRepository;
+
+    @Inject
+    ProgressTrackingService progressTrackingService;
 
     @Transactional
     public TrainerFollows followPlayer(UUID trainerId, UUID playerId) {
@@ -107,10 +115,28 @@ public class TrainerService {
         log.info("Getting progress for trainer's players: {}", trainerId);
         
         List<TrainerFollows> follows = trainerFollowRepository.findByTrainerId(trainerId);
+        List<Map<String, Object>> progressList = new ArrayList<>();
         
-        // For each followed player, collect their progress data
-        // This would include training sessions, goals, achievements, etc.
-        return List.of(); // Placeholder - implement actual progress collection
+        for (TrainerFollows f : follows) {
+            User player = f.getPlayer();
+            ProgressTrackingService.ProgressSummary summary = progressTrackingService.getProgressSummary(player.getId());
+            
+            Map<String, Object> playerProgress = new HashMap<>();
+            playerProgress.put("playerId", player.getId());
+            playerProgress.put("displayName", player.getDisplayName());
+            playerProgress.put("avatarUrl", player.getAvatarUrl());
+            playerProgress.put("totalSessions", summary.getTotalSessions());
+            playerProgress.put("completedGoals", summary.getCompletedGoals());
+            playerProgress.put("activeGoals", summary.getActiveGoals());
+            playerProgress.put("totalPoints", summary.getTotalPoints());
+            playerProgress.put("currentStreak", summary.getCurrentStreak());
+            playerProgress.put("weeklySessions", summary.getWeeklySessions());
+            playerProgress.put("weeklyMinutes", summary.getWeeklyMinutes());
+            
+            progressList.add(playerProgress);
+        }
+        
+        return progressList;
     }
 
     /**
@@ -124,8 +150,44 @@ public class TrainerService {
             throw new IllegalArgumentException("Trainer is not following this player");
         }
         
-        // Collect comprehensive player data
-        return Optional.empty(); // Placeholder - implement actual data collection
+        Player player = playerRepository.findById(playerId);
+        if (player == null) {
+            return Optional.empty();
+        }
+        
+        ProgressTrackingService.ProgressSummary summary = progressTrackingService.getProgressSummary(playerId);
+        List<AthleteGoal> activeGoals = athleteGoalRepository.findActiveGoals(playerId);
+        List<TrainerFeedback> feedbackHistory = trainerFeedbackRepository.findByPlayerId(playerId);
+        List<WorkoutSession> recentWorkouts = workoutSessionRepository.findByPlayerAndStatus(playerId, "COMPLETED");
+        if (recentWorkouts.size() > 5) {
+            recentWorkouts = recentWorkouts.subList(0, 5);
+        }
+        
+        Map<String, Object> details = new HashMap<>();
+        details.put("playerId", player.getId());
+        details.put("username", player.getUsername());
+        details.put("displayName", player.getDisplayName());
+        details.put("avatarUrl", player.getAvatarUrl());
+        details.put("birthDate", player.getBirthDate());
+        details.put("heightCm", player.getHeightCm());
+        details.put("weightKg", player.getWeightKg());
+        details.put("wingspanCm", player.getWingspanCm());
+        details.put("verticalJumpCm", player.getVerticalJumpCm());
+        details.put("level", player.getLevel());
+        details.put("dominantHand", player.getDominantHand());
+        details.put("country", player.getCountry());
+        details.put("city", player.getCity());
+        
+        if (player.getPreferredPosition() != null) {
+            details.put("preferredPosition", player.getPreferredPosition().getLabel());
+        }
+        
+        details.put("progress", summary);
+        details.put("activeGoals", activeGoals);
+        details.put("feedbackHistory", feedbackHistory);
+        details.put("recentWorkouts", recentWorkouts);
+        
+        return Optional.of(details);
     }
 
     /**
@@ -140,9 +202,24 @@ public class TrainerService {
             throw new IllegalArgumentException("Trainer is not following this player");
         }
         
-        // Implement feedback storage (would need a new entity for trainer feedback)
-        // For now, log the feedback
-        log.info("Feedback stored: {}", feedback);
+        User trainer = userRepository.findById(trainerId);
+        if (trainer == null) {
+            throw new IllegalArgumentException("Trainer not found");
+        }
+        
+        User player = userRepository.findById(playerId);
+        if (player == null) {
+            throw new IllegalArgumentException("Player not found");
+        }
+        
+        TrainerFeedback tf = new TrainerFeedback();
+        tf.setTrainer(trainer);
+        tf.setPlayer(player);
+        tf.setFeedback(feedback);
+        tf.setCreatedAt(OffsetDateTime.now());
+        
+        trainerFeedbackRepository.persist(tf);
+        log.info("Feedback persisted successfully: {}", feedback);
     }
 
     /**

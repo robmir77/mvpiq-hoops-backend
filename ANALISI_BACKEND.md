@@ -9,1330 +9,94 @@
 - **Linguaggio**: Java 17
 - **Build Tool**: Maven
 - **Database**: PostgreSQL (Neon Cloud)
-- **Porta**: 8082
+- **Porta di Ascolto**: 8082
 - **Versione**: 1.0.0-SNAPSHOT
 
-### 1.2 Architettura
+### 1.2 Architettura Software
 
-Il backend segue un'architettura a strati tipica di applicazioni enterprise Java:
+Il backend segue un'architettura enterprise a strati (layered architecture) per garantire la manutenibilità e la separazione dei compiti:
 
 ```
 ┌─────────────────────────────────────┐
 │         REST API Layer              │
-│  (Resource/Controller)              │
+│  (Resource / Controller / WebSocket)│
 └─────────────────────────────────────┘
-              ↓
+                  ↓
 ┌─────────────────────────────────────┐
 │         Service Layer               │
-│  (Business Logic)                  │
+│  (Business Logic & AI Orchestrator) │
 └─────────────────────────────────────┘
-              ↓
+                  ↓
 ┌─────────────────────────────────────┐
 │      Repository Layer               │
-│  (Data Access - Panache)            │
+│  (Data Access - Panache/Hibernate)  │
 └─────────────────────────────────────┘
-              ↓
+                  ↓
 ┌─────────────────────────────────────┐
 │      Database Layer                 │
-│  (PostgreSQL - Neon)                │
+│  (PostgreSQL - Neon Cloud / JSONB)  │
 └─────────────────────────────────────┘
 ```
+
+1. **REST API Layer**: Riceve le richieste HTTP ed espone gli endpoint e i canali WebSocket per lo scambio dati in tempo reale.
+2. **Service Layer**: Contiene la logica di business dell'applicazione, coordina i servizi di intelligenza artificiale per l'elaborazione dei video e dei dati di posa, e applica le regole di dominio.
+3. **Repository Layer**: Sfrutta lo schema Panache di Hibernate per semplificare l'interrogazione e la persistenza dei dati sul database PostgreSQL.
+4. **Database Layer**: Rappresenta il database PostgreSQL ospitato su Neon Cloud, che gestisce sia dati relazionali strutturati che dati semi-strutturati tramite colonne JSONB.
 
 ---
 
 ## 2. Stack Tecnologico
 
-### 2.1 Core Framework
+### 2.1 Core Framework e Librerie
 
-- **Quarkus 3.8.3**: Framework supersonico per applicazioni Java native
-- **Hibernate ORM with Panache**: Semplificazione dell'accesso ai dati
-- **RESTEasy Classic**: Framework REST JAX-RS
-- **SmallRye OpenAPI**: Documentazione automatica API (Swagger)
-- **SmallRye JWT**: Autenticazione e autorizzazione JWT
+- **Quarkus 3.8.3**: Framework nativo Java per lo sviluppo di microservizi a basso consumo di memoria e avvio rapido.
+- **Hibernate ORM con Panache**: Per la mappatura oggetto-relazionale ed esecuzione di query semplificate tramite repository pattern.
+- **RESTEasy Classic**: Framework REST conforme allo standard JAX-RS per la gestione degli endpoint.
+- **SmallRye OpenAPI**: Generazione automatica della documentazione OpenAPI e dell'interfaccia Swagger.
+- **SmallRye JWT**: Gestione avanzata dei token JSON Web Token (JWT) per autenticazione e autorizzazione.
+- **JBcrypt**: Hashing sicuro delle password degli utenti.
 
-### 2.2 Database
+### 2.2 Intelligenza Artificiale e Tracking (AI / Computer Vision)
 
-- **PostgreSQL**: Database relazionale (hosting su Neon Cloud)
-- **Hibernate ORM**: ORM per mapping oggetto-relazionale
-- **Panache**: Repository pattern semplificato
+- **DJL (Deep Java Library) 0.27.0**: Motore Java per il deep learning.
+- **ONNX Runtime**: Runtime per l'esecuzione di modelli ottimizzati (formato ONNX).
+- **TensorFlow Engine**: Supporto aggiuntivo per modelli TensorFlow.
+- **YOLOv5**: Modello customizzato per la object detection (rilevamento palla, canestro e posa del giocatore).
+- **Kalman Filter**: Algoritmo predittivo per il tracciamento continuo della palla.
+- **MoveNet**: Modello per il pose tracking delle articolazioni del giocatore.
 
-### 2.3 AI/ML
+### 2.3 Elaborazione Video e Manipolazione Immagini
 
-- **DJL (Deep Java Library) 0.27.0**: Framework per deep learning in Java
-- **ONNX Runtime**: Runtime per modelli ONNX
-- **TensorFlow Engine**: Supporto per modelli TensorFlow
-- **YOLOv5**: Modello per object detection (palla, canestro, giocatore)
+- **FFmpeg 6.1.1**: Strumento di sistema invocato per tagliare, convertire ed elaborare i clip video dei tiri.
+- **TwelveMonkeys ImageIO**: Estensione delle API ImageIO di Java per supportare formati grafici avanzati.
+- **Apache Commons Math 3.6.1**: Calcoli matematici per l'analisi geometrica e la stima delle traiettorie paraboliche dei tiri.
+- **Microsoft Playwright**: Generazione automatica in tempo reale di documenti PDF ad alta fedeltà con supporto per QR Code dinamici (ZXing).
 
-### 2.4 Elaborazione Video
+### 2.4 Servizi di Terze Parti e Integrazioni
 
-- **FFmpeg 6.1.1**: Elaborazione video
-- **TwelveMonkeys ImageIO**: Manipolazione immagini
-- **Apache Commons Math 3.6.1**: Calcoli matematici per traiettorie
-
-### 2.5 Servizi Esterni
-
-- **Firebase Admin SDK 9.2.0**: Push notifications (FCM)
-- **Supabase**: Storage per video e frame di analisi
-- **Ollama**: AI locale per generazione contenuti
-
-### 2.6 Sicurezza
-
-- **JBcrypt**: Hashing password
-- **JWT**: Token-based authentication
-- **Quarkus Security JPA**: Autorizzazione basata su ruoli
+- **Firebase Admin SDK 9.2.0**: Gestione delle notifiche push tramite Firebase Cloud Messaging (FCM).
+- **Supabase Client**: Integrazione per lo storage remoto e distribuito (CDN) dei video dei workout e dei frame analizzati.
+- **Ollama**: Client REST per il dialogo con un modello LLM locale per la generazione di contenuti e piani di allenamento.
 
 ---
 
-## 3. Modello Dati
+## 3. Gestione Errori Centralizzata
 
-### 3.1 Entità Principali per Tracking Tiri
+Il backend implementa un sistema di gestione degli errori uniforme tramite un handler globale, garantendo risposte REST standardizzate e leggibili dai client.
 
-#### WorkoutSession
+### 3.1 GlobalExceptionHandler
 
-```java
-@Entity
-@Table(name = "workout_sessions")
-public class WorkoutSession {
-    - id: UUID (PK)
-    - player: Player (FK)
-    - cameraMode: CameraMode (LATERAL, FRONTAL, ANGLE_45)
-    - courtType: CourtType (HALF_COURT, FULL_COURT)
-    - startTime: OffsetDateTime
-    - endTime: OffsetDateTime
-    - totalShots: Integer
-    - madeShots: Integer
-    - sessionStatus: String (ACTIVE, COMPLETED, PAUSED)
-    - calibrationData: String (JSONB)
-    - shots: List<ShotEvent> (One-to-Many)
-    - createdAt: OffsetDateTime
-    - updatedAt: OffsetDateTime
-}
-```
+La classe `GlobalExceptionHandler` implementa `ExceptionMapper<Exception>` e intercetta tutte le eccezioni generate a livello di risorsa o di servizio:
 
-#### ShotEvent
+- Cattura e mappa le eccezioni in base al tipo (es. `ResourceNotFoundException`, `IllegalArgumentException`, `IllegalStateException`).
+- Restituisce risposte standardizzate in formato JSON con lo status code HTTP appropriato.
+- Logga le eccezioni ad alto livello con dettagli sul path e il content-type della richiesta.
 
-```java
-@Entity
-@Table(name = "shot_events")
-public class ShotEvent {
-    - id: UUID (PK)
-    - workoutSession: WorkoutSession (FK)
-    - timestampMs: Long
-    - shotResult: ShotResult (MADE, MISS, BLOCKED, AIRBALL)
-    - courtX: Double
-    - courtY: Double
-    - distanceFromHoop: Double
-    - releaseAngle: Double
-    - releaseVelocity: Double
-    - shotArcHeight: Double
-    - videoTimestampMs: Long
-    - detectionConfidence: Double
-    - trackingData: String (JSONB)
-    - videoClipPath: String
-    - createdAt: OffsetDateTime
-}
-```
+### 3.2 Struttura di ErrorResponse
 
-#### CourtCalibration
+Tutti gli errori vengono restituiti ai client con il seguente schema JSON predefinito:
 
-```java
-@Entity
-@Table(name = "court_calibrations")
-public class CourtCalibration {
-    - id: UUID (PK)
-    - workoutSession: WorkoutSession (FK)
-    - hoopCenterX: Double
-    - hoopCenterY: Double
-    - freeThrowLineX: Double
-    - freeThrowLineY: Double
-    - threePointLineTopX/Y: Double
-    - threePointLineLeftX/Y: Double
-    - threePointLineRightX/Y: Double
-    - baselineX/Y: Double
-    - sidelineLeftX/Y: Double
-    - sidelineRightX/Y: Double
-    - homographyMatrix: String (JSONB)
-    - calibrationConfidence: Double
-    - createdAt: OffsetDateTime
-    - updatedAt: OffsetDateTime
-}
-```
-
-#### WorkoutFrameData
-
-```java
-@Entity
-@Table(name = "workout_frame_data")
-public class WorkoutFrameData {
-    - id: UUID (PK)
-    - session: WorkoutSession (FK)
-    - frameTimestamp: Long
-    - ballX: Double
-    - ballY: Double
-    - ballConfidence: Double
-    - hoopX: Double
-    - hoopY: Double
-    - hoopConfidence: Double
-    - poseData: Map<String, Object> (JSONB)
-    - trajectoryData: Map<String, Object> (JSONB)
-    - ballVelocityX: Double
-    - ballVelocityY: Double
-    - shotDetected: Boolean
-    - createdAt: OffsetDateTime
-}
-```
-
-**Descrizione:** Memorizza dati frame video per analisi in tempo reale durante sessioni workout, inclusi tracking palla, canestro, pose giocatore e traiettorie.
-
-### 3.2 Altre Entità Principali
-
-- **Player**: Profilo giocatore (estende User, contiene attributi fisici e background)
-- **User**: Utente del sistema (classe base per tutti gli utenti)
-- **Role**: Catalogo ruoli applicativi (RBAC)
-- **UserRoleAssignment**: Associazione molti-a-molti utenti-ruoli (RBAC)
-- **JournalEntry**: Diario allenamenti/partite
-- **TrainingSession**: Sessioni di training
-- **Exercise**: Esercizi
-- **Badge**: Badge gamification
-- **AthleteGoal**: Obiettivi atleta
-- **VideoAnalysisSession**: Sessioni analisi video
-- **Conversation**: Conversazioni messaggistica
-- **Notification**: Notifiche push
-
-**Nota sulla Struttura del Database:**
-- La tabella `players` estende `users` tramite table-per-type inheritance
-- Foreign keys puntano a `users` per: athlete_badges, athlete_goals, athlete_points, player_cv, rankings, trainer_follows, training_sessions
-- Foreign key punta a `players` per: workout_sessions
-- L'entità `PlayerProfile` è stata rimossa in favore di `Player`
-- **Sistema RBAC**: Ruoli gestiti tramite tabelle `roles` e `user_roles` (molti-a-molti)
-- **Campi rimossi da `users`**: `role`, `is_creator`, `is_trainer` (gestiti tramite RBAC)
-
----
-
-## 4. API REST - Tracking Tiri (Punto 21)
-
-### 4.1 Workout Sessions
-
-#### POST /api/workouts/sessions
-Crea una nuova sessione di workout
-
-**Request:**
 ```json
-{
-  "cameraMode": "ANGLE_45",
-  "courtType": "HALF_COURT",
-  "calibrationData": "{\"homographyMatrix\": [...], \"hoopCenter\": {\"x\": 320, \"y\": 240}}"
-}
-```
-
-**Response:**
-```json
-{
-  "id": "session-123",
-  "player": {...},
-  "cameraMode": "ANGLE_45",
-  "courtType": "HALF_COURT",
-  "startTime": "2026-05-12T10:00:00Z",
-  "totalShots": 0,
-  "madeShots": 0,
-  "sessionStatus": "ACTIVE"
-}
-```
-
-#### GET /api/workouts/sessions/{sessionId}
-Recupera i dettagli di una sessione
-
-#### GET /api/workouts/sessions
-Recupera tutte le sessioni di un giocatore
-
-#### POST /api/workouts/sessions/{sessionId}/end
-Termina una sessione di workout
-
-#### POST /api/workouts/sessions/{sessionId}/pause
-Mette in pausa una sessione
-
-#### POST /api/workouts/sessions/{sessionId}/resume
-Riprende una sessione in pausa
-
-#### GET /api/workouts/sessions/active
-Recupera la sessione attiva di un giocatore
-
-#### DELETE /api/workouts/sessions/{sessionId}
-Elimina una sessione di workout
-
-**Response:** 204 No Content
-
-#### POST /api/workouts/sessions/{sessionId}/frames
-Salva dati frame video per analisi in tempo reale
-
-**Request:**
-```json
-{
-  "frameTimestamp": 123456,
-  "ballX": 320.5,
-  "ballY": 240.2,
-  "ballConfidence": 0.95,
-  "hoopX": 640.0,
-  "hoopY": 480.0,
-  "hoopConfidence": 0.98,
-  "poseData": {...},
-  "trajectoryData": {...},
-  "ballVelocityX": 5.2,
-  "ballVelocityY": -8.1,
-  "shotDetected": false
-}
-```
-
-**Response:**
-```json
-{
-  "id": "frame-123",
-  "sessionId": "session-123",
-  "frameTimestamp": 123456,
-  "ballX": 320.5,
-  "ballY": 240.2,
-  "ballConfidence": 0.95,
-  "hoopX": 640.0,
-  "hoopY": 480.0,
-  "hoopConfidence": 0.98,
-  "poseData": {...},
-  "trajectoryData": {...},
-  "ballVelocityX": 5.2,
-  "ballVelocityY": -8.1,
-  "shotDetected": false,
-  "createdAt": "2026-05-19T10:00:00Z"
-}
-```
-
-#### POST /api/workouts/sessions/{sessionId}/pose-analysis
-Salva dati di analisi pose del giocatore
-
-**Request:**
-```json
-{
-  "timestampMs": 123456,
-  "poseLandmarks": [...],
-  "poseConfidence": 0.92
-}
-```
-
-**Response:**
-```json
-{
-  "id": "pose-123",
-  "sessionId": "session-123",
-  "timestampMs": 123456,
-  "poseLandmarks": [...],
-  "poseConfidence": 0.92,
-  "createdAt": "2026-05-19T10:00:00Z"
-}
-```
-
-#### GET /api/workouts/sessions/{sessionId}/realtime-stats
-Recupera statistiche in tempo reale della sessione
-
-**Response:**
-```json
-{
-  "sessionId": "session-123",
-  "shotCount": 25,
-  "fieldGoalPercentage": 68.0,
-  "shotStreak": 5,
-  "releaseAngleAvg": 47.5,
-  "releaseVelocityAvg": 12.3,
-  "heatZones": {
-    "PAINT": 8,
-    "MID_RANGE": 10,
-    "THREE_POINT": 7
-  },
-  "recentShots": [
-    {
-      "courtX": 4.2,
-      "courtY": 6.8,
-      "result": "MADE",
-      "timestamp": 123456
-    }
-  ],
-  "sessionDuration": 1800
-}
-```
-
-### 4.2 WebSocket Live Updates
-
-#### WS /api/workouts/live/{sessionId}?userId={userId}
-WebSocket per aggiornamenti in tempo reale delle statistiche
-
-**Funzionalità:**
-- Connessione WebSocket per streaming statistiche live
-- Broadcast automatico ogni secondo delle statistiche
-- Push manuale dopo ogni tiro
-- Supporto multi-client per stessa sessione
-
-**Messaggi:** JSON con struttura `RealtimeStatsResponse`
-
-### 4.3 Shot Events
-
-#### GET /api/workouts/sessions/{sessionId}/shots
-Recupera tutti i tiri di una sessione
-
-**Response:**
-```json
-[
-  {
-    "id": "shot-1",
-    "timestampMs": 123456,
-    "shotResult": "MADE",
-    "courtX": 4.2,
-    "courtY": 6.8,
-    "distanceFromHoop": 7.1,
-    "releaseAngle": 48.2,
-    "releaseVelocity": 12.5,
-    "detectionConfidence": 0.91
-  }
-]
-```
-
-#### POST /api/workouts/sessions/{sessionId}/shots
-Aggiunge un evento tiro a una sessione
-
-**Request:**
-```json
-{
-  "timestampMs": 123456,
-  "shotResult": "MADE",
-  "courtX": 5.2,
-  "courtY": 7.4,
-  "distanceFromHoop": 7.1,
-  "releaseAngle": 48.2,
-  "releaseVelocity": 12.5,
-  "detectionConfidence": 0.91,
-  "trackingData": "{\"ballPosition\": {\"x\": 120, \"y\": 330}}"
-}
-```
-
-### 4.3 Court Calibration
-
-#### POST /api/workouts/sessions/{sessionId}/calibration
-Salva i dati di calibrazione del campo
-
-**Request:**
-```json
-{
-  "hoopCenterX": 320,
-  "hoopCenterY": 240,
-  "homographyMatrix": [...],
-  "calibrationConfidence": 0.95
-}
-```
-
-### 4.4 Analytics & Statistics
-
-#### GET /api/workouts/{sessionId}/analytics/shot-chart
-Recupera lo shot chart di una sessione
-
-**Response:**
-```json
-{
-  "shots": [
-    {
-      "x": 4.3,
-      "y": 5.6,
-      "made": true,
-      "distance": 7.2,
-      "zone": "THREE_POINT"
-    }
-  ],
-  "sessionStats": {
-    "totalShots": 100,
-    "madeShots": 63,
-    "missedShots": 37,
-    "shootingPercentage": 63.0,
-    "averageDistance": 6.8,
-    "bestZone": "PAINT",
-    "worstZone": "THREE_POINT"
-  },
-  "zoneStats": {
-    "paint": {"attempts": 30, "made": 24, "percentage": 80.0},
-    "midRange": {"attempts": 25, "made": 15, "percentage": 60.0},
-    "threePoint": {"attempts": 35, "made": 18, "percentage": 51.4},
-    "corner": {"attempts": 10, "made": 6, "percentage": 60.0}
-  }
-}
-```
-
-#### GET /api/workouts/{sessionId}/analytics/stats
-Recupera le statistiche di una sessione
-
-#### GET /api/workouts/{sessionId}/analytics/zones
-Recupera le statistiche per zona
-
-#### GET /api/workouts/{sessionId}/analytics/hot-zones?limit=10
-Recupera i tiri nelle hot zones
-
-#### GET /api/workouts/{sessionId}/analytics/cold-zones?limit=10
-Recupera i tiri nelle cold zones
-
-#### GET /api/workouts/{sessionId}/analytics/career-stats
-Recupera le statistiche carriera di un giocatore
-
----
-
-## 5. Servizi Business Logic
-
-### 5.1 WorkoutService
-
-Gestisce la logica di business per le sessioni di workout:
-
-- **createWorkoutSession**: Crea nuova sessione, verifica sessione attiva esistente
-- **endWorkoutSession**: Termina sessione, calcola durata
-- **addShotEvent**: Aggiunge tiro, aggiorna statistiche sessione
-- **saveCalibration**: Salva dati calibrazione
-- **pauseSession/resumeSession**: Gestisce stati sessione
-- **updateSessionStatistics**: Aggiorna contatori tiri in tempo reale
-- **deleteSession**: Elimina una sessione di workout
-- **saveFrameData**: Salva dati frame video per analisi real-time (tracking palla, canestro, pose)
-- **savePoseAnalysis**: Salva dati di analisi pose del giocatore
-- **getRealtimeStats**: Calcola statistiche in tempo reale (tiri, percentuale, streak, heat zones)
-- **getSessionShots**: Recupera tutti i tiri di una sessione
-
-### 5.2 ShotAnalyticsService
-
-Gestisce l'analisi dei dati dei tiri:
-
-- **getShotChart**: Genera shot chart completo
-- **calculateSessionStats**: Calcola statistiche sessione
-- **calculateZoneStats**: Calcola statistiche per zona (PAINT, MID_RANGE, THREE_POINT, CORNER)
-- **getHotZones/getColdZones**: Identifica zone performanti/critiche
-- **getPlayerCareerStats**: Calcola statistiche carriera
-
-**Logica Zone:**
-- PAINT: distanza ≤ 4.0m
-- MID_RANGE: 4.0m < distanza ≤ 7.0m
-- CORNER: 7.0m < distanza ≤ 8.0m
-- THREE_POINT: distanza > 8.0m
-
-### 5.3 ShotDetectionService (AI)
-
-Servizio per rilevamento automatico tiri tramite AI:
-
-- **initializeModel**: Inizializza modello YOLOv5 per object detection
-- **detectObjects**: Rileva oggetti (palla, canestro, giocatore) da frame video
-- **analyzeForShotEvent**: Analizza sequenza frame per identificare tiri
-- **createShotEventFromDetection**: Converte rilevamento in evento tiro
-
-**Algoritmo Rilevamento Tiro:**
-1. Tracking palla e giocatore
-2. Rilevamento palla vicino mano giocatore
-3. Calcolo velocità verso l'alto
-4. Rilevamento separazione palla-giocatore
-5. Analisi traiettoria verso canestro
-6. Determinazione MADE/MISS basata su posizione finale
-
-### 5.4 Altri Servizi AI
-
-- **BallTrackingService**: Tracking palla con Kalman filter
-- **HoopDetectionService**: Rilevamento canestro
-- **PoseTrackingService**: Tracking pose giocatore (MoveNet)
-- **TrajectoryService**: Calcolo traiettoria palla
-- **ShotMetricsService**: Calcolo metriche tiro (angolo, velocità, arco)
-- **VideoStabilizationService**: Stabilizzazione video
-- **OverlayDrawerService**: Disegno overlay campo
-
----
-
-## 6. Repository Layer
-
-### 6.1 WorkoutSessionRepository
-
-Query personalizzate per sessioni workout:
-
-- `findByPlayer`: Sessioni giocatore ordinate per data
-- `findByIdAndPlayer`: Sessione specifica con verifica proprietà
-- `findActiveSessionByPlayer`: Sessione attiva corrente
-- `findCompletedSessionsByPlayer`: Sessioni completate
-- `countByPlayer/countCompletedSessionsByPlayer`: Statistiche
-
-### 6.2 ShotEventRepository
-
-Query personalizzate per eventi tiro:
-
-- `findByWorkoutSession`: Tiri di una sessione
-- `findByWorkoutSessionAndResult`: Tiri filtrati per risultato
-- `findByWorkoutSessionWithCoordinates`: Tiri con coordinate valide
-- `findRecentShotsByPlayer`: Tiri recenti per hot/cold zones
-- `calculateAverageDistance`: Media distanza tiri
-- `getShotDistributionByZone`: Distribuzione tiri per zona (SQL CASE)
-
-### 6.3 Altri Repository
-
-- **CourtCalibrationRepository**: Dati calibrazione
-- **WorkoutFrameDataRepository**: Dati frame video per analisi real-time
-- **PlayerRepository**: Profili giocatori (Player entity)
-- **UserRepository**: Utenti sistema
-- **RoleRepository**: Catalogo ruoli RBAC
-- **UserRoleRepository**: Assegnazioni ruoli utenti (RBAC)
-- **JournalEntryRepository**: Diario
-- **VideoAnalysisSessionRepository**: Sessioni analisi video
-- **BadgeRepository**: Gamification
-
----
-
-## 7. Configurazione
-
-### 7.1 Application Properties
-
-```properties
-# Server
-quarkus.http.host=0.0.0.0
-quarkus.http.port=8082
-
-# Database (Neon PostgreSQL)
-quarkus.datasource.db-kind=postgresql
-quarkus.datasource.jdbc.url=jdbc:postgresql://ep-blue-hat-abs1hipi-pooler.eu-west-2.aws.neon.tech/neondb
-quarkus.hibernate-orm.schema-management.strategy=validate
-
-# JWT
-mp.jwt.verify.issuer=mvpiq-hoops
-mp.jwt.verify.publickey.location=publicKey.pem
-smallrye.jwt.sign.key.location=privateKey.pem
-
-# Supabase Storage
-supabase.url=https://gnjwgcronnnzxokmuqlw.supabase.co
-supabase.bucket.videos=videos
-supabase.bucket.frames=analysis-frames
-
-# Video Processing
-mvpiq.video.frame-width=960
-mvpiq.video.frame-height=544
-mvpiq.hoop.fallback-radius=18
-mvpiq.hoop.search-frames=10
-
-# Ollama AI
-quarkus.rest-client.ollama-api.url=http://localhost:11434
-
-# Firebase
-firebase.project.id=mvpiq-hoops
-firebase.database.url=https://mvpiq-hoops-default-rtdb.firebaseio.com
-```
-
-### 7.2 CORS
-
-```properties
-quarkus.http.cors=true
-quarkus.http.cors.origins=*
-quarkus.http.cors.methods=GET,PUT,POST,DELETE
-```
-
----
-
-## 8. Sicurezza
-
-### 8.1 Autenticazione
-
-- **JWT Token-based**: SmallRye JWT
-- **Ruoli**: ADMIN, TRAINER, PLAYER, SCOUT, CREATOR, GUEST
-- **Public/Private Key**: Chiavi RSA per firma/verifica
-
-### 8.2 Sistema RBAC (Role-Based Access Control)
-
-**Architettura RBAC:**
-- **Tabella `roles`**: Catalogo ruoli applicativi (PLAYER, TRAINER, SCOUT, CREATOR, ADMIN, GUEST)
-- **Tabella `user_roles`**: Associazioni molti-a-molti utenti-ruoli
-- **Multi-role support**: Un utente può avere più ruoli contemporaneamente
-- **Fine boolean flags**: Campi `is_creator` e `is_trainer` rimossi, gestiti tramite ruoli
-
-**Entità RBAC:**
-- `Role`: Entità per catalogo ruoli (code, name, description)
-- `UserRoleAssignment`: Entità per assegnazioni utente-ruolo (user_id, role_id, assigned_at)
-
-**Servizi RBAC:**
-- `RoleRepository`: Repository per gestione ruoli
-- `UserRoleRepository`: Repository per gestione assegnazioni ruoli
-- `SecurityIdentityRoleMapper`: Mapper per recuperare ruoli dal database in JWT
-- `RoleBasedSecurityService`: Servizio per verifiche permessi basate su ruoli
-
-### 8.3 Autorizzazione
-
-Le API per workout richiedono ruolo:
-- `@RolesAllowed({"PLAYER", "TRAINER"})`
-
-**Verifiche Ruoli:**
-- `hasRole(UserRole.ROLE)`: Verifica ruolo specifico
-- `hasAnyRole(UserRole...)`: Verifica uno tra più ruoli
-- `canTrain()`: Verifica permessi training (TRAINER o ADMIN)
-- `canScout()`: Verifica permessi scouting (SCOUT, TRAINER o ADMIN)
-- `canCreateContent()`: Verifica permessi creazione contenuti (CREATOR o ADMIN)
-
-### 8.4 Protezione Endpoints
-
-- **@Authenticated**: Richiede autenticazione
-- **Verifica proprietà**: Le query verificano che l'utente abbia accesso alle risorse
-- **RBAC integration**: Ruoli recuperati dal database per ogni richiesta
-
----
-
-## 9. Altre API Implementate
-
-### 9.1 Autenticazione
-- POST /api/auth/register
-- POST /api/auth/login
-- POST /api/auth/logout
-
-### 9.2 Profili Giocatori
-- CRUD Player (entità principale per giocatori)
-- Filtri per paese, livello, posizione, età
-- Statistiche e rankings
-- Gestione posizioni (main position, secondary positions)
-
-### 9.3 Trainer
-
-Il sistema Trainer permette agli allenatori di seguire i giocatori, monitorare i loro progressi e fornire feedback.
-
-#### Entità TrainerFollows
-
-```java
-@Entity
-@Table(name = "trainer_follows")
-public class TrainerFollows {
-    - id: UUID (PK)
-    - trainer: User (FK)
-    - player: User (FK)
-    - createdAt: OffsetDateTime
-}
-```
-
-#### API Trainer
-
-**POST /api/trainer/follow**
-- Segue un giocatore
-- Verifica che l'utente abbia ruolo TRAINER tramite RBAC
-- Previene duplicazioni
-
-**Request:**
-```json
-{
-  "trainerId": "uuid",
-  "playerId": "uuid"
-}
-```
-
-**DELETE /api/trainer/follow?trainerId={uuid}&playerId={uuid}**
-- Smette di seguire un giocatore
-
-**GET /api/trainer/follows/{trainerId}**
-- Recupera tutti i giocatori seguiti da un allenatore
-
-**GET /api/trainer/followers/{playerId}**
-- Recupera tutti gli allenatori che seguono un giocatore
-
-**GET /api/trainer/follow/check?trainerId={uuid}&playerId={uuid}**
-- Verifica se un allenatore segue un giocatore
-
-**Response:**
-```json
-{
-  "isFollowing": true
-}
-```
-
-**GET /api/trainer/stats/{trainerId}**
-- Recupera statistiche allenatore
-
-**Response:**
-```json
-{
-  "followedPlayers": 15,
-  "trainerId": "uuid"
-}
-```
-
-**GET /api/trainer/players/{trainerId}/progress**
-- Recupera il progresso dei giocatori seguiti (placeholder)
-
-**GET /api/trainer/players/{playerId}/details?trainerId={uuid}**
-- Recupera dettagli giocatore per allenatore (verifica follow)
-
-**POST /api/trainer/feedback**
-- Aggiunge feedback per un giocatore
-
-**Request:**
-```json
-{
-  "trainerId": "uuid",
-  "playerId": "uuid",
-  "feedback": "Ottimo progresso nel tiro da 3 punti"
-}
-```
-
-**GET /api/trainer/follow-count/{trainerId}**
-- Conta giocatori seguiti
-
-**GET /api/trainer/follower-count/{playerId}**
-- Conta follower di un giocatore
-
-#### TrainerService
-
-Servizio business logic per gestione trainer:
-
-- **followPlayer**: Segue giocatore con verifica RBAC
-- **unfollowPlayer**: Smette di seguire
-- **getTrainerFollows**: Lista giocatori seguiti
-- **getPlayerFollowers**: Lista allenatori follower
-- **isFollowingPlayer**: Verifica stato follow
-- **getTrainerFollowCount**: Conta follows
-- **getPlayerFollowerCount**: Conta follower
-- **getTrainerStats**: Statistiche allenatore
-- **getTrainerPlayersProgress**: Progresso giocatori (placeholder)
-- **getPlayerDetailsForTrainer**: Dettagli giocatore (placeholder)
-- **addPlayerFeedback**: Aggiunge feedback (placeholder)
-
-#### TrainerFollowRepository
-
-Query personalizzate:
-
-- `findByTrainerId`: Follows di un allenatore
-- `findByPlayerId`: Followers di un giocatore
-- `findByTrainerAndPlayer`: Relazione specifica
-- `existsByTrainerAndPlayer`: Verifica esistenza
-- `countByTrainerId`: Conta follows allenatore
-- `countByPlayerId`: Conta follower giocatore
-
-#### Integrazione RBAC
-
-Il sistema verifica che l'utente abbia ruolo TRAINER prima di permettere operazioni di follow, utilizzando `UserRoleRepository` per controllare le assegnazioni ruoli.
-
-### 9.4 Journal
-- CRUD diario allenamenti/partite
-- Checklist templates
-- Opzioni dinamiche
-
-### 9.5 Training
-- Programmi di allenamento
-- Esercizi
-- Sessioni training
-
-### 9.6 Gamification
-- Badge e achievements
-- Punti e streak
-- Progress obiettivi
-
-### 9.7 Video Analysis
-- Upload video
-- Analisi AI
-- Frame-by-frame analysis
-
-### 9.8 Messaggistica
-- Conversazioni
-- Messaggi
-- Partecipanti
-
-### 9.9 Notifiche
-- Push notifications (Firebase)
-- Device token management
-- Unread count
-
-### 9.10 Scout
-- Ricerca giocatori
-- Filtri salvati
-- Rankings
-
-### 9.11 Abbonamenti
-- Piano utente
-- Feature access
-- Limits
-
----
-
-## 10. Pipeline Computer Vision
-
-### 10.1 Object Detection
-
-**Input:** Frame video (30/60 fps)
-**Modello:** YOLOv5
-**Output:** Bounding boxes per:
-- basketball/ball
-- hoop/basket
-- player/person
-
-### 10.2 Tracking
-
-**Algoritmo:** Kalman Filter per tracking palla
-**Output:** Posizione continua palla nel tempo
-
-### 10.3 Shot Detection
-
-**Regole:**
-1. Palla vicino mano giocatore
-2. Velocità verso l'alto > 2.0 px/s
-3. Separazione palla-giocatore
-4. Traietoria verso canestro
-
-### 10.4 Made/Miss Detection
-
-**Made:**
-- Palla sopra ferro
-- Attraversa area ferro
-- Scende sotto ferro
-
-**Miss:**
-- Traietoria non attraversa ferro
-- Rimbalzo esterno
-
-### 10.5 Coordinate Mapping
-
-**Omografia Prospettica:**
-- Coordinate video → Coordinate campo reali
-- Matrice omografia calcolata da calibrazione
-
----
-
-## 11. Performance e Scalabilità
-
-### 11.1 Requisiti Performance
-
-- **API Response Time**: < 100ms per operazioni CRUD
-- **AI Inference**: < 30ms/frame
-- **Database Queries**: Indici su player_id, session_id
-- **Concurrent Sessions**: Supporto multi-utente
-
-### 11.2 Ottimizzazioni
-
-- **Panache Repository**: Query efficienti con Hibernate
-- **Lazy Loading**: Caricamento differito relazioni
-- **JSONB**: Dati complessi in PostgreSQL
-- **Connection Pooling**: Quarkus datasource pooling
-
----
-
-## 12. Deployment
-
-### 12.1 Build
-
-```bash
-./mvnw clean package
-```
-
-### 12.2 Dev Mode
-
-```bash
-./mvnw compile quarkus:dev
-```
-
-### 12.3 Native Image
-
-```bash
-./mvnw package -Pnative
-```
-
-### 12.4 Docker
-
-```dockerfile
-FROM quay.io/quarkus/quarkus-mandrel:22.3-java17
-COPY target/*-runner /application
-EXPOSE 8082
-CMD ["/application/run-application.sh"]
-```
-
----
-
-## 13. Monitoraggio e Logging
-
-### 13.1 Logging
-
-- **Java Util Logging**: Logger standard
-- **Log Levels**: SEVERE, WARNING, INFO
-- **Structured Logging**: Messaggi informativi operazioni
-
-### 13.2 Health Check
-
-- **Endpoint**: GET /mvpiq
-- **Status**: Basic health check
-
----
-
-## 14. Criticità e Soluzioni
-
-### 14.1 Motion Blur Palla
-
-**Problema:** Palla sfocata in movimento rapido
-**Soluzione:** 
-- FPS alti (60 fps)
-- Tracking predittivo con Kalman filter
-- Interpolazione traiettoria
-
-### 14.2 Luce Palestra
-
-**Problema:** Illuminazione variabile
-**Soluzione:**
-- Augment dataset con diverse condizioni
-- Preprocessing immagine (normalizzazione)
-- Modello robusto a variazioni luce
-
-### 14.3 Occlusioni
-
-**Problema:** Palla/ferro occluso da giocatore
-**Soluzione:**
-- Tracking temporale multi-frame
-- Interpolazione traiettoria
-- Predizione posizione
-
----
-
-## 15. Estensioni Future
-
-### 15.1 Multiplayer
-
-- Tracking multi-giocatori
-- Eventi multipli simultanei
-- Analytics comparativi
-
-### 15.2 Coach Dashboard
-
-- Web app per statistiche squadra
-- Comparazione giocatori
-- Report dettagliati
-
-### 15.3 AI Coaching
-
-- Suggerimenti miglioramento
-- Analisi pattern
-- Allenamenti personalizzati
-
----
-
-## 17. Fix Applicati (Maggio 2026)
-
-### 17.1 Correzioni Database e Entità
-
-**PlayerPosition Entity:**
-- **Problema**: Errore SQL `column p1_0.profile_id does not exist`
-- **Causa**: Mismatch tra nome colonna database (`player_id`) e definizione entità (`profile_id`)
-- **Soluzione**: Aggiornato `@JoinColumn(name = "player_id")` e unique constraint
-
-### 17.2 Correzioni API Endpoints
-
-**Player CV Endpoint:**
-- **Problema**: Errore 404 su `/api/athlet/{playerId}/cv`
-- **Causa**: Path mismatch tra client (`/api/athlet/`) e server (`/api/players/`)
-- **Soluzione**: Allineato client a usare `/api/players/{playerId}/cv`
-
-**Auto-creazione CV:**
-- **Problema**: 404 quando CV non esiste
-- **Soluzione**: Modificato `PlayerCvService.getCv()` per creare CV vuoto automaticamente
-
-### 17.3 Correzioni Query Hibernate
-
-**PlayerCvRepository:**
-- **Problema**: `Could not interpret path expression 'player.id'`
-- **Causa**: Query Panache non funzionava con path expression complessi
-- **Soluzione**: Aggiunto metodo `findByPlayerIdColumn()` con query diretta su colonna
-
-**PlayerCvTeamRepository:**
-- **Problema**: Path expression errata per accedere al player
-- **Causa**: `PlayerCvTeam` → `PlayerCv` → `Player` richiede path `cv.player.id`
-- **Soluzione**: Aggiornato query a `"cv.player.id"` e aggiunto metodo alternativo
-
-### 17.4 Correzioni Navigazione
-
-**Sezioni PLAYER:**
-- **Problema**: Utenti PLAYER vedevano 0 sezioni di navigazione
-- **Causa**: Database non conteneva sezioni configurate per ruolo PLAYER
-- **Soluzione**: Creato migration `V1.7__Add_Player_Navigation_Sections.sql` con sezioni base (Home, Profile, Goals, Training, Journal, Statistics)
-
-### 17.5 Correzioni Enum RBAC
-
-**UserRole Constants:**
-- **Problema**: `No enum constant com.mvpiq.enums.UserRole.GUEST`
-- **Causa**: Enum constants in minuscolo non corrispondevano a valori database
-- **Soluzione**: Convertito tutti i valori enum in maiuscolo (ADMIN, TRAINER, PLAYER, SCOUT, CREATOR, GUEST)
-
-### 17.6 Correzioni DTO
-
-**WorkoutSessionResponse Package:**
-- **Problema**: `Cannot resolve symbol 'WorkoutSessionResponse'` in WorkoutService.java
-- **Causa**: WorkoutSessionResponse.java mancava della dichiarazione del package
-- **Soluzione**: Aggiunto `package com.mvpiq.dto;` all'inizio del file
-
-**PlayerCvHighlightDTO ExternalUrl:**
-- **Problema**: `Cannot resolve method 'getExternalUrl' in 'MediaAsset'` a linea 28
-- **Causa**: Il codice cercava di ottenere `externalUrl` da `MediaAsset`, ma questo campo esiste sull'entità `PlayerCvHighlight`, non su `MediaAsset`
-- **Soluzione**: Spostato `externalUrl = h.getExternalUrl()` fuori dal check null di media, poiché è un campo diretto di PlayerCvHighlight
-
----
-
-## 18. Migrazione Database - Maggio 2026
-
-### 18.1 Panoramica Modifiche
-
-Migration SQL applicata per migliorare lo schema del database con nuove funzionalità, indici, constraint e campi di audit.
-
-**Estensioni PostgreSQL:**
-- `pgcrypto`: Funzioni crittografiche
-- `citext`: Case-insensitive text
-
-### 18.2 Dettaglio Modifiche per Entità
-
-#### User
-**Nuovi campi:**
-- `updated_at`: Timestamp ultimo aggiornamento (con trigger automatico)
-- `deleted_at`: Timestamp soft delete
-- `status`: Stato utente (ACTIVE, SUSPENDED, DELETED) con default ACTIVE
-
-**Constraint aggiunti:**
-- `users_status_ck`: Verifica valori status validi
-
-**Indici aggiunti:**
-- `idx_users_email`, `idx_users_username`, `idx_users_status`, `idx_users_created_at`
-
-#### Player
-**Nuovi campi:**
-- `wingspan_cm`: Apertura alare in cm (Short)
-- `vertical_jump_cm`: Verticale in cm (Short)
-- `preferred_position_id`: FK a player_position_metadata
-
-**Constraint aggiunti:**
-- `players_preferred_position_fk`: Foreign key a position_metadata
-- `players_height_ck`: Verifica altezza tra 50-300cm
-- `players_weight_ck`: Verifica peso tra 20-300kg
-- `players_age_ck`: Verifica età tra 1-100 anni
-
-**Indici aggiunti:**
-- `idx_players_city`, `idx_players_level`, `idx_players_preferred_position`
-
-#### JournalEntry
-**Nuovi campi:**
-- `checklist_completed`: Boolean per completamento checklist (default false)
-- `tags`: JSONB per tagging flessibile
-- `deleted_at`: Timestamp soft delete
-
-**Constraint aggiunti:**
-- `journal_entries_mood_ck`: Verifica mood rating 1-5
-- `journal_entries_performance_ck`: Verifica performance rating 1-5
-- `journal_entries_duration_ck`: Verifica durata >= 0
-
-**Indici aggiunti:**
-- `idx_journal_entries_tags`: GIN index per query JSONB
-
-#### ChecklistTemplateItem
-**Nuovi campi:**
-- `placeholder`: Placeholder per input (varchar 255)
-- `help_text`: Testo di aiuto (TEXT)
-- `validation_rules`: JSONB per regole di validazione dinamiche
-
-**Indici aggiunti:**
-- `idx_checklist_template_items_template`
-
-#### AthleteGoal
-**Nuovi campi:**
-- `priority`: Priorità obiettivo (LOW, MEDIUM, HIGH) con default MEDIUM
-- `progress_percentage`: Progresso percentuale (numeric 5,2) con default 0
-
-**Constraint aggiunti:**
-- `athlete_goals_priority_ck`: Verifica valori priority validi
-- `athlete_goals_progress_ck`: Verifica progresso 0-100
-
-**Indici aggiunti:**
-- `idx_athlete_goals_status`, `idx_athlete_goals_due_date`
-
-#### TrainingProgram
-**Nuovi campi:**
-- `estimated_duration_minutes`: Durata stimata in minuti
-- `difficulty`: Difficoltà (BEGINNER, INTERMEDIATE, ADVANCED)
-- `tags`: JSONB per tagging programmi
-- `published_at`: Timestamp pubblicazione
-
-**Constraint aggiunti:**
-- `training_programs_difficulty_ck`: Verifica valori difficulty validi
-
-**Indici aggiunti:**
-- `idx_training_programs_tags`: GIN index per query JSONB
-
-#### TrainingSession
-**Nuovi campi:**
-- `calories_burned`: Calorie bruciate
-- `average_heart_rate`: Frequenza cardiaca media
-- `perceived_effort': Sforzo percepito 1-10 (Short)
-
-**Constraint aggiunti:**
-- `training_sessions_effort_ck`: Verifica sforzo 1-10
-
-**Indici aggiunti:**
-- `idx_training_sessions_program`, `idx_training_sessions_date`
-
-#### MediaAsset
-**Nuovi campi:**
-- `mime_type`: Tipo MIME (varchar 100)
-- `file_size_bytes`: Dimensione file in bytes
-- `visibility`: Visibilità (PRIVATE, PUBLIC, UNLISTED) con default PRIVATE
-
-**Constraint aggiunti:**
-- `media_assets_visibility_ck`: Verifica valori visibility validi
-
-**Indici aggiunti:**
-- `idx_media_visibility`
-
-#### Exercise
-**Nuovi campi:**
-- `equipment`: JSONB per lista attrezzature
-- `tags`: JSONB per tagging esercizi
-- `calories_estimate`: Stima calorie
-
-**Indici aggiunti:**
-- `idx_exercises_tags`: GIN index per query JSONB
-
-#### Message
-**Nuovi campi:**
-- `edited_at`: Timestamp ultima modifica
-- `deleted_at`: Timestamp soft delete
-- `reply_to_message_id`: FK self-reference per thread messaggi
-
-**Constraint aggiunti:**
-- `messages_reply_fk`: Foreign key self-reference con ON DELETE SET NULL
-
-**Indici aggiunti:**
-- `idx_messages_conversation_created`
-
-#### Notification
-**Modifiche:**
-- `created_at`: Tipo cambiato a timestamptz
-- `is_read`: Boolean per lettura (default false)
-
-**Indici aggiunti:**
-- `idx_notifications_user`, `idx_notifications_read`
-
-#### VideoAnalysisSession
-**Nuovi campi:**
-- `error_message`: Messaggio di errore (TEXT)
-- `retry_count`: Contatore retry (default 0)
-
-**Constraint aggiunti:**
-- `video_analysis_sessions_status_ck`: Verifica status (UPLOADED, PROCESSING, COMPLETED, FAILED)
-
-**Indici aggiunti:**
-- `idx_video_analysis_sessions_status`
-
-#### ShotEvent
-**Nuovi campi:**
-- `shot_zone`: Zona tiro (varchar 50)
-- `release_time_ms`: Tempo rilascio in ms
-
-**Indici aggiunti:**
-- `idx_shot_events_zone`
-
-#### WorkoutSession
-**Nuovi campi:**
-- `notes`: Note sessione (TEXT)
-- `average_shot_distance`: Distanza media tiri
-- `workout_score`: Punteggio sessione (numeric 5,2)
-
-**Indici aggiunti:**
-- `idx_workout_sessions_player_status`
-
-#### Badge
-**Nuovi campi:**
-- `rarity`: Rarità (COMMON, RARE, EPIC, LEGENDARY) con default COMMON
-- `active`: Boolean per attivazione (default true)
-
-**Constraint aggiunti:**
-- `badges_rarity_ck`: Verifica valori rarity validi
-
-**Indici aggiunti:**
-- `idx_badges_category`
-
-### 18.3 Miglioramenti Architetturali
-
-**Uniformazione Audit:**
-- `updated_at` aggiunto dove mancante con trigger automatico
-- `deleted_at` per soft delete su entità principali
-- `status` per gestione stati applicativi
-
-**Performance Query:**
-- Indici su tutte le foreign keys principali
-- Indici su campi di ricerca frequenti
-- GIN indexes su campi JSONB per query efficienti
-
-**Integrità Dati:**
-- CHECK constraints su tutti i campi numerici
-- Foreign key constraints con appropriate cascade rules
-- Default values per campi obbligatori
-
-**Tagging System:**
-- Supporto JSONB + GIN per tagging flessibile
-- Applicato a: JournalEntry, TrainingProgram, Exercise
-
-**Messaging:**
-- Supporto thread con reply_to_message_id
-- Tracking edit/delete con timestamp
-
-**Video Analysis:**
-- Miglioramento tracking errori con error_message e retry_count
-- Status constraint per stati validi
-
-### 18.4 Trigger Automatici
-
-Trigger `update_updated_at_column` applicati a:
-- `users`
-- `training_programs`
-- `training_sessions`
-- `messages`
-
-Questi trigger aggiornano automaticamente `updated_at` su ogni UPDATE.
-
-### 18.5 Note Architetturali
-
-**Scalabilità:**
-- Indici ottimizzati per query dashboard e feed
-- JSONB per dati flessibili senza alterare schema
-- Soft delete per preservare dati storici
-
-**Mantenibilità:**
-- Constraint database per validazione a livello di DB
-- Uniformazione naming e tipi
-- Documentazione inline tramite commenti SQL
-
----
-
-## 19. Stato Attuale Sistema
-
-### 19.1 Funzionalità Verificate
-
-✅ **Autenticazione**: Login con JWT funzionante  
-✅ **RBAC**: Sistema ruoli multipli operativo  
-✅ **Navigazione**: Sezioni correttamente configurate per PLAYER  
-✅ **Player Profile**: Caricamento e aggiornamento profili  
-✅ **Player CV**: Creazione automatica e gestione CV  
-✅ **Positions**: Gestione posizioni giocatori  
-✅ **Goals**: Sistema obiettivi atleta  
-✅ **Database Migration**: Migrazione Maggio 2026 applicata con successo  
-✅ **CV Pubblico Condivisibile**: Sistema sharing CV con token pubblico e pagina HTML  
-✅ **Gestione Errori Centralizzata**: GlobalExceptionHandler con ErrorResponse standardizzato  
-
-### 19.2 Architettura Stabile
-
-- **Backend Quarkus**: Performance ottimali
-- **Database PostgreSQL**: Schema migliorato con indici e constraint
-- **Sicurezza**: JWT + RBAC completo
-- **API REST**: Endpoints allineati e funzionanti
-- **Entità Java**: Tutte aggiornate per riflettere migration database
-
----
-
-## 20. Sistema di Gestione Errori Centralizzata
-
-### 20.1 GlobalExceptionHandler
-
-Il sistema implementa un gestore di eccezioni centralizzato per standardizzare le risposte di errore across tutte le API.
-
-#### Componenti
-
-**GlobalExceptionHandler.java**
-- Implementa `ExceptionMapper<Exception>` per catturare tutte le eccezioni
-- Fornisce risposte JSON standardizzate con status code appropriati
-- Logga gli errori con dettagli su path e content-type
-
-**ErrorResponse.java**
-DTO per risposte di errore con struttura:
-```java
 {
   "status": 404,
   "error": "Not Found",
@@ -1342,521 +106,750 @@ DTO per risposte di errore con struttura:
 }
 ```
 
-**Metodi statici helper:**
-- `badRequest(message, path)` → 400
-- `notFound(message, path)` → 404
-- `unauthorized(message, path)` → 401
-- `forbidden(message, path)` → 403
-- `internalServerError(message, path)` → 500
+### 3.3 Mappatura delle Eccezioni
 
-**ResourceNotFoundException.java**
-Eccezione custom per risorse non trovate, gestita specificamente dal GlobalExceptionHandler.
-
-### 20.2 Tipi di Eccezioni Gestite
-
-| Tipo Eccezione | Status Code | Log Level |
-|----------------|-------------|------------|
-| ResourceNotFoundException | 404 | WARN |
-| IllegalStateException | 400 | WARN |
-| jakarta.ws.rs.NotFoundException | 404 | - |
-| jakarta.ws.rs.BadRequestException | 400 | - |
-| jakarta.ws.rs.ForbiddenException | 403 | - |
-| jakarta.ws.rs.NotAuthorizedException | 401 | - |
-| IllegalArgumentException | 400 | - |
-| RuntimeException | 500 | ERROR |
-| Altre eccezioni | 500 | ERROR |
-
-### 20.3 Vantaggi
-
-- **Consistenza**: Tutte le API restituiscono errori nello stesso formato
-- **Debugging**: Logging dettagliato con path e content-type
-- **Client-friendly**: Messaggi di errore chiari e strutturati
-- **Manutenibilità**: Logica di gestione errori centralizzata
+| Tipo Eccezione | Status Code | Log Level | Descrizione |
+| :--- | :--- | :--- | :--- |
+| `ResourceNotFoundException` | 404 Not Found | WARN | Risorsa non trovata nel DB |
+| `jakarta.ws.rs.NotFoundException` | 404 Not Found | - | Endpoint non esistente |
+| `IllegalStateException` | 400 Bad Request | WARN | Stato applicativo non valido per l'operazione |
+| `IllegalArgumentException` | 400 Bad Request | - | Argomenti del metodo non validi |
+| `jakarta.ws.rs.BadRequestException` | 400 Bad Request | - | Richiesta HTTP malformata |
+| `jakarta.ws.rs.NotAuthorizedException`| 401 Unauthorized| - | Mancanza di autenticazione o token JWT scaduto |
+| `jakarta.ws.rs.ForbiddenException` | 403 Forbidden | - | Ruolo dell'utente insufficiente |
+| `RuntimeException` / Altre eccezioni | 500 Internal Error | ERROR | Errore imprevisto del server |
 
 ---
 
-## 21. CV Sportivo Pubblico Condivisibile con Highlights
-
-### 21.1 Obiettivo della Funzionalità
-
-Consentire ai giocatori di creare un CV sportivo digitale professionale, condivisibile tramite link pubblico permanente, arricchito con highlights video e informazioni sportive rilevanti.
-
-La funzionalità trasforma il profilo atleta da semplice area personale interna ad uno strumento reale di recruiting sportivo.
-
-Il CV deve poter essere:
-- visualizzato senza autenticazione
-- condiviso via link
-- consultabile da mobile e desktop
-- professionale nella presentazione
-- facilmente aggiornabile dal giocatore
-
-### 21.2 Obiettivi Business
-
-- Aumentare retention utenti
-- Incentivare compilazione profilo
-- Favorire condivisione organica
-- Creare valore recruiting
-- Migliorare percezione premium della piattaforma
-
-### 21.3 Attori Coinvolti
-
-| Attore | Descrizione |
-|--------|-------------|
-| Giocatore | Gestisce il proprio CV |
-| Scout | Consulta il CV pubblico |
-| Coach | Analizza atleta e highlights |
-| Squadra | Riceve CV condiviso |
-| Sistema | Genera link e serve contenuti pubblici |
-
-### 21.4 Scope MVP
-
-**Incluso:**
-- Profilo pubblico (dati anagrafici, fisico, ruolo, carriera squadre, statistiche, highlights video)
-- Condivisione (generazione link pubblico, copia link, condivisione mail/social)
-- Highlights (upload video piccoli, supporto link YouTube/Vimeo, gestione multipla clip)
-- Pagina pubblica (responsive, mobile first, accessibile senza login)
-
-**Escluso MVP:**
-- Analytics recruiter
-- Tracking visualizzazioni
-- PDF export
-- AI tagging highlights
-- Commenti recruiter
-- Chat diretta scout/player
-
-### 21.5 User Journey
-
-**5.1 Creazione CV**
-Il giocatore accede alla sezione CV, inserisce informazioni sportive, salva il CV.
-
-**5.2 Gestione Highlights**
-Il giocatore può caricare video MP4, aggiungere link YouTube/Vimeo, eliminare highlights, riordinare highlights.
-
-**5.3 Condivisione**
-Il giocatore preme "Condividi CV", il sistema genera token pubblico, viene mostrato link condivisibile.
-
-Esempio: `https://app.domain.com/public/cv/uuid-token`
-
-**5.4 Visualizzazione Pubblica**
-Lo scout apre il link, visualizza il profilo atleta, guarda highlights, consulta statistiche e carriera. Senza login.
-
-### 21.6 Requisiti Funzionali
-
-| ID | Requisito |
-|----|-----------|
-| RF-01 | Il giocatore può creare/modificare il CV |
-| RF-02 | Il giocatore può condividere il CV |
-| RF-03 | Il sistema genera un token pubblico univoco |
-| RF-04 | Il link pubblico è accessibile senza autenticazione |
-| RF-05 | Il giocatore può revocare la condivisione |
-| RF-06 | Il giocatore può caricare highlights |
-| RF-07 | Il giocatore può usare link esterni |
-| RF-08 | Il CV pubblico mostra highlights |
-| RF-09 | Il sistema supporta più highlights |
-| RF-10 | La pagina pubblica è responsive |
-| RF-11 | Gli highlights possono essere ordinati |
-| RF-12 | Il link pubblico è permanente |
-
-### 21.7 Requisiti Non Funzionali
-
-| Categoria | Requisito |
-|-----------|-----------|
-| Performance | Pagina caricata < 2 sec |
-| Sicurezza | Token UUID non predicibili |
-| Mobile | UI ottimizzata smartphone |
-| Scalabilità | Supporto storage CDN |
-| UX | Esperienza professionale |
-| Compatibilità | Browser mobile e desktop |
-
-### 21.8 Architettura Generale
-
-**Backend:**
-- Quarkus REST API
-- PostgreSQL (Supabase)
-- Supabase Storage
-
-**Frontend App:**
-- Gestione CV
-- Upload highlights
-- Condivisione link
-
-**Frontend Pubblico:**
-- Pagina web pubblica
-- Rendering CV condivisibile
-
-### 21.9 Modello Dati
-
-#### Tabelle Coinvolte
-
-| Tabella | Stato |
-|---------|-------|
-| users | esistente |
-| players | esistente |
-| player_cv | estesa |
-| player_cv_teams | esistente |
-| player_cv_highlights | estesa |
-| media_assets | estesa |
-
-### 21.10 Evoluzione Schema Database
-
-#### player_cv
-
-**Nuovi campi:**
-- `share_token` (uuid)
-- `share_enabled` (boolean)
-- `public_updated_at` (timestamptz)
-- `public_slug` (varchar 100)
-
-**Responsabilità:**
-- Gestione pubblicazione CV
-- Accesso pubblico
-- Invalidazione link
-
-#### player_cv_highlights
-
-**Nuovi campi:**
-- `external_url` (text)
-- `sort_order` (int)
-- `thumbnail_url` (text)
-
-**Modello Supportato:**
-- Upload interno: media_id != null, external_url = null
-- Video esterno: media_id = null, external_url != null
-
-#### media_assets
-
-**Nuovi metadata storage:**
-- storage_provider
-- storage_bucket
-- storage_path
-- external_url: URL esterno per video (YouTube, Vimeo, Hudl) - aggiunto con migration CV
-
-### 21.11 Storage Video
-
-**Strategia scelta:** Supabase Storage
-
-**Bucket:** cv-highlights
-
-**Limiti upload:**
-| Parametro | Valore |
-|-----------|--------|
-| Max size | 20 MB |
-| Max durata | 90 sec |
-| Formato | MP4 |
-| Codec | H264 |
-| Max highlights | 5 |
-
-**Motivazioni:**
-- Controllo costi
-- Upload rapidi
-- UX mobile
-- Storage sostenibile
-
-### 21.12 Gestione Highlights
-
-#### Upload Video
-
-**Flow:**
-1. Frontend richiede upload
-2. Backend genera metadata
-3. Frontend upload diretto Supabase
-4. Backend salva media asset
-
-#### Link Esterni
-
-**Supportati:**
-- YouTube
-- Vimeo
-- Hudl
-
-### 21.13 API Backend Implementate
-
-#### Gestione CV (PlayerCvResource)
-
-**GET /api/players/{playerId}/cv**
-- Ruoli: PLAYER, TRAINER, SCOUT, ADMIN
-- Recupera il CV completo di un giocatore
-
-**PUT /api/players/{playerId}/cv**
-- Ruoli: PLAYER, ADMIN
-- Aggiorna il CV di un giocatore
-
-#### Condivisione CV
-
-**POST /api/players/{playerId}/cv/share**
-- Ruoli: PLAYER, ADMIN
-- Abilita la condivisione del CV
-- Genera/ritorna il token pubblico e URL condivisibile
-- Response: `CvSharingDTO` con shareToken, shareEnabled, publicUrl
-
-**DELETE /api/players/{playerId}/cv/share**
-- Ruoli: PLAYER, ADMIN
-- Disabilita la condivisione del CV
-- Response: `CvSharingDTO` con shareEnabled=false
-
-#### Endpoint Pubblici (PublicCvResource)
-
-**GET /public/cv/{token}**
-- Permessi: @PermitAll (pubblico, senza autenticazione)
-- Restituisce il CV in formato JSON
-- Usato dall'app mobile o integrazioni
-
-**GET /public/cv/{token}/view**
-- Permessi: @PermitAll (pubblico, senza autenticazione)
-- Restituisce il CV in formato HTML
-- Aperto direttamente nel browser o inviato via mail
-- Include header X-Frame-Options: SAMEORIGIN
-- Cache-Control: public, max-age=300
-
-#### Gestione Highlights
-
-**GET /api/players/{playerId}/cv/highlights**
-- Ruoli: PLAYER, TRAINER, SCOUT, ADMIN
-- Recupera tutti gli highlights del CV
-
-**POST /api/players/{playerId}/cv/highlights**
-- Ruoli: PLAYER, ADMIN
-- Aggiunge un highlight (supporta link esterni o mediaId esistente)
-- Request: `AddHighlightRequest` con title, description, externalUrl o mediaId
-- Response: `PlayerCvHighlightDTO`
-
-**DELETE /api/players/{playerId}/cv/highlights/{highlightId}**
-- Ruoli: PLAYER, ADMIN
-- Elimina un highlight specifico
-
-### 21.14 Dettagli Implementativi PlayerCvService
-
-Il servizio PlayerCvService implementa la logica di business per la gestione del CV pubblico:
-
-**Metodi principali:**
-- `getCv(UUID playerId)`: Recupera o crea automaticamente il CV di un giocatore
-- `updateCv(UUID playerId, PlayerCvDTO dto)`: Aggiorna il CV e ricostruisce le squadre
-- `enableSharing(UUID playerId)`: Abilita la condivisione generando/ritornando il token
-- `disableSharing(UUID playerId)`: Disabilita la condivisione
-- `getPublicCv(UUID shareToken)`: Recupera il CV pubblico tramite token (senza auth)
-- `getPublicCvHtml(UUID shareToken)`: Genera HTML pubblico del CV
-- `addHighlight(UUID playerId, AddHighlightRequest req)`: Aggiunge highlight (link esterno o mediaId)
-- `deleteHighlight(UUID playerId, UUID highlightId)`: Elimina un highlight
-
-**Generazione HTML:**
-Il metodo `buildHtml()` genera una pagina HTML responsive con:
-- Header con badge MVPiQ Hoops, headline e summary
-- Sezione Carriera con timeline squadre
-- Sezione Highlights Video con link ai video
-- Footer con data generazione
-- Styling CSS inline per dark theme professionale
-- Cache-Control: public, max-age=300
-
-**Validazioni:**
-- `validateTeamYears()`: Verifica validità anni (start ≥ 1900, end ≥ start, non futuri)
-- Verifica ownership CV prima di operazioni
-- Verifica esistenza MediaAsset per mediaId
-
-### 21.15 Sicurezza
-
-**Token pubblico:**
-- Usare UUID v4
-- Mai ID incrementali
-
-**Validazioni:**
-- Verificare ownership CV
-- Verificare mime type
-- Verificare file size
-- Verificare max numero highlights
-
-**Privacy:**
-Il CV pubblico espone dati personali. Serve:
-- Consenso esplicito
-- Toggle pubblicazione
-
-### 21.16 Frontend Mobile
-
-#### CvScreen
-
-**Nuove sezioni:**
-- Preview CV
-- Highlights
-- Stato condivisione
-- Share button
-
-#### EditCvScreen
-
-**Supporta:**
-- Upload
-- Link esterni
-- Reorder
-- Delete
-
-#### Share Sheet
-
-**Azioni:**
-- Copia link
-- Mail
-- WhatsApp
-- Share OS native
-
-### 21.17 Pagina Pubblica Web
-
-**Obiettivo UX:** Esperienza simile a LinkedIn athlete profile, Hudl profile, recruiting card.
-
-**Contenuti:**
-
-**Header:**
-- Foto
-- Nome
-- Età
-- Ruolo
-- Fisico
-
-**Carriera:**
-- Timeline squadre
-
-**Statistiche:**
-- Card responsive
-
-**Highlights:**
-- Player video embedded
-
-### 21.18 Performance
-
-**Ottimizzazioni:**
-
-**Video:**
-- Thumbnail preview
-- Preload metadata
-- Lazy loading
-
-**API:**
-- Cache-control
-- ETag
-- Query ottimizzate
-
-### 21.19 SEO e Sharing
-
-Aggiungere:
-- OpenGraph
-- Twitter cards
-
-Per preview su WhatsApp, LinkedIn, Telegram.
-
-### 21.20 Architettura Consigliata MVP
-
-**Backend:**
-- Quarkus
-- PostgreSQL Supabase
-- Supabase Storage
-
-**Frontend:**
-- App mobile esistente
-- Pagina pubblica React/web
-
-**Video:**
-- Upload piccoli
-- Supporto link esterni
-
-### 21.21 Roadmap Implementativa
-
-**FASE 1 — Database:**
-- Migration schema
-- Indici
-- Constraint
-
-**FASE 2 — Backend:**
-- Endpoint sharing
-- Endpoint pubblico
-- Gestione highlights
-
-**FASE 3 — Frontend App:**
-- UI CV
-- Upload highlights
-- Sharing
-
-**FASE 4 — Pagina Pubblica:**
-- Rendering CV
-- Player video
-- Responsive UI
-
-### 21.22 Evoluzioni Future
-
-**Recruiting:**
-- Contatta atleta
-- Invito tryout
-
-**Analytics:**
-- Visualizzazioni CV
-- Click highlights
-
-**Media:**
-- Thumbnail automatica
-- Compressione server-side
-
-**Export:**
-- PDF CV
-- QR Code
-
-### 21.23 Conclusione Funzionalità
-
-La funzionalità introduce un vero profilo atleta pubblico professionale, trasformando il CV da semplice archivio interno a strumento concreto di scouting e recruiting.
-
-L'architettura scelta:
-- Riutilizza il dominio esistente
-- Minimizza complessità
-- Sfrutta Supabase Storage
-- Consente evoluzioni future senza refactor strutturali
+## 4. Modello Dati e Persistenza
+
+Le entità Java mappano direttamente lo schema relazionale PostgreSQL. Per dati flessibili ed estensibili (es. coordinate, configurazioni e tag) viene utilizzato il tipo `jsonb` nativo di PostgreSQL, indicizzato tramite indici GIN.
+
+### 4.1 Entità Principali
+
+```mermaid
+classDiagram
+    direction BT
+    class User {
+        +UUID id
+        +String username
+        +String email
+        +String passwordHash
+        +String displayName
+        +String avatarUrl
+        +Boolean verified
+        +String status
+        +OffsetDateTime createdAt
+        +OffsetDateTime updatedAt
+        +OffsetDateTime deletedAt
+    }
+    class Player {
+        +LocalDate birthDate
+        +Short heightCm
+        +Short weightKg
+        +String level
+        +String dominantHand
+        +String country
+        +String city
+        +Short wingspanCm
+        +Short verticalJumpCm
+        +PositionMetadata preferredPosition
+    }
+    class Role {
+        +UUID id
+        +String code
+        +String name
+        +String description
+    }
+    class UserRoleAssignment {
+        +UUID id
+        +User user
+        +Role role
+        +OffsetDateTime assignedAt
+    }
+    class WorkoutSession {
+        +UUID id
+        +Player player
+        +CameraMode cameraMode
+        +CourtType courtType
+        +OffsetDateTime startTime
+        +OffsetDateTime endTime
+        +Integer totalShots
+        +Integer madeShots
+        +String sessionStatus
+        +String calibrationData
+        +String notes
+        +Double averageShotDistance
+        +BigDecimal workoutScore
+    }
+    class ShotEvent {
+        +UUID id
+        +WorkoutSession workoutSession
+        +Long timestampMs
+        +ShotResult shotResult
+        +Double courtX
+        +Double courtY
+        +Double distanceFromHoop
+        +Double releaseAngle
+        +Double releaseVelocity
+        +Double shotArcHeight
+        +String trackingData
+        +String videoClipPath
+        +String shotZone
+        +Integer releaseTimeMs
+    }
+    class PlayerCv {
+        +UUID id
+        +User player
+        +String headline
+        +String summary
+        +Map stats
+        +UUID shareToken
+        +Boolean shareEnabled
+        +OffsetDateTime publicUpdatedAt
+        +String publicSlug
+    }
+    class PlayerCvHighlight {
+        +UUID id
+        +PlayerCv cv
+        +MediaAsset media
+        +String title
+        +String description
+        +String externalUrl
+        +Integer sortOrder
+        +String thumbnailUrl
+    }
+    class PlayerCvTeam {
+        +UUID id
+        +PlayerCv cv
+        +String teamName
+        +Integer categoryId
+        +PositionMetadata position
+        +Integer startYear
+        +Integer endYear
+        +String notes
+    }
+    class TrainerFollows {
+        +UUID id
+        +User trainer
+        +User player
+        +OffsetDateTime createdAt
+    }
+    class TrainerFeedback {
+        +UUID id
+        +User trainer
+        +User player
+        +String feedback
+        +OffsetDateTime createdAt
+    }
+    Player --|> User
+    UserRoleAssignment --> User : user_id
+    UserRoleAssignment --> Role : role_id
+    WorkoutSession --> Player : player_id
+    ShotEvent --> WorkoutSession : workout_session_id
+    PlayerCv --> User : player_id
+    PlayerCvHighlight --> PlayerCv : cv_id
+    PlayerCvHighlight --> MediaAsset : media_id
+    PlayerCvTeam --> PlayerCv : cv_id
+    TrainerFollows --> User : trainer_id
+    TrainerFollows --> User : player_id
+    TrainerFeedback --> User : trainer_id
+    TrainerFeedback --> User : player_id
+```
+
+#### User
+Rappresenta la tabella `users` e gestisce le informazioni base degli account utente. Supporta il soft-delete ed è la classe base per l'ereditarietà `@Inheritance(strategy = InheritanceType.JOINED)`.
+- `id`: `UUID` (Primary Key)
+- `username`: `String` (Unique, max 50)
+- `email`: `String` (Unique, max 100)
+- `passwordHash`: `String` (max 255)
+- `displayName`: `String` (max 100)
+- `avatarUrl`: `String` (TEXT)
+- `verified`: `Boolean` (default false)
+- `verifiedBy`: `UUID` (FK a users)
+- `verifiedAt`: `OffsetDateTime`
+- `publicProfile`: `Boolean` (default true)
+- `bio`: `String` (TEXT)
+- `status`: `String` (Valori: `ACTIVE`, `SUSPENDED`, `DELETED`; default `ACTIVE`)
+- `createdAt`: `OffsetDateTime`
+- `updatedAt`: `OffsetDateTime` (aggiornato tramite trigger DB su UPDATE)
+- `deletedAt`: `OffsetDateTime` (utilizzato per soft delete)
+- `userRoles`: `Set<UserRoleAssignment>` (Relazione One-to-Many)
+
+#### Player
+Estende l'entità `User` (tabella `players`, legata tramite `@PrimaryKeyJoinColumn(name = "id")`). Rappresenta il profilo atletico e fisico del giocatore.
+- `birthDate`: `LocalDate`
+- `heightCm`: `Short` (Validato 50-300 cm)
+- `weightKg`: `Short` (Validato 20-300 kg)
+- `level`: `String` (max 50)
+- `dominantHand`: `String` (max 10)
+- `country`: `String` (max 50)
+- `city`: `String` (max 50)
+- `approximateAge`: `Integer` (Validato 1-100 anni)
+- `gender`: `String` (max 10)
+- `wingspanCm`: `Short`
+- `verticalJumpCm`: `Short`
+- `preferredPosition`: `PositionMetadata` (Many-to-One, preferred_position_id)
+- `positions`: `List<PlayerPosition>` (Relazione One-to-Many)
+
+#### PlayerPosition
+Mappa la tabella `player_positions`, associando i ruoli secondari o principali che un giocatore può ricoprire in campo.
+- `id`: `UUID` (PK)
+- `player`: `Player` (Many-to-One, player_id)
+- `position`: `PositionMetadata` (Many-to-One, position_id)
+- `isPrimary`: `Boolean`
+
+#### PositionMetadata
+Tabella `position_metadata`. Contiene le informazioni di catalogo sui ruoli di pallacanestro (Playmaker, Guardia, Ala Piccola, Ala Grande, Centro).
+- `id`: `UUID` (PK)
+- `code`: `String` (Unique, max 10)
+- `name`: `String` (max 50)
+- `description`: `String` (TEXT)
+
+#### WorkoutSession
+Tabella `workout_sessions`. Sessione di allenamento/rilevamento tiri avviata da un giocatore tramite dispositivo mobile.
+- `id`: `UUID` (PK)
+- `player`: `Player` (Many-to-One, player_id)
+- `cameraMode`: `CameraMode` (Enum: `LATERAL`, `FRONTAL`, `ANGLE_45`)
+- `courtType`: `CourtType` (Enum: `HALF_COURT`, `FULL_COURT`)
+- `startTime`: `OffsetDateTime`
+- `endTime`: `OffsetDateTime`
+- `totalShots`: `Integer` (default 0)
+- `madeShots`: `Integer` (default 0)
+- `sessionStatus`: `String` (Valori: `ACTIVE`, `COMPLETED`, `PAUSED`)
+- `calibrationData`: `String` (JSON contenente i parametri di calibrazione e matrice di omografia)
+- `notes`: `String` (TEXT, note riassuntive dell'allenamento)
+- `averageShotDistance`: `Double` (distanza media espressa in metri)
+- `workoutScore`: `BigDecimal` (valutazione complessiva del workout)
+- `createdAt`: `OffsetDateTime`
+- `updatedAt`: `OffsetDateTime`
+
+#### ShotEvent
+Tabella `shot_events`. Ogni singolo tiro registrato all'interno di una sessione di workout.
+- `id`: `UUID` (PK)
+- `workoutSession`: `WorkoutSession` (Many-to-One, workout_session_id)
+- `timestampMs`: `Long` (timestamp del tiro all'interno del flusso)
+- `shotResult`: `ShotResult` (Enum: `MADE`, `MISS`, `BLOCKED`, `AIRBALL`)
+- `courtX`: `Double` (coordinata X reale sul campo)
+- `courtY`: `Double` (coordinata Y reale sul campo)
+- `distanceFromHoop`: `Double` (distanza dal ferro in metri)
+- `releaseAngle`: `Double` (angolo di rilascio in gradi)
+- `releaseVelocity`: `Double` (velocità di rilascio in m/s)
+- `shotArcHeight`: `Double` (altezza massima dell'arco in metri)
+- `videoTimestampMs`: `Long` (tempo corrispondente all'interno del file video)
+- `detectionConfidence`: `Double` (affidabilità del tracciamento AI)
+- `trackingData`: `String` (JSONB, serie di coordinate X/Y del volo della palla per ricostruzione traiettoria)
+- `videoClipPath`: `String` (percorso dello storage cloud del clip video del tiro)
+- `shotZone`: `String` (Zona di tiro calcolata: `PAINT`, `MID_RANGE`, `THREE_POINT`, `CORNER`)
+- `releaseTimeMs`: `Integer` (tempo complessivo impiegato per il rilascio della palla)
+- `createdAt`: `OffsetDateTime`
+
+#### CourtCalibration
+Tabella `court_calibrations`. Dati geometrici di mappatura del campo di gioco per le sessioni di workout.
+- `id`: `UUID` (PK)
+- `workoutSession`: `WorkoutSession` (Many-to-One, workout_session_id)
+- `hoopCenterX`/`Y`: `Double` (centro del canestro in pixel)
+- `freeThrowLineX`/`Y`: `Double` (linea tiro libero)
+- `threePointLineTopX`/`Y`: `Double` (arco da 3 punti centrale)
+- `threePointLineLeftX`/`Y`: `Double`
+- `threePointLineRightX`/`Y`: `Double`
+- `baselineX`/`Y`: `Double`
+- `sidelineLeftX`/`Y`: `Double`
+- `sidelineRightX`/`Y`: `Double`
+- `homographyMatrix`: `String` (JSONB della matrice 3x3 usata per la proiezione prospettica)
+- `calibrationConfidence`: `Double`
+- `createdAt`: `OffsetDateTime`
+- `updatedAt`: `OffsetDateTime`
+
+#### WorkoutFrameData
+Tabella `workout_frame_data`. Dati grezzi estratti frame-by-frame durante la sessione video per l'elaborazione dell'algoritmo AI.
+- `id`: `UUID` (PK)
+- `session`: `WorkoutSession` (Many-to-One, session_id)
+- `frameTimestamp`: `Long` (ms relativi)
+- `ballX`/`Y`: `Double` (coordinate palla in pixel)
+- `ballConfidence`: `Double`
+- `hoopX`/`Y`: `Double` (coordinate canestro in pixel)
+- `hoopConfidence`: `Double`
+- `poseData`: `Map<String, Object>` (JSONB, coordinate delle articolazioni rilevate tramite MoveNet)
+- `trajectoryData`: `Map<String, Object>` (JSONB, storico vettoriale traiettoria)
+- `ballVelocityX`/`Y`: `Double` (velocità istantanea palla in px/frame)
+- `shotDetected`: `Boolean`
+- `createdAt`: `OffsetDateTime`
+
+#### JournalEntry
+Tabella `journal_entries`. Diario sportivo compilato dal giocatore per monitorare performance e benessere fisico.
+- `id`: `UUID` (PK)
+- `player`: `Player` (Many-to-One, player_id)
+- `entryType`: `String` (Valori: `MATCH`, `TRAINING`)
+- `title`: `String` (max 200)
+- `description`: `String` (TEXT)
+- `entryDate`: `OffsetDateTime`
+- `opponent`: `String` (max 200)
+- `location`: `String` (max 200)
+- `durationMinutes`: `Integer` (Validato >= 0)
+- `moodRating`: `Short` (Valori validi: 1-5)
+- `performanceRating`: `Short` (Valori validi: 1-5)
+- `visibility`: `String` (Enum: `PRIVATE`, `TRAINER`, `PUBLIC`)
+- `checklistCompleted`: `Boolean` (default false)
+- `tags`: `String` (JSONB, tag liberi inseriti dall'utente)
+- `deletedAt`: `OffsetDateTime`
+- `createdAt`: `OffsetDateTime`
+- `updatedAt`: `OffsetDateTime`
+
+#### ChecklistTemplate, ChecklistTemplateItem, ChecklistTemplateItemOption
+Strutture per definire schede di valutazione personalizzate o checklist da compilare all'interno del diario.
+- `ChecklistTemplateItem` include:
+  - `placeholder`: `String` (placeholder per l'input)
+  - `helpText`: `String` (testo informativo di supporto)
+  - `validationRules`: `String` (JSONB, regole sintattiche di validazione come min/max o pattern regex)
+  - `dataType`: `String` (Tipo dato: `BOOLEAN`, `NUMBER`, `TEXT`, `DATE`, `SELECT`, `MULTI_SELECT`)
+  - `selectSource`: `String` (Sorgente opzioni: `STATIC`, `POSITION_METADATA`, `PLAYER_POSITION`, `TRAINING_TYPE`, `SQL`)
+
+#### AthleteGoal
+Tabella `athlete_goals`. Obiettivi sportivi fissati dall'atleta (es. tiri realizzati o salti verticali).
+- `id`: `UUID` (PK)
+- `player`: `User` (Many-to-One, player_id)
+- `title`: `String` (max 200)
+- `description`: `String` (TEXT)
+- `targetValue`: `BigDecimal`
+- `currentValue`: `BigDecimal` (default 0)
+- `unit`: `String` (max 50, es: "cm", "%", "made")
+- `dueDate`: `LocalDate`
+- `completedAt`: `OffsetDateTime`
+- `status`: `String` (Valori: `ACTIVE`, `COMPLETED`, `ABANDONED`)
+- `priority`: `String` (Valori: `LOW`, `MEDIUM`, `HIGH`; default `MEDIUM`)
+- `progressPercentage`: `BigDecimal` (Valori: 0.00-100.00; default 0)
+- `createdAt`: `OffsetDateTime`
+
+#### TrainingProgram
+Tabella `training_programs`. Programmi di allenamento strutturati o generati via AI.
+- `id`: `UUID` (PK)
+- `owner`: `User` (Many-to-One, owner_id)
+- `title`: `String` (max 200)
+- `description`: `String` (TEXT)
+- `programJson`: `Object` (JSONB, sequenza strutturata degli esercizi)
+- `isPublic`: `Boolean` (default true)
+- `estimatedDurationMinutes`: `Integer`
+- `difficulty`: `String` (Enum: `BEGINNER`, `INTERMEDIATE`, `ADVANCED`)
+- `tags`: `Object` (JSONB per tassonomia e tag del programma)
+- `publishedAt`: `OffsetDateTime`
+- `sourceType`: `SourceType` (Enum: `MANUAL`, `AI_GENERATED`)
+- `goal`: `AthleteGoal` (Many-to-One, goal_id)
+- `generatedByAi`: `Boolean` (default false)
+- `aiModel`: `String`
+- `aiPrompt`: `String` (TEXT)
+- `aiGenerationParameters`: `Object` (JSONB)
+- `generationStatus`: `GenerationStatus` (Enum: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`)
+- `generatedAt`: `OffsetDateTime`
+- `parentProgram`: `TrainingProgram` (Many-to-One, parent_program_id)
+- `createdAt`: `OffsetDateTime`
+- `updatedAt`: `OffsetDateTime`
+
+#### TrainingSession
+Tabella `training_sessions`. Esecuzione effettiva di un programma di allenamento da parte di un giocatore.
+- `id`: `UUID` (PK)
+- `player`: `User` (Many-to-One, player_id)
+- `program`: `TrainingProgram` (Many-to-One, program_id)
+- `sessionDate`: `OffsetDateTime`
+- `sessionData`: `Object` (JSONB, risultati per singolo esercizio svolto)
+- `durationSeconds`: `Integer`
+- `caloriesBurned`: `Integer`
+- `averageHeartRate`: `Integer`
+- `perceivedEffort`: `Short` (Scala sforzo percepito 1-10)
+- `createdAt`: `OffsetDateTime`
+
+#### Badge & AthleteBadge
+Tabelle `badges` e `athlete_badges` per la gamification.
+- I badge contengono:
+  - `rarity`: `String` (Valori: `COMMON`, `RARE`, `EPIC`, `LEGENDARY`; default `COMMON`)
+  - `active`: `Boolean` (default true)
+  - `createdAt`/`updatedAt`: `OffsetDateTime`
+
+#### MediaAsset
+Tabella `media_assets`. File multimediali caricati o referenziati nel sistema.
+- `id`: `UUID` (PK)
+- `ownerId`: `UUID`
+- `title`/`description`: `String`
+- `mediaType`: `String` (es. `VIDEO`, `IMAGE`, `AUDIO`)
+- `storageUrl`: `String`
+- `thumbnailUrl`: `String`
+- `durationSeconds`: `Integer`
+- `width`/`height`: `Integer`
+- `isOfficial`: `Boolean`
+- `mimeType`: `String` (max 100, es: `video/mp4`)
+- `fileSizeBytes`: `Long`
+- `visibility`: `String` (Valori: `PRIVATE`, `PUBLIC`, `UNLISTED`; default `PRIVATE`)
+- `storageProvider`: `String` (es: `SUPABASE`, default `SUPABASE`)
+- `storageBucket`/`storagePath`: `String`
+- `externalUrl`: `String` (URL esterno es. YouTube, Vimeo, Hudl)
+- `createdAt`: `OffsetDateTime`
+
+#### Exercise
+Tabella `exercises`. Catalogo degli esercizi disponibili.
+- `id`: `UUID` (PK)
+- `name`: `String`
+- `description`: `String` (TEXT)
+- `equipment`: `Object` (JSONB, lista delle attrezzature necessarie)
+- `tags`: `Object` (JSONB)
+- `caloriesEstimate`: `Integer` (stima calorie per minuto)
+
+#### Message & Conversation
+Tabelle `messages` e `conversations` per la messaggistica interna.
+- `Message` supporta:
+  - `replyToMessage`: `Message` (FK self-reference, supporta risposte dirette e thread)
+  - `editedAt`: `OffsetDateTime`
+  - `deletedAt`: `OffsetDateTime` (soft-delete del messaggio)
+  - `conversation`: `Conversation` (Many-to-One, conversation_id)
+  - `sender`: `User` (Many-to-One, sender_id)
+
+#### Notification
+Tabella `notifications`. Notifiche push inviate ai dispositivi degli utenti.
+- `id`: `UUID` (PK)
+- `user`: `User` (Many-to-One, user_id)
+- `title`/`content`: `String`
+- `isRead`: `Boolean` (default false, tracciato per notifiche non lette)
+- `createdAt`: `OffsetDateTime` (con fuso orario `timestamptz`)
+
+#### VideoAnalysisSession
+Tabella `video_analysis_sessions`. Elaborazioni video asincrone o sincrone.
+- `id`: `UUID` (PK)
+- `player`: `Player` (Many-to-One, player_id)
+- `videoAsset`: `MediaAsset` (Many-to-One, video_asset_id)
+- `status`: `String` (Valori: `UPLOADED`, `PROCESSING`, `COMPLETED`, `FAILED`)
+- `errorMessage`: `String` (TEXT, dettagli in caso di fallimento)
+- `retryCount`: `Integer` (default 0, contatore tentativi)
+- `createdAt`/`updatedAt`: `OffsetDateTime`
+
+#### TrainerFollows
+Tabella `trainer_follows`. Relazione molti-a-molti che traccia quali allenatori seguono quali giocatori.
+- `id`: `UUID` (PK)
+- `trainer`: `User` (Many-to-One, trainer_id - referenzia la tabella users)
+- `player`: `User` (Many-to-One, player_id - referenzia la tabella users)
+- `createdAt`: `OffsetDateTime`
+
+#### TrainerFeedback
+Tabella `trainer_feedbacks`. Memorizza lo storico dei feedback e delle valutazioni inserite dagli allenatori per gli atleti seguiti.
+- `id`: `UUID` (PK)
+- `trainer`: `User` (Many-to-One, trainer_id)
+- `player`: `User` (Many-to-One, player_id)
+- `feedback`: `String` (TEXT, contenuto del feedback)
+- `createdAt`: `OffsetDateTime`
+
+#### PlayerCv
+Tabella `player_cv`. Il CV sportivo digitale di un giocatore.
+- `id`: `UUID` (PK)
+- `player`: `User` (One-to-One, player_id - referenza users)
+- `headline`: `String` (slogan del giocatore, es: "Guardia tiratrice ad alta precisione")
+- `summary`: `String` (TEXT, riassunto delle caratteristiche e ambizioni)
+- `stats`: `Map<String, Object>` (JSONB, statistiche salienti manuali o calcolate)
+- `shareToken`: `UUID` (Unique, token casuale non predicibile per l'accesso pubblico)
+- `shareEnabled`: `Boolean` (default false, interruttore per abilitare/disabilitare la visibilità pubblica del link)
+- `publicUpdatedAt`: `OffsetDateTime` (timestamp dell'ultima pubblicazione)
+- `publicSlug`: `String` (max 100, slug leggibile per SEO)
+- `createdAt`/`updatedAt`: `OffsetDateTime`
+
+#### PlayerCvHighlight
+Tabella `player_cv_highlights`. Clip video dei migliori tiri o azioni del giocatore associati al CV.
+- `id`: `UUID` (PK)
+- `cv`: `PlayerCv` (Many-to-One, cv_id)
+- `media`: `MediaAsset` (Many-to-One, media_id, può essere nullo se si usa un link esterno)
+- `title`: `String` (max 150)
+- `description`: `String` (TEXT)
+- `externalUrl`: `String` (TEXT, URL di YouTube/Vimeo/Hudl se non caricato su Supabase)
+- `sortOrder`: `Integer` (default 0, per ordinamento manuale delle clip)
+- `thumbnailUrl`: `String` (TEXT, anteprima del video)
+
+#### PlayerCvTeam
+Tabella `player_cv_teams`. Storico delle squadre e delle stagioni passate/presenti del giocatore nel CV.
+- `id`: `UUID` (PK)
+- `cv`: `PlayerCv` (Many-to-One, cv_id)
+- `teamName`: `String` (nome della squadra, obbligatorio)
+- `categoryId`: `Integer` (id della categoria)
+- `position`: `PositionMetadata` (Many-to-One, position_id, ruolo ricoperto in quella squadra)
+- `startYear`: `Integer` (anno inizio militanza)
+- `endYear`: `Integer` (anno fine militanza, nullo se ancora attivo)
+- `notes`: `String` (TEXT, commenti o traguardi raggiunti con la squadra)
 
 ---
 
-## 22. Conclusioni
+## 5. Sicurezza e Controllo Accessi (RBAC)
 
-Il backend MVPiQ Hoops è un'applicazione Quarkus completa e ben strutturata che implementa tutte le funzionalità richieste per il tracking dei tiri di basket, incluse le API del punto 21 della specifica tecnica.
+La sicurezza del backend è basata su **JSON Web Token (JWT)** gestiti tramite la specifica MicroProfile JWT (SmallRye JWT) con crittografia asimmetrica RSA (chiavi pubblica e privata PEM).
 
-**Punti di Forza:**
-- Architettura a strati chiara e manutenibile
-- Integrazione AI/ML avanzata (DJL, YOLOv5)
-- API REST complete e documentate
-- Sicurezza robusta (JWT, RBAC-based)
-- Performance ottimizzate
-- Database PostgreSQL con JSONB per flessibilità
-- Sistema RBAC completo per gestione ruoli multipli
+### 5.1 Ruoli Applicativi (RBAC)
 
-**Stato Implementazione:**
-- ✅ Tutte le API tracking tiri implementate
-- ✅ Servizi AI per rilevamento automatico
-- ✅ Analytics e statistiche complete
-- ✅ Calibrazione campo
-- ✅ Integrazione mobile pronta
-- ✅ Sistema RBAC completo implementato
-- ✅ Multi-role support per utenti
+Il sistema supporta la multi-ruolo-assegnazione (un utente può possedere più ruoli simultaneamente). I ruoli sono salvati sul DB (`roles`, `user_roles`) ed esposti all'interno del token JWT sotto il claim `role` (configurato con `smallrye.jwt.path.groups=role`).
 
-**Migrazioni Recenti (Maggio 2026):**
-- ✅ Rimozione entità `PlayerProfile` in favore di `Player`
-- ✅ Rimozione campi `role`, `is_creator`, `is_trainer` da `users`
-- ✅ Implementazione sistema RBAC con tabelle `roles` e `user_roles`
-- ✅ Nuove entità `Role` e `UserRoleAssignment`
-- ✅ Aggiornamento tutti i servizi per RBAC
-- ✅ Aggiornamento enum `UserRole` a valori maiuscoli
-- ✅ Rinomino tabella `player_profile_positions` in `player_positions`
-- ✅ Fix PlayerPosition entity per usare `player_id` invece di `profile_id`
-- ✅ Fix endpoint path CV da `/api/athlet/{id}/cv` a `/api/players/{id}/cv`
-- ✅ Implementazione auto-creazione CV vuoto quando non esiste
-- ✅ Fix query Hibernate per CV e CV teams
-- ✅ Creazione sezioni navigazione per ruolo PLAYER
-- ✅ Migration database miglioramenti: nuovi campi, indici, constraint
-- ✅ Aggiornamento 15 entità Java per riflettere migration database
-- ✅ Implementazione tagging system con JSONB + GIN indexes
-- ✅ Aggiunta soft delete e audit fields su entità principali
-- ✅ Miglioramento sistema messaging con thread support
-- ✅ Implementazione sistema rarità badge e gamification avanzata
+I ruoli standard disponibili sono:
+- **`ADMIN`**: Amministratore totale del sistema.
+- **`TRAINER`**: Allenatore. Può seguire i giocatori, consultare i loro progressi, e inserire feedback.
+- **`PLAYER`**: Giocatore di basket. Può registrare workout, compilare il diario ed il proprio CV.
+- **`SCOUT`**: Talent scout. Può cercare giocatori tramite filtri complessi ed esaminarne i CV pubblici.
+- **`CREATOR`**: Creatore di contenuti o programmi di allenamento ufficiali.
+- **`GUEST`**: Profilo ospite con permessi limitati di sola lettura.
 
-**Implementazioni Recenti (Giugno 2026):**
-- ✅ Sistema di gestione errori centralizzato con GlobalExceptionHandler
-- ✅ ErrorResponse DTO per risposte errore standardizzate
-- ✅ ResourceNotFoundException eccezione custom
-- ✅ CV pubblico condivisibile con token UUID
-- ✅ PublicCvResource per endpoint pubblici senza autenticazione
-- ✅ PlayerCvService con metodi enable/disable sharing
-- ✅ Generazione HTML pubblico del CV con styling responsive
-- ✅ Supporto highlights con link esterni (YouTube, Vimeo, Hudl)
-- ✅ API complete per gestione CV e sharing
+### 5.2 Annotazioni di Sicurezza ed Helper
 
-Il backend è pronto per l'integrazione con l'app mobile React Native già sviluppata.
+Nei controller REST l'autorizzazione viene applicata in modo dichiarativo:
+- `@RolesAllowed({"PLAYER", "TRAINER"})`: Restringe l'endpoint solo agli utenti aventi almeno uno dei ruoli indicati.
+- `@Authenticated`: Richiede un token valido senza vincoli di ruolo specifico.
+- `@PermitAll`: Rende l'endpoint pubblico (es: visualizzazione del CV pubblico).
+
+All'interno dei servizi, la logica di controllo dei ruoli si appoggia a metodi dedicati del servizio di sicurezza (`RoleBasedSecurityService`):
+- `hasRole(UserRole)`: Verifica se l'utente autenticato possiede il ruolo.
+- `hasAnyRole(UserRole...)`: Verifica se l'utente possiede almeno uno dei ruoli della lista.
+- `canTrain()`: Ritorna vero se l'utente ha ruolo `TRAINER` o `ADMIN`.
+- `canScout()`: Ritorna vero se l'utente ha ruolo `SCOUT`, `TRAINER` o `ADMIN`.
+- `canCreateContent()`: Ritorna vero se l'utente ha ruolo `CREATOR` o `ADMIN`.
+
+---
+
+## 6. Catalogo API REST e WebSocket
+
+Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito sono elencate le API suddivise per macro-moduli.
+
+### 6.1 Autenticazione (`/api/auth`)
+
+- **`POST /api/auth/register`**: Registra un nuovo utente.
+- **`POST /api/auth/login`**: Effettua il login e ritorna il token JWT.
+- **`POST /api/auth/logout`**: Disconnette l'utente invalidando la sessione lato client.
+
+### 6.2 Profili Giocatori & CV Sportivo (`/api/players`, `/public/cv`)
+
+#### Profilo e CV Privato (Autenticato)
+- **`GET /api/players`**: Recupera ed elenca i profili dei giocatori con supporto a filtri (paese, livello, ruolo, età).
+- **`GET /api/players/{playerId}/cv`**: Recupera il CV sportivo completo del giocatore. Se il CV non esiste, viene creato automaticamente vuoto per ottimizzare la UX del client.
+- **`GET /api/players/{playerId}/cv/pdf`**: Esporta il CV del giocatore in formato PDF (generato lato server via Playwright con QR Code integrato).
+- **`PUT /api/players/{playerId}/cv`**: Aggiorna le informazioni del CV (headline, summary, statistiche salienti, cronologia delle squadre).
+- **`GET /api/players/{playerId}/cv/highlights`**: Recupera la lista dei clip video inseriti come highlights.
+- **`POST /api/players/{playerId}/cv/highlights`**: Aggiunge un highlight al CV. Supporta sia video caricati internamente (passando `mediaId`) sia link esterni (YouTube, Vimeo, Hudl).
+  - *Request Body*: `{"title": "Triple", "description": "...", "externalUrl": "...", "mediaId": "..."}`
+- **`DELETE /api/players/{playerId}/cv/highlights/{highlightId}`**: Rimuove un highlight specifico.
+
+#### Condivisione e Link Pubblico
+- **`POST /api/players/{playerId}/cv/share`**: Abilita la condivisione pubblica del CV, generando il token UUID univoco non predicibile.
+  - *Response*: `{"shareToken": "uuid-v4", "shareEnabled": true, "publicUrl": "http://domain.com/public/cv/uuid-v4/view"}`
+- **`DELETE /api/players/{playerId}/cv/share`**: Disabilita e revoca immediatamente la condivisione del CV, invalidando il link.
+- **`GET /public/cv/{token}`**: *[@PermitAll]* Recupera il CV in formato JSON. Consente l'integrazione con altre applicazioni o app mobili.
+- **`GET /public/cv/{token}/view`**: *[@PermitAll]* Restituisce la pagina web HTML autogenerata dal backend per la visualizzazione diretta nel browser. Offre un design scuro e responsive ottimizzato per smartphone e desktop (stile LinkedIn/Hudl card), include caching di 5 minuti (`Cache-Control: public, max-age=300`) e protezione anti-framing (`X-Frame-Options: SAMEORIGIN`).
+- **`GET /public/cv/{token}/pdf`**: *[@PermitAll]* Scarica direttamente la versione PDF pubblica del CV condiviso.
+
+### 6.3 Workout e Tracking Tiri (`/api/workouts`)
+
+- **`POST /api/workouts/sessions`**: Inizia una sessione di workout.
+  - *Request*: `{"cameraMode": "ANGLE_45", "courtType": "HALF_COURT", "calibrationData": "..."}`
+- **`GET /api/workouts/sessions/{sessionId}`**: Recupera i dettagli di una sessione specifica.
+- **`GET /api/workouts/sessions`**: Recupera l'elenco storico di tutte le sessioni del giocatore.
+- **`GET /api/workouts/sessions/active`**: Ritorna l'eventuale sessione ancora attiva per il giocatore.
+- **`POST /api/workouts/sessions/{sessionId}/pause`**: Mette in pausa il tracking della sessione.
+- **`POST /api/workouts/sessions/{sessionId}/resume`**: Riprende una sessione in pausa.
+- **`POST /api/workouts/sessions/{sessionId}/end`**: Chiude definitivamente la sessione ed esegue il calcolo finale della durata e dei punteggi.
+- **`DELETE /api/workouts/sessions/{sessionId}`**: Elimina una sessione e i relativi dati associati.
+- **`POST /api/workouts/sessions/{sessionId}/frames`**: Salva le coordinate e i dati del frame video per l'analisi in tempo reale della traiettoria.
+- **`POST /api/workouts/sessions/{sessionId}/pose-analysis`**: Registra i dati delle posizioni delle articolazioni del giocatore (pose landmarks).
+- **`GET /api/workouts/sessions/{sessionId}/realtime-stats`**: Ritorna le statistiche correnti calcolate sul momento (tiri totali, realizzati, streak, heat zones).
+
+#### Aggiornamenti Live via WebSocket
+- **`WS /api/workouts/live/{sessionId}?userId={userId}`**: Connessione WebSocket per lo streaming bidirezionale in tempo reale.
+  - Trasmette automaticamente ogni secondo le statistiche aggiornate.
+  - Esegue un push immediato a tutti i client registrati per la sessione non appena viene inserito o rilevato un nuovo tiro.
+
+### 6.4 Eventi Tiro e Calibrazione (`/api/workouts`)
+
+- **`GET /api/workouts/sessions/{sessionId}/shots`**: Ritorna tutti i tiri eseguiti nella sessione.
+- **`POST /api/workouts/sessions/{sessionId}/shots`**: Aggiunge manualmente o via AI un evento tiro alla sessione.
+  - *Request*: `{"timestampMs": 123456, "shotResult": "MADE", "courtX": 4.5, "courtY": 6.2, "distanceFromHoop": 6.75, "releaseAngle": 48.0, "releaseVelocity": 12.1, "detectionConfidence": 0.94}`
+- **`POST /api/workouts/sessions/{sessionId}/calibration`**: Salva le coordinate pixel del canestro e delle linee rilevate sul campo per impostare l'omografia.
+
+### 6.5 Analytics e Statistiche (`/api/workouts`)
+
+- **`GET /api/workouts/{sessionId}/analytics/shot-chart`**: Ritorna la mappa di tiro (shot chart) con le coordinate X/Y e i conteggi raggruppati per zone.
+- **`GET /api/workouts/{sessionId}/analytics/stats`**: Statistiche dettagliate della sessione.
+- **`GET /api/workouts/{sessionId}/analytics/zones`**: Percentuali di tiro suddivise per aree regolamentari (PAINT, MID_RANGE, THREE_POINT, CORNER).
+- **`GET /api/workouts/{sessionId}/analytics/hot-zones`**: Ritorna le zone con le migliori percentuali di realizzazione.
+- **`GET /api/workouts/{sessionId}/analytics/cold-zones`**: Ritorna le zone con performance critiche o al di sotto della media dell'atleta.
+- **`GET /api/workouts/{sessionId}/analytics/career-stats`**: Ritorna il riassunto complessivo di tutta la carriera del giocatore.
+
+### 6.6 Trainer e Relazioni Coach-Atleta (`/api/trainer`)
+
+- **`POST /api/trainer/follow`**: Consente ad un allenatore autenticato di seguire un giocatore. Verifica i ruoli dell'utente via RBAC e impedisce relazioni duplicate.
+  - *Request*: `{"trainerId": "uuid", "playerId": "uuid"}`
+- **`DELETE /api/trainer/follow`**: Rimuove la relazione di follow tra allenatore e giocatore.
+- **`GET /api/trainer/follows/{trainerId}`**: Ritorna tutti i profili degli atleti seguiti da quell'allenatore.
+- **`GET /api/trainer/followers/{playerId}`**: Ritorna tutti gli allenatori che seguono il giocatore.
+- **`GET /api/trainer/follow/check`**: Verifica se un allenatore segue un giocatore specifico. Ritorna `{"isFollowing": true/false}`.
+- **`GET /api/trainer/stats/{trainerId}`**: Statistiche dell'allenatore (es. numero di atleti seguiti).
+- **`GET /api/trainer/players/{trainerId}/progress`**: Ritorna la dashboard di avanzamento in tempo reale per tutti i giocatori seguiti (sessioni svolte, punti, streak, minuti settimanali, goal attivi/completati).
+- **`GET /api/trainer/players/{playerId}/details`**: Ritorna le informazioni dettagliate e riservate dell'atleta (dati fisici, posizioni preferite, obiettivi attivi, storico dei feedback dell'allenatore e le ultime sessioni completate) previa verifica dell'associazione di follow.
+- **`POST /api/trainer/feedback`**: Consente all'allenatore di inserire e persistere sul DB un nuovo feedback/nota tecnica per il giocatore seguito.
+  - *Request*: `{"trainerId": "uuid", "playerId": "uuid", "feedback": "Ottimo lavoro sul tiro da tre"}`
+- **`GET /api/trainer/follow-count/{trainerId}`**: Numero di giocatori seguiti.
+- **`GET /api/trainer/follower-count/{playerId}`**: Numero di allenatori che seguono il giocatore.
+
+### 6.7 Diario, Training e Gamification
+
+- **`/api/journal`**: Gestione CRUD delle Journal Entries dell'atleta, comprese le checklist associate.
+- **`/api/training/programs`**: Gestione dei programmi di allenamento sia manuali che autogenerati via AI (Ollama).
+- **`/api/gamification`**: Tracciamento dei punti accumulati, progressi degli obiettivi, classifiche generali e assegnazione Badge di gioco.
+
+---
+
+## 7. Pipeline Computer Vision e AI
+
+La pipeline di tracciamento e analisi si attiva durante l'elaborazione dei video registrati per scomporre l'azione del tiro in coordinate geometriche e metriche fisiche.
+
+```
+[Frame Video] ──> (YOLOv5 Object Detection) ──> [Palla, Canestro, Giocatore]
+                                                       │
+                                                       ▼
+                                            (Kalman Filter Tracking)
+                                                       │
+                                                       ▼
+                                           (Shot Detection Algorithm)
+                                                       │
+                                                       ▼
+                                            [Rilascio Palla / Parabola]
+                                                       │
+                                                       ▼
+                                            (Made/Miss Determination)
+                                                       │
+                                                       ▼
+                                             (Homography Projection)
+```
+
+### 7.1 Object Detection (YOLOv5)
+- **Input**: Flusso di frame a 30 o 60 fps.
+- **Modello YOLOv5**: Esegue l'inferenza (inferiore a 30ms per frame) per estrarre le coordinate delle bounding box relative a:
+  - Palla da basket.
+  - Canestro (ferro e tabellone).
+  - Giocatore.
+
+### 7.2 Kalman Filter (Tracking)
+- Gestisce il tracciamento vettoriale continuo della palla.
+- Corregge le coordinate rilevate e stima la posizione della palla nei frame in cui si verificano occlusioni temporanee (es. palla coperta dal corpo del giocatore) o problemi di motion blur.
+
+### 7.3 Algoritmo di Rilevamento Tiro
+Il sistema riconosce l'inizio di un'azione di tiro analizzando le coordinate relative e i vettori di velocità:
+1. **Fase di Caricamento**: La palla è rilevata in prossimità delle mani del giocatore (tramite i landmark delle articolazioni estratti da MoveNet).
+2. **Rilascio**: Viene calcolato un vettore di velocità verso l'alto superiore a una soglia minima impostata (`> 2.0 px/s`).
+3. **Separazione**: La palla si allontana dalle bounding box del giocatore mantenendo una traiettoria ascendente.
+4. **Fase di Volo**: Calcolo dell'equazione parabolica per determinare l'apice della traiettoria (altezza massima dell'arco) e l'angolo di rilascio.
+
+### 7.4 Determinazione del Risultato (Made/Miss)
+- **MADE (Canestro realizzato)**: La palla entra nell'area cilindrica del ferro dall'alto verso il basso senza rimbalzare oltre il diametro esterno e scende al di sotto della quota del canestro con una traiettoria lineare.
+- **MISS (Errore)**: La traiettoria della palla interseca il tabellone o il ferro rimbalzando all'esterno, oppure manca completamente il cilindro (Airball/Blocked).
+
+### 7.5 Proiezione sul Campo Reale (Omografia Prospettica)
+- Utilizza i punti catturati nella fase di calibrazione iniziale (canestro, tiro libero, arco da tre punti, linee perimetrali) per calcolare una matrice di omografia prospettica 3x3.
+- Converte le coordinate bidimensionali del pixel video `(X_pixel, Y_pixel)` nelle coordinate cartesiane metriche reali del campo da basket `(X_court_meters, Y_court_meters)`. Questo passaggio posiziona accuratamente i tiri sullo shot chart.
+
+---
+
+## 8. Configurazione dell'Applicazione
+
+Il backend viene configurato tramite il file `application.properties` (o variabili d'ambiente equivalenti in fase di runtime).
+
+### 8.1 Parametri Principali
+
+```properties
+# Server HTTP
+quarkus.http.host=0.0.0.0
+quarkus.http.port=8082
+
+# Connessione al Database (Neon Cloud - PostgreSQL)
+quarkus.datasource.db-kind=postgresql
+quarkus.datasource.username=neondb_owner
+quarkus.datasource.password=xxxxxxxxxxxx
+quarkus.datasource.jdbc.url=jdbc:postgresql://ep-blue-hat-abs1hipi-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require
+quarkus.hibernate-orm.packages=com.mvpiq.model
+quarkus.hibernate-orm.schema-management.strategy=validate
+
+# Connection Pool
+quarkus.datasource.jdbc.min-size=5
+quarkus.datasource.jdbc.max-size=20
+
+# Configurazione Sicurezza JWT
+mp.jwt.verify.issuer=mvpiq-hoops
+mp.jwt.verify.publickey.location=publicKey.pem
+smallrye.jwt.sign.key.location=privateKey.pem
+smallrye.jwt.path.groups=role
+
+# Supabase Storage Integration
+supabase.url=https://gnjwgcronnnzxokmuqlw.supabase.co
+supabase.bucket.videos=videos
+supabase.bucket.frames=analysis-frames
+supabase.bucket.profile-images=profile-images
+
+# Risoluzione Video di Riferimento per tracking
+mvpiq.video.frame-width=960
+mvpiq.video.frame-height=544
+mvpiq.hoop.fallback-radius=18
+mvpiq.hoop.search-frames=10
+
+# Integrazione LLM (Ollama)
+quarkus.rest-client.ollama-api.url=http://localhost:11434
+quarkus.rest-client.ollama-api.connect-timeout=10000
+quarkus.rest-client.ollama-api.read-timeout=300000
+
+# Integrazione Firebase (Notifiche Push)
+firebase.config.path=firebase-service-account.json
+firebase.project.id=mvpiq-hoops
+firebase.database.url=https://mvpiq-hoops-default-rtdb.firebaseio.com
+```
+
+---
+
+## 9. Deployment e Gestione Operativa
+
+### 9.1 Comandi di Build Maven
+
+- **Compilazione standard ed esecuzione test**:
+  ```bash
+  ./mvnw clean package
+  ```
+- **Avvio in modalità Dev (Live Coding)**:
+  ```bash
+  ./mvnw compile quarkus:dev
+  ```
+- **Compilazione in immagine nativa (GraalVM / Mandrel)**:
+  ```bash
+  ./mvnw package -Pnative
+  ```
+
+### 9.2 Dockerfile per Immagini Native
+
+L'applicazione può essere pacchettizzata all'interno di un container Linux ultraleggero ottimizzato per immagini native:
+
+```dockerfile
+FROM quay.io/quarkus/quarkus-mandrel:22.3-java17
+COPY target/*-runner /application
+EXPOSE 8082
+CMD ["/application/run-application.sh"]
+```
+
+### 9.3 Monitoraggio e Logging
+
+- **Logging**: Basato su `java.util.logging`. I log sono strutturati per tracciare le richieste in ingresso, i fallimenti delle pipeline AI e le transazioni del DB.
+- **Health Check**: Endpoint di base esposto a `GET /mvpiq` per verificare la raggiungibilità del microservizio da parte dei load balancer o orchestratori.
+
+---
+
+## 10. Criticità e Strategie di Mitigazione
+
+1. **Motion Blur della Palla**:
+   - *Problema*: La palla si muove ad alta velocità e risulta sfocata nel frame video singolo, compromettendo il rilevamento YOLO.
+   - *Mitigazione*: Utilizzo di riprese ad alti frame rate (60 fps) combinato con il tracciamento del Filtro di Kalman, che stima la posizione basandosi sull'inerzia fisica dei frame precedenti.
+2. **Illuminazione Variabile delle Palestre**:
+   - *Problema*: Le ombre marcate o i riflessi di luce artificiale confondono i modelli di object detection.
+   - *Mitigazione*: Operazione di pre-processing dell'immagine per normalizzare il contrasto e la luminosità prima dell'inferenza, unita ad una forte fase di data-augmentation durante il training del modello YOLO.
+3. **Occlusioni Fisiche**:
+   - *Problema*: Il corpo dell'atleta o un difensore nascondono temporaneamente la palla o il ferro.
+   - *Mitigazione*: Interpolazione della traiettoria parabolica. Se la palla scompare per meno di 5 frame consecutivi, la sua posizione viene ricostruita geometricamente interpolando i punti visibili di ascesa e discesa.
+
+---
+
+## 11. Estensioni Future
+
+1. **Tracciamento Multiplayer**: Estensione della pipeline YOLO per rilevare e tracciare più giocatori contemporaneamente sul campo di gioco, consentendo l'analisi di allenamenti di squadra.
+2. **Dashboard Avanzata per Coach**: Interfaccia web dedicata per consentire agli allenatori di confrontare le metriche di tiro (angoli di rilascio, costanza, zone preferite) di diversi atleti.
+3. **AI Coaching Personalizzato**: Modello predittivo che analizza lo storico dei tiri e delle traiettorie per consigliare modifiche posturali o esercizi specifici di correzione del tiro (es. "aumentare l'arco di tiro del 5%").

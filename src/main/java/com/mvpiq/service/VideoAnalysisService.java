@@ -16,6 +16,7 @@ import com.mvpiq.service.storage.SupabaseStorageService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.io.File;
@@ -45,9 +46,17 @@ public class VideoAnalysisService {
     @Inject
     VideoAnalysisProcessor processor;
 
+    @Inject
+    VideoAnalysisFrameService frameService;
+
+    @Inject
+    VideoAnalysisAIService aiService;
+
+    @ConfigProperty(name = "mvpiq.hoop.search-frames")
+    int searchFrames;
+
     @Transactional
     public AnalysisSessionResponseDTO createSession(CreateAnalysisSessionRequestDTO request) {
-
         AnalisysType analisysType = AnalisysType.fromString(request.getAnalysisCode());
 
         var type = typeRepository.findByCode(analisysType)
@@ -84,7 +93,6 @@ public class VideoAnalysisService {
 
     @Transactional
     public AnalysisResultDTO analyzeVideo(VideoAnalysisRequestDTO request) {
-
         UUID sessionId = request.sessionId;
 
         VideoAnalysisSession session = sessionRepository.findByIdOptional(sessionId)
@@ -96,35 +104,18 @@ public class VideoAnalysisService {
         File videoFile = null;
 
         try {
-
             // 1 download video
             videoFile = storageService.downloadVideo(videoUrl);
 
-            // 2 AI analysis (placeholder)
-            int score = 82;
+            // 2 AI analysis (Real pipeline execution)
+            List<File> frames = frameService.extractFrames(videoFile, session, searchFrames);
+            frameService.persistFrames(session, frames);
+            aiService.analyzeFrames(session, frames);
 
-            String detectedErrors = """
-                [{"code":"ELBOW_ALIGNMENT","severity":"medium"}]
-            """;
-
-            String suggestions = """
-                [{"text":"Keep elbow aligned with the basket"}]
-            """;
-
-            String aiResponse = """
-                {"comment":"Good shooting form but elbow slightly open"}
-            """;
-
-            // 3 salva risultato
-            VideoAnalysisResult result = new VideoAnalysisResult();
-            result.session = session;
-            result.score = score;
-            result.detectedErrors = detectedErrors;
-            result.suggestions = suggestions;
-            result.aiResponse = aiResponse;
-            result.createdAt = Instant.now();
-
-            resultRepository.persist(result);
+            // 3 load result
+            VideoAnalysisResult result = resultRepository.find("session", session)
+                    .firstResultOptional()
+                    .orElseThrow(() -> new RuntimeException("Result not found after analysis"));
 
             // 4 aggiorna sessione
             session.status = "COMPLETED";
@@ -133,20 +124,25 @@ public class VideoAnalysisService {
             // 5 risposta API
             AnalysisResultDTO dto = new AnalysisResultDTO();
             dto.sessionId = sessionId;
-            dto.score = score;
+            dto.score = result.score;
 
             ObjectMapper mapper = new ObjectMapper();
-            dto.setDetectedErrors(mapper.readValue(result.detectedErrors, new TypeReference<List<String>>() {}));
-            dto.setSuggestions(mapper.readValue(result.suggestions, new TypeReference<List<String>>() {}));
+            dto.setDetectedErrors(
+                    result.detectedErrors == null
+                            ? List.of()
+                            : mapper.readValue(result.detectedErrors, new TypeReference<List<String>>() {})
+            );
+            dto.setSuggestions(
+                    result.suggestions == null
+                            ? List.of()
+                            : mapper.readValue(result.suggestions, new TypeReference<List<String>>() {})
+            );
             return dto;
 
         } catch (Exception e) {
-
             session.status = "FAILED";
             throw new RuntimeException("Video analysis failed", e);
-
         } finally {
-
             // cancella video storage
             try {
                 storageService.deleteVideo(videoUrl);
@@ -161,7 +157,6 @@ public class VideoAnalysisService {
 
     @Transactional
     public AnalysisResultDTO getResult(UUID sessionId) {
-
         // 1️⃣ Recupera sessione
         VideoAnalysisSession session = sessionRepository.findByIdOptional(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
