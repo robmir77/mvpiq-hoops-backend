@@ -116,6 +116,19 @@ public class WorkoutService {
             throw new IllegalStateException("Cannot add shots to inactive session");
         }
 
+        // Ensure trackingData is properly formatted for JSONB
+        String trackingData = request.getTrackingData();
+        if (trackingData != null && !trackingData.isEmpty()) {
+            // Validate it's valid JSON
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                mapper.readTree(trackingData);
+            } catch (Exception e) {
+                LOGGER.error("Invalid trackingData JSON: " + trackingData, e);
+                throw new IllegalArgumentException("Invalid trackingData JSON", e);
+            }
+        }
+
         ShotEvent shot = ShotEvent.builder()
                 .workoutSession(session)
                 .timestampMs(request.getTimestampMs())
@@ -128,7 +141,7 @@ public class WorkoutService {
                 .shotArcHeight(request.getShotArcHeight())
                 .videoTimestampMs(request.getVideoTimestampMs())
                 .detectionConfidence(request.getDetectionConfidence())
-                .trackingData(request.getTrackingData())
+                .trackingData(trackingData)
                 .videoClipPath(request.getVideoClipPath())
                 .build();
 

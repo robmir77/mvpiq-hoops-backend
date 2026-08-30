@@ -60,7 +60,7 @@ public class ShotEvent {
     @Column(name = "detection_confidence")
     private Double detectionConfidence;
 
-    @Column(name = "tracking_data", columnDefinition = "jsonb")
+    @Column(name = "tracking_data", columnDefinition = "text")
     private String trackingData;
 
     @Column(name = "video_clip_path")
