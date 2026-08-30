@@ -143,6 +143,7 @@ public class WorkoutService {
                 .detectionConfidence(request.getDetectionConfidence())
                 .trackingData(trackingData)
                 .videoClipPath(request.getVideoClipPath())
+                .createdAt(OffsetDateTime.now())
                 .build();
 
         shotEventRepository.persist(shot);
