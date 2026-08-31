@@ -1,5 +1,27 @@
 # Documento di Analisi Tecnica - Backend MVPiQ Hoops
 
+Value Proposition
+“Intelligenza artificiale per migliorare la performance, senza bisogno di hardware professionale.”
+Smartphone → Computer Vision → AI → Performance insights → Personalized training
+
+Filo narrativo molto chiaro
+
+Un ragazzo ha un problema.
+↓
+Si chiede se la tecnologia possa aiutarlo.
+↓
+Il padre lo accompagna nella scoperta dell'AI.
+↓
+Nasce MVPiQ.
+↓
+La tecnologia osserva e interpreta ciò che accade sul campo.
+↓
+L'atleta riceve informazioni per migliorare.
+↓
+E tutto parte dallo smartphone che ha già in tasca.
+
+Tecnologia avanzata. Esperienza umana. Accessibilità.
+
 ## 1. Panoramica del Progetto
 
 ### 1.1 Informazioni Generali
@@ -11,8 +33,25 @@
 - **Database**: PostgreSQL (Neon Cloud)
 - **Porta di Ascolto**: 8082
 - **Versione**: 1.0.0-SNAPSHOT
+- **Ultimo Aggiornamento**: 30 Agosto 2026
 
-### 1.2 Architettura Software
+### 1.2 Aggiornamenti Recenti (Agosto 2026)
+
+#### 30 Agosto 2026 - Fix JSONB e ShotEvent
+- **JsonbConverter**: Nuovo convertitore JPA per la validazione dei dati JSONB prima del salvataggio nel database. Implementa `AttributeConverter<String, String>` con validazione tramite Jackson ObjectMapper per garantire l'integrità dei dati JSON.
+- **ShotEvent**: Aggiunto campo `createdAt` con valore automatico `OffsetDateTime.now()` durante la creazione di nuovi eventi tiro.
+- **WorkoutService**: Migliorata la gestione dei dati di tracking con validazione JSONB preventiva.
+
+#### 16 Giugno 2026 - Trainer Feedback System
+- **TrainerFeedback**: Nuova entità per la memorizzazione dei feedback tecnici inseriti dagli allenatori per gli atleti seguiti.
+- **TrainerFeedbackRepository**: Repository dedicato per la gestione persistente dei feedback.
+- **TrainerService**: Estensione dei servizi per supportare la creazione e recupero dei feedback.
+
+#### 2 Giugno 2026 - Calibration Response DTO
+- **CalibrationResponse**: Nuovo DTO per la standardizzazione delle risposte di calibrazione del campo. Include metodo factory `from()` per la conversione dall'entità `CourtCalibration`.
+- **WorkoutResource**: Aggiunto endpoint per il recupero delle posizioni del canestro calibrate.
+
+### 1.3 Architettura Software
 
 Il backend segue un'architettura enterprise a strati (layered architecture) per garantire la manutenibilità e la separazione dei compiti:
 
@@ -55,6 +94,7 @@ Il backend segue un'architettura enterprise a strati (layered architecture) per 
 - **SmallRye OpenAPI**: Generazione automatica della documentazione OpenAPI e dell'interfaccia Swagger.
 - **SmallRye JWT**: Gestione avanzata dei token JSON Web Token (JWT) per autenticazione e autorizzazione.
 - **JBcrypt**: Hashing sicuro delle password degli utenti.
+- **Jackson ObjectMapper**: Libreria per la serializzazione/deserializzazione JSON, utilizzata nel JsonbConverter per la validazione dei dati JSONB.
 
 ### 2.2 Intelligenza Artificiale e Tracking (AI / Computer Vision)
 
@@ -77,6 +117,14 @@ Il backend segue un'architettura enterprise a strati (layered architecture) per 
 - **Firebase Admin SDK 9.2.0**: Gestione delle notifiche push tramite Firebase Cloud Messaging (FCM).
 - **Supabase Client**: Integrazione per lo storage remoto e distribuito (CDN) dei video dei workout e dei frame analizzati.
 - **Ollama**: Client REST per il dialogo con un modello LLM locale per la generazione di contenuti e piani di allenamento.
+
+### 2.5 Convertitori JPA e Validazione Dati
+
+- **JsonbConverter**: Convertitore JPA (`AttributeConverter<String, String>`) per la validazione dei dati JSONB prima del salvataggio nel database PostgreSQL.
+  - Implementa `convertToDatabaseColumn()`: valida la stringa JSON tramite Jackson ObjectMapper prima della persistenza
+  - Implementa `convertToEntityAttribute()`: restituisce i dati JSON dal database così come sono
+  - Genera eccezioni `IllegalArgumentException` se la stringa JSON non è valida
+  - Utilizzato principalmente per il campo `trackingData` dell'entità `ShotEvent`
 
 ---
 
@@ -338,11 +386,11 @@ Tabella `shot_events`. Ogni singolo tiro registrato all'interno di una sessione 
 - `shotArcHeight`: `Double` (altezza massima dell'arco in metri)
 - `videoTimestampMs`: `Long` (tempo corrispondente all'interno del file video)
 - `detectionConfidence`: `Double` (affidabilità del tracciamento AI)
-- `trackingData`: `String` (JSONB, serie di coordinate X/Y del volo della palla per ricostruzione traiettoria)
+- `trackingData`: `String` (JSONB, serie di coordinate X/Y del volo della palla per ricostruzione traiettoria - validato tramite JsonbConverter)
 - `videoClipPath`: `String` (percorso dello storage cloud del clip video del tiro)
 - `shotZone`: `String` (Zona di tiro calcolata: `PAINT`, `MID_RANGE`, `THREE_POINT`, `CORNER`)
 - `releaseTimeMs`: `Integer` (tempo complessivo impiegato per il rilascio della palla)
-- `createdAt`: `OffsetDateTime`
+- `createdAt`: `OffsetDateTime` (impostato automaticamente a `OffsetDateTime.now()` durante la creazione)
 
 #### CourtCalibration
 Tabella `court_calibrations`. Dati geometrici di mappatura del campo di gioco per le sessioni di workout.
@@ -533,7 +581,8 @@ Tabella `trainer_feedbacks`. Memorizza lo storico dei feedback e delle valutazio
 - `trainer`: `User` (Many-to-One, trainer_id)
 - `player`: `User` (Many-to-One, player_id)
 - `feedback`: `String` (TEXT, contenuto del feedback)
-- `createdAt`: `OffsetDateTime`
+- `createdAt`: `OffsetDateTime` (impostato automaticamente tramite `@PrePersist`)
+- **Note**: Entità aggiunta nel giugno 2026 per supportare il sistema di feedback tecnici tra allenatori e atleti
 
 #### PlayerCv
 Tabella `player_cv`. Il CV sportivo digitale di un giocatore.
@@ -572,11 +621,24 @@ Tabella `player_cv_teams`. Storico delle squadre e delle stagioni passate/presen
 
 ---
 
-## 5. Sicurezza e Controllo Accessi (RBAC)
+## 5. Data Transfer Objects (DTO)
+
+I DTO sono classi utilizzate per trasferire dati tra i layer dell'applicazione, specialmente per le risposte API, evitando di esporre direttamente le entità JPA.
+
+### 5.1 CalibrationResponse
+DTO per la standardizzazione delle risposte di calibrazione del campo da basket.
+- **Campi**: Tutte le coordinate geometriche del campo (hoopCenter, freeThrowLine, threePointLine, baseline, sideline), matrice di omografia, livello di confidenza e timestamp
+- **Metodo Factory**: `from(CourtCalibration calibration)` - converte l'entità `CourtCalibration` in DTO
+- **Utilizzo**: Restituito dagli endpoint di calibrazione per fornire una rappresentazione pulita e serializzabile dei dati geometrici del campo
+- **Note**: Aggiunto nel giugno 2026 per standardizzare le risposte API per la calibrazione del campo
+
+---
+
+## 6. Sicurezza e Controllo Accessi (RBAC)
 
 La sicurezza del backend è basata su **JSON Web Token (JWT)** gestiti tramite la specifica MicroProfile JWT (SmallRye JWT) con crittografia asimmetrica RSA (chiavi pubblica e privata PEM).
 
-### 5.1 Ruoli Applicativi (RBAC)
+### 6.1 Ruoli Applicativi (RBAC)
 
 Il sistema supporta la multi-ruolo-assegnazione (un utente può possedere più ruoli simultaneamente). I ruoli sono salvati sul DB (`roles`, `user_roles`) ed esposti all'interno del token JWT sotto il claim `role` (configurato con `smallrye.jwt.path.groups=role`).
 
@@ -588,7 +650,7 @@ I ruoli standard disponibili sono:
 - **`CREATOR`**: Creatore di contenuti o programmi di allenamento ufficiali.
 - **`GUEST`**: Profilo ospite con permessi limitati di sola lettura.
 
-### 5.2 Annotazioni di Sicurezza ed Helper
+### 6.2 Annotazioni di Sicurezza ed Helper
 
 Nei controller REST l'autorizzazione viene applicata in modo dichiarativo:
 - `@RolesAllowed({"PLAYER", "TRAINER"})`: Restringe l'endpoint solo agli utenti aventi almeno uno dei ruoli indicati.
@@ -604,17 +666,17 @@ All'interno dei servizi, la logica di controllo dei ruoli si appoggia a metodi d
 
 ---
 
-## 6. Catalogo API REST e WebSocket
+## 7. Catalogo API REST e WebSocket
 
 Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito sono elencate le API suddivise per macro-moduli.
 
-### 6.1 Autenticazione (`/api/auth`)
+### 7.1 Autenticazione (`/api/auth`)
 
 - **`POST /api/auth/register`**: Registra un nuovo utente.
 - **`POST /api/auth/login`**: Effettua il login e ritorna il token JWT.
 - **`POST /api/auth/logout`**: Disconnette l'utente invalidando la sessione lato client.
 
-### 6.2 Profili Giocatori & CV Sportivo (`/api/players`, `/public/cv`)
+### 7.2 Profili Giocatori & CV Sportivo (`/api/players`, `/public/cv`)
 
 #### Profilo e CV Privato (Autenticato)
 - **`GET /api/players`**: Recupera ed elenca i profili dei giocatori con supporto a filtri (paese, livello, ruolo, età).
@@ -634,7 +696,7 @@ Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito s
 - **`GET /public/cv/{token}/view`**: *[@PermitAll]* Restituisce la pagina web HTML autogenerata dal backend per la visualizzazione diretta nel browser. Offre un design scuro e responsive ottimizzato per smartphone e desktop (stile LinkedIn/Hudl card), include caching di 5 minuti (`Cache-Control: public, max-age=300`) e protezione anti-framing (`X-Frame-Options: SAMEORIGIN`).
 - **`GET /public/cv/{token}/pdf`**: *[@PermitAll]* Scarica direttamente la versione PDF pubblica del CV condiviso.
 
-### 6.3 Workout e Tracking Tiri (`/api/workouts`)
+### 7.3 Workout e Tracking Tiri (`/api/workouts`)
 
 - **`POST /api/workouts/sessions`**: Inizia una sessione di workout.
   - *Request*: `{"cameraMode": "ANGLE_45", "courtType": "HALF_COURT", "calibrationData": "..."}`
@@ -654,14 +716,14 @@ Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito s
   - Trasmette automaticamente ogni secondo le statistiche aggiornate.
   - Esegue un push immediato a tutti i client registrati per la sessione non appena viene inserito o rilevato un nuovo tiro.
 
-### 6.4 Eventi Tiro e Calibrazione (`/api/workouts`)
+### 7.4 Eventi Tiro e Calibrazione (`/api/workouts`)
 
 - **`GET /api/workouts/sessions/{sessionId}/shots`**: Ritorna tutti i tiri eseguiti nella sessione.
 - **`POST /api/workouts/sessions/{sessionId}/shots`**: Aggiunge manualmente o via AI un evento tiro alla sessione.
   - *Request*: `{"timestampMs": 123456, "shotResult": "MADE", "courtX": 4.5, "courtY": 6.2, "distanceFromHoop": 6.75, "releaseAngle": 48.0, "releaseVelocity": 12.1, "detectionConfidence": 0.94}`
 - **`POST /api/workouts/sessions/{sessionId}/calibration`**: Salva le coordinate pixel del canestro e delle linee rilevate sul campo per impostare l'omografia.
 
-### 6.5 Analytics e Statistiche (`/api/workouts`)
+### 7.5 Analytics e Statistiche (`/api/workouts`)
 
 - **`GET /api/workouts/{sessionId}/analytics/shot-chart`**: Ritorna la mappa di tiro (shot chart) con le coordinate X/Y e i conteggi raggruppati per zone.
 - **`GET /api/workouts/{sessionId}/analytics/stats`**: Statistiche dettagliate della sessione.
@@ -670,7 +732,7 @@ Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito s
 - **`GET /api/workouts/{sessionId}/analytics/cold-zones`**: Ritorna le zone con performance critiche o al di sotto della media dell'atleta.
 - **`GET /api/workouts/{sessionId}/analytics/career-stats`**: Ritorna il riassunto complessivo di tutta la carriera del giocatore.
 
-### 6.6 Trainer e Relazioni Coach-Atleta (`/api/trainer`)
+### 7.6 Trainer e Relazioni Coach-Atleta (`/api/trainer`)
 
 - **`POST /api/trainer/follow`**: Consente ad un allenatore autenticato di seguire un giocatore. Verifica i ruoli dell'utente via RBAC e impedisce relazioni duplicate.
   - *Request*: `{"trainerId": "uuid", "playerId": "uuid"}`
@@ -686,7 +748,7 @@ Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito s
 - **`GET /api/trainer/follow-count/{trainerId}`**: Numero di giocatori seguiti.
 - **`GET /api/trainer/follower-count/{playerId}`**: Numero di allenatori che seguono il giocatore.
 
-### 6.7 Diario, Training e Gamification
+### 7.7 Diario, Training e Gamification
 
 - **`/api/journal`**: Gestione CRUD delle Journal Entries dell'atleta, comprese le checklist associate.
 - **`/api/training/programs`**: Gestione dei programmi di allenamento sia manuali che autogenerati via AI (Ollama).
@@ -694,7 +756,7 @@ Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito s
 
 ---
 
-## 7. Pipeline Computer Vision e AI
+## 8. Pipeline Computer Vision e AI
 
 La pipeline di tracciamento e analisi si attiva durante l'elaborazione dei video registrati per scomporre l'azione del tiro in coordinate geometriche e metriche fisiche.
 
@@ -717,39 +779,39 @@ La pipeline di tracciamento e analisi si attiva durante l'elaborazione dei video
                                              (Homography Projection)
 ```
 
-### 7.1 Object Detection (YOLOv5)
+### 8.1 Object Detection (YOLOv5)
 - **Input**: Flusso di frame a 30 o 60 fps.
 - **Modello YOLOv5**: Esegue l'inferenza (inferiore a 30ms per frame) per estrarre le coordinate delle bounding box relative a:
   - Palla da basket.
   - Canestro (ferro e tabellone).
   - Giocatore.
 
-### 7.2 Kalman Filter (Tracking)
+### 8.2 Kalman Filter (Tracking)
 - Gestisce il tracciamento vettoriale continuo della palla.
 - Corregge le coordinate rilevate e stima la posizione della palla nei frame in cui si verificano occlusioni temporanee (es. palla coperta dal corpo del giocatore) o problemi di motion blur.
 
-### 7.3 Algoritmo di Rilevamento Tiro
+### 8.3 Algoritmo di Rilevamento Tiro
 Il sistema riconosce l'inizio di un'azione di tiro analizzando le coordinate relative e i vettori di velocità:
 1. **Fase di Caricamento**: La palla è rilevata in prossimità delle mani del giocatore (tramite i landmark delle articolazioni estratti da MoveNet).
 2. **Rilascio**: Viene calcolato un vettore di velocità verso l'alto superiore a una soglia minima impostata (`> 2.0 px/s`).
 3. **Separazione**: La palla si allontana dalle bounding box del giocatore mantenendo una traiettoria ascendente.
 4. **Fase di Volo**: Calcolo dell'equazione parabolica per determinare l'apice della traiettoria (altezza massima dell'arco) e l'angolo di rilascio.
 
-### 7.4 Determinazione del Risultato (Made/Miss)
+### 8.4 Determinazione del Risultato (Made/Miss)
 - **MADE (Canestro realizzato)**: La palla entra nell'area cilindrica del ferro dall'alto verso il basso senza rimbalzare oltre il diametro esterno e scende al di sotto della quota del canestro con una traiettoria lineare.
 - **MISS (Errore)**: La traiettoria della palla interseca il tabellone o il ferro rimbalzando all'esterno, oppure manca completamente il cilindro (Airball/Blocked).
 
-### 7.5 Proiezione sul Campo Reale (Omografia Prospettica)
+### 8.5 Proiezione sul Campo Reale (Omografia Prospettica)
 - Utilizza i punti catturati nella fase di calibrazione iniziale (canestro, tiro libero, arco da tre punti, linee perimetrali) per calcolare una matrice di omografia prospettica 3x3.
 - Converte le coordinate bidimensionali del pixel video `(X_pixel, Y_pixel)` nelle coordinate cartesiane metriche reali del campo da basket `(X_court_meters, Y_court_meters)`. Questo passaggio posiziona accuratamente i tiri sullo shot chart.
 
 ---
 
-## 8. Configurazione dell'Applicazione
+## 9. Configurazione dell'Applicazione
 
 Il backend viene configurato tramite il file `application.properties` (o variabili d'ambiente equivalenti in fase di runtime).
 
-### 8.1 Parametri Principali
+### 9.1 Parametri Principali
 
 ```properties
 # Server HTTP
@@ -799,9 +861,9 @@ firebase.database.url=https://mvpiq-hoops-default-rtdb.firebaseio.com
 
 ---
 
-## 9. Deployment e Gestione Operativa
+## 10. Deployment e Gestione Operativa
 
-### 9.1 Comandi di Build Maven
+### 10.1 Comandi di Build Maven
 
 - **Compilazione standard ed esecuzione test**:
   ```bash
@@ -816,7 +878,7 @@ firebase.database.url=https://mvpiq-hoops-default-rtdb.firebaseio.com
   ./mvnw package -Pnative
   ```
 
-### 9.2 Dockerfile per Immagini Native
+### 10.2 Dockerfile per Immagini Native
 
 L'applicazione può essere pacchettizzata all'interno di un container Linux ultraleggero ottimizzato per immagini native:
 
@@ -827,14 +889,14 @@ EXPOSE 8082
 CMD ["/application/run-application.sh"]
 ```
 
-### 9.3 Monitoraggio e Logging
+### 10.3 Monitoraggio e Logging
 
 - **Logging**: Basato su `java.util.logging`. I log sono strutturati per tracciare le richieste in ingresso, i fallimenti delle pipeline AI e le transazioni del DB.
 - **Health Check**: Endpoint di base esposto a `GET /mvpiq` per verificare la raggiungibilità del microservizio da parte dei load balancer o orchestratori.
 
 ---
 
-## 10. Criticità e Strategie di Mitigazione
+## 11. Criticità e Strategie di Mitigazione
 
 1. **Motion Blur della Palla**:
    - *Problema*: La palla si muove ad alta velocità e risulta sfocata nel frame video singolo, compromettendo il rilevamento YOLO.
@@ -848,7 +910,7 @@ CMD ["/application/run-application.sh"]
 
 ---
 
-## 11. Estensioni Future
+## 12. Estensioni Future
 
 1. **Tracciamento Multiplayer**: Estensione della pipeline YOLO per rilevare e tracciare più giocatori contemporaneamente sul campo di gioco, consentendo l'analisi di allenamenti di squadra.
 2. **Dashboard Avanzata per Coach**: Interfaccia web dedicata per consentire agli allenatori di confrontare le metriche di tiro (angoli di rilascio, costanza, zone preferite) di diversi atleti.
