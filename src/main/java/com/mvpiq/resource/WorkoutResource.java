@@ -2,6 +2,7 @@ package com.mvpiq.resource;
 
 import com.mvpiq.dto.CalibrationRequest;
 import com.mvpiq.dto.CalibrationResponse;
+import com.mvpiq.dto.FrameDataBatchRequest;
 import com.mvpiq.dto.FrameDataRequest;
 import com.mvpiq.dto.FrameDataResponse;
 import com.mvpiq.dto.PoseAnalysisRequest;
@@ -179,6 +180,17 @@ public class WorkoutResource {
         return Response.status(Response.Status.CREATED)
                 .entity(FrameDataResponse.from(frameData))
                 .build();
+    }
+
+    @POST
+    @Path("/sessions/{sessionId}/frames/batch")
+    @RolesAllowed({"PLAYER", "TRAINER"})
+    public Response saveFrameDataBatch(
+            @PathParam("sessionId") UUID sessionId,
+            @QueryParam("userId") UUID userId,
+            @Valid FrameDataBatchRequest request) {
+        workoutService.saveFrameDataBatch(sessionId, userId, request);
+        return Response.noContent().build();
     }
 
     @POST

@@ -1,6 +1,7 @@
 package com.mvpiq.service;
 
 import com.mvpiq.dto.CalibrationRequest;
+import com.mvpiq.dto.FrameDataBatchRequest;
 import com.mvpiq.dto.FrameDataRequest;
 import com.mvpiq.dto.PoseAnalysisRequest;
 import com.mvpiq.dto.RealtimeStatsResponse;
@@ -297,6 +298,42 @@ public class WorkoutService {
         workoutFrameDataRepository.persist(frameData);
         LOGGER.info("Saved frame data for session: " + sessionId);
         return frameData;
+    }
+
+    @Transactional
+    public void saveFrameDataBatch(UUID sessionId, UUID playerId, FrameDataBatchRequest request) {
+        if (request.getFrames() == null || request.getFrames().isEmpty()) {
+            return;
+        }
+
+        WorkoutSession session = workoutSessionRepository.findByIdAndPlayer(sessionId, playerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workout session not found"));
+
+        if (!"ACTIVE".equals(session.getSessionStatus())) {
+            throw new IllegalStateException("Cannot add frame data to inactive session");
+        }
+
+        List<WorkoutFrameData> frameDataList = request.getFrames().stream()
+                .map(frameRequest -> WorkoutFrameData.builder()
+                        .session(session)
+                        .frameTimestamp(frameRequest.getFrameTimestamp())
+                        .ballX(frameRequest.getBallX())
+                        .ballY(frameRequest.getBallY())
+                        .ballConfidence(frameRequest.getBallConfidence())
+                        .hoopX(frameRequest.getHoopX())
+                        .hoopY(frameRequest.getHoopY())
+                        .hoopConfidence(frameRequest.getHoopConfidence())
+                        .poseData(frameRequest.getPoseData())
+                        .trajectoryData(frameRequest.getTrajectoryData())
+                        .ballVelocityX(frameRequest.getBallVelocityX())
+                        .ballVelocityY(frameRequest.getBallVelocityY())
+                        .shotDetected(frameRequest.getShotDetected() != null ? frameRequest.getShotDetected() : false)
+                        .createdAt(OffsetDateTime.now())
+                        .build())
+                .toList();
+
+        workoutFrameDataRepository.persist(frameDataList);
+        LOGGER.info("Saved " + frameDataList.size() + " frame data batch for session: " + sessionId);
     }
 
     @Transactional
