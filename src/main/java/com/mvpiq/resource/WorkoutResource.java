@@ -166,7 +166,7 @@ public class WorkoutResource {
     @RolesAllowed({"PLAYER", "TRAINER"})
     public Response getActiveSession(@QueryParam("userId") UUID userId) {
         var session = workoutService.getActiveSession(userId);
-        return Response.ok(WorkoutSessionResponse.from(session)).build();
+        return Response.ok(session).build();
     }
 
     @POST

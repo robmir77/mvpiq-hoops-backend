@@ -43,11 +43,21 @@ public class WorkoutSessionResponse {
     private String moveNetModelId;
     private String yoloDelegate;
     private String poseDelegate;
+    private CalibrationResponse calibration;
 
     public static WorkoutSessionResponse from(com.mvpiq.model.WorkoutSession session) {
+        return from(session, null);
+    }
+
+    public static WorkoutSessionResponse from(com.mvpiq.model.WorkoutSession session, com.mvpiq.model.CourtCalibration calibration) {
         Double percentage = null;
         if (session.getTotalShots() != null && session.getTotalShots() > 0) {
             percentage = (session.getMadeShots() != null ? session.getMadeShots() : 0) * 100.0 / session.getTotalShots();
+        }
+
+        CalibrationResponse calibrationResponse = null;
+        if (calibration != null) {
+            calibrationResponse = CalibrationResponse.from(calibration);
         }
 
         return WorkoutSessionResponse.builder()
@@ -72,6 +82,7 @@ public class WorkoutSessionResponse {
                 .moveNetModelId(session.getMoveNetModelId())
                 .yoloDelegate(session.getYoloDelegate())
                 .poseDelegate(session.getPoseDelegate())
+                .calibration(calibrationResponse)
                 .build();
     }
 }

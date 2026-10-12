@@ -84,6 +84,12 @@ public class CourtCalibration {
     @Column(name = "homography_matrix", columnDefinition = "jsonb")
     private List<Double> homographyMatrix;
 
+    @Column(name = "court_width")
+    private Double courtWidth;
+
+    @Column(name = "court_height")
+    private Double courtHeight;
+
     @Column(name = "calibration_confidence")
     private Double calibrationConfidence;
 

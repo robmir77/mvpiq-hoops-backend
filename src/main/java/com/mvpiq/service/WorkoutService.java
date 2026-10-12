@@ -36,8 +36,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
-import static io.quarkus.arc.impl.UncaughtExceptions.LOGGER;
-
 @ApplicationScoped
 public class WorkoutService {
 
@@ -188,6 +186,8 @@ public class WorkoutService {
                 .sidelineRightX(request.getSidelineRightX())
                 .sidelineRightY(request.getSidelineRightY())
                 .homographyMatrix(request.getHomographyMatrix())
+                .courtWidth(request.getCourtWidth())
+                .courtHeight(request.getCourtHeight())
                 .calibrationConfidence(request.getCalibrationConfidence())
                 .createdAt(OffsetDateTime.now())
                 .updatedAt(OffsetDateTime.now())
@@ -196,7 +196,7 @@ public class WorkoutService {
         courtCalibrationRepository.persist(calibration);
 
         LOGGER.info("Saved calibration for session: " + sessionId);
-        return WorkoutSessionResponse.from(session);
+        return WorkoutSessionResponse.from(session, calibration);
     }
 
     public CourtCalibration getCalibration(UUID sessionId, UUID playerId) {
@@ -220,7 +220,10 @@ public class WorkoutService {
         WorkoutSession session = workoutSessionRepository.findByIdAndPlayer(sessionId, playerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workout session not found"));
 
-        return WorkoutSessionResponse.from(session);
+        CourtCalibration calibration = courtCalibrationRepository.findLatestByWorkoutSession(sessionId)
+                .orElse(null);
+
+        return WorkoutSessionResponse.from(session, calibration);
     }
 
     public List<WorkoutSessionResponse> getPlayerSessions(UUID playerId) {
@@ -230,9 +233,14 @@ public class WorkoutService {
                 .toList();
     }
 
-    public WorkoutSession getActiveSession(UUID playerId) {
-        return workoutSessionRepository.findActiveSessionByPlayer(playerId)
+    public WorkoutSessionResponse getActiveSession(UUID playerId) {
+        WorkoutSession session = workoutSessionRepository.findActiveSessionByPlayer(playerId)
                 .orElseThrow(() -> new ResourceNotFoundException("No active workout session found"));
+
+        CourtCalibration calibration = courtCalibrationRepository.findLatestByWorkoutSession(session.getId())
+                .orElse(null);
+
+        return WorkoutSessionResponse.from(session, calibration);
     }
 
     public List<ShotEvent> getSessionShots(UUID sessionId, UUID playerId) {

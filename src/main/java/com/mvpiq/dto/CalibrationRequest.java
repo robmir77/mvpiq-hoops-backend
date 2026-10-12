@@ -50,5 +50,9 @@ public class CalibrationRequest {
 
     private List<Double> homographyMatrix;
 
+    private Double courtWidth;
+
+    private Double courtHeight;
+
     private Double calibrationConfidence;
 }

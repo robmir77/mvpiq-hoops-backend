@@ -33,6 +33,8 @@ public class CalibrationResponse {
     private Double sidelineRightX;
     private Double sidelineRightY;
     private List<Double> homographyMatrix;
+    private Double courtWidth;
+    private Double courtHeight;
     private Double calibrationConfidence;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
@@ -57,6 +59,8 @@ public class CalibrationResponse {
                 .sidelineRightX(calibration.getSidelineRightX())
                 .sidelineRightY(calibration.getSidelineRightY())
                 .homographyMatrix(calibration.getHomographyMatrix())
+                .courtWidth(calibration.getCourtWidth())
+                .courtHeight(calibration.getCourtHeight())
                 .calibrationConfidence(calibration.getCalibrationConfidence())
                 .createdAt(calibration.getCreatedAt())
                 .updatedAt(calibration.getUpdatedAt())
