@@ -35,6 +35,14 @@ public class WorkoutSessionResponse {
     private List<ShotEventResponse> recentShots;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private Integer fps;
+    private Integer cameraResolutionWidth;
+    private Integer cameraResolutionHeight;
+    private String poseResolution;
+    private String yoloModelId;
+    private String moveNetModelId;
+    private String yoloDelegate;
+    private String poseDelegate;
 
     public static WorkoutSessionResponse from(com.mvpiq.model.WorkoutSession session) {
         Double percentage = null;
@@ -56,6 +64,14 @@ public class WorkoutSessionResponse {
                 .shootingPercentage(percentage)
                 .createdAt(session.getCreatedAt())
                 .updatedAt(session.getUpdatedAt())
+                .fps(session.getFps())
+                .cameraResolutionWidth(session.getCameraResolutionWidth())
+                .cameraResolutionHeight(session.getCameraResolutionHeight())
+                .poseResolution(session.getPoseResolution())
+                .yoloModelId(session.getYoloModelId())
+                .moveNetModelId(session.getMoveNetModelId())
+                .yoloDelegate(session.getYoloDelegate())
+                .poseDelegate(session.getPoseDelegate())
                 .build();
     }
 }

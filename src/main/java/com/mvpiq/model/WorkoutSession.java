@@ -78,6 +78,30 @@ public class WorkoutSession {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt = OffsetDateTime.now();
 
+    @Column(name = "fps")
+    private Integer fps;
+
+    @Column(name = "camera_resolution_width")
+    private Integer cameraResolutionWidth;
+
+    @Column(name = "camera_resolution_height")
+    private Integer cameraResolutionHeight;
+
+    @Column(name = "pose_resolution")
+    private String poseResolution;
+
+    @Column(name = "yolo_model_id")
+    private String yoloModelId;
+
+    @Column(name = "move_net_model_id")
+    private String moveNetModelId;
+
+    @Column(name = "yolo_delegate")
+    private String yoloDelegate;
+
+    @Column(name = "pose_delegate")
+    private String poseDelegate;
+
     @PreUpdate
     public void preUpdate() {
         updatedAt = OffsetDateTime.now();

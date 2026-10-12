@@ -373,7 +373,15 @@ POST /api/workouts/sessions?userId=550e8400-e29b-41d4-a716-446655440000
 {
   "cameraMode": "ANGLE_45",
   "courtType": "HALF_COURT",
-  "calibrationData": "{\"homographyMatrix\": [...], \"hoopCenter\": {\"x\": 320, \"y\": 240}}"
+  "calibrationData": "{\"homographyMatrix\": [...], \"hoopCenter\": {\"x\": 320, \"y\": 240}}",
+  "fps": 30,
+  "cameraResolutionWidth": 1920,
+  "cameraResolutionHeight": 1080,
+  "poseResolution": "256x256",
+  "yoloModelId": "yolov5s",
+  "moveNetModelId": "movenet_lightning",
+  "yoloDelegate": "CPU",
+  "poseDelegate": "CPU"
 }
 ```
 

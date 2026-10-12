@@ -11,10 +11,18 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WorkoutSessionRequest {
-    
+
     private WorkoutSession.CameraMode cameraMode;
     private WorkoutSession.CourtType courtType;
     private String calibrationData;
+    private Integer fps;
+    private Integer cameraResolutionWidth;
+    private Integer cameraResolutionHeight;
+    private String poseResolution;
+    private String yoloModelId;
+    private String moveNetModelId;
+    private String yoloDelegate;
+    private String poseDelegate;
     
     public static class CalibrationData {
         private Double hoopCenterX;

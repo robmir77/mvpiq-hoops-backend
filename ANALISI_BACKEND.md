@@ -229,6 +229,14 @@ classDiagram
         +String notes
         +Double averageShotDistance
         +BigDecimal workoutScore
+        +Integer fps
+        +Integer cameraResolutionWidth
+        +Integer cameraResolutionHeight
+        +String poseResolution
+        +String yoloModelId
+        +String moveNetModelId
+        +String yoloDelegate
+        +String poseDelegate
     }
     class ShotEvent {
         +UUID id
@@ -369,6 +377,14 @@ Tabella `workout_sessions`. Sessione di allenamento/rilevamento tiri avviata da 
 - `notes`: `String` (TEXT, note riassuntive dell'allenamento)
 - `averageShotDistance`: `Double` (distanza media espressa in metri)
 - `workoutScore`: `BigDecimal` (valutazione complessiva del workout)
+- `fps`: `Integer` (FPS selezionati per la fotocamera)
+- `cameraResolutionWidth`: `Integer` (Larghezza della risoluzione della fotocamera)
+- `cameraResolutionHeight`: `Integer` (Altezza della risoluzione della fotocamera)
+- `poseResolution`: `String` (Risoluzione utilizzata da MoveNet)
+- `yoloModelId`: `String` (Modello YOLO selezionato)
+- `moveNetModelId`: `String` (Modello MoveNet selezionato)
+- `yoloDelegate`: `String` (Delegate utilizzato da YOLO)
+- `poseDelegate`: `String` (Delegate utilizzato da MoveNet)
 - `createdAt`: `OffsetDateTime`
 - `updatedAt`: `OffsetDateTime`
 
@@ -699,7 +715,7 @@ Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito s
 ### 7.3 Workout e Tracking Tiri (`/api/workouts`)
 
 - **`POST /api/workouts/sessions`**: Inizia una sessione di workout.
-  - *Request*: `{"cameraMode": "ANGLE_45", "courtType": "HALF_COURT", "calibrationData": "..."}`
+  - *Request*: `{"cameraMode": "ANGLE_45", "courtType": "HALF_COURT", "calibrationData": "...", "fps": 30, "cameraResolutionWidth": 1920, "cameraResolutionHeight": 1080, "poseResolution": "256x256", "yoloModelId": "yolov5s", "moveNetModelId": "movenet_lightning", "yoloDelegate": "CPU", "poseDelegate": "CPU"}`
 - **`GET /api/workouts/sessions/{sessionId}`**: Recupera i dettagli di una sessione specifica.
 - **`GET /api/workouts/sessions`**: Recupera l'elenco storico di tutte le sessioni del giocatore.
 - **`GET /api/workouts/sessions/active`**: Ritorna l'eventuale sessione ancora attiva per il giocatore.
