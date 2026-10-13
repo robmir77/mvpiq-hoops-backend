@@ -397,7 +397,30 @@ POST /api/workouts/sessions/session-123/shots?userId=550e8400-e29b-41d4-a716-446
   "releaseAngle": 48.2,
   "releaseVelocity": 12.5,
   "detectionConfidence": 0.91,
-  "trackingData": "{\"ballPosition\": {\"x\": 120, \"y\": 330}, \"trajectory\": [...]}"
+  "trackingData": "{\"ballPosition\": {\"x\": 120, \"y\": 330}, \"trajectory\": [...]}",
+  "rawPoseFrames": [
+    {
+      "timestampMs": 1791914820000,
+      "keypoints": [
+        {"name": "nose", "x": 0.5, "y": 0.3, "confidence": 0.95},
+        {"name": "leftEye", "x": 0.48, "y": 0.28, "confidence": 0.92},
+        {"name": "rightEye", "x": 0.52, "y": 0.28, "confidence": 0.92},
+        {"name": "leftShoulder", "x": 0.42, "y": 0.45, "confidence": 0.88},
+        {"name": "rightShoulder", "x": 0.58, "y": 0.45, "confidence": 0.88},
+        {"name": "leftElbow", "x": 0.35, "y": 0.55, "confidence": 0.85},
+        {"name": "rightElbow", "x": 0.65, "y": 0.55, "confidence": 0.85},
+        {"name": "leftWrist", "x": 0.30, "y": 0.65, "confidence": 0.82},
+        {"name": "rightWrist", "x": 0.70, "y": 0.65, "confidence": 0.82},
+        {"name": "leftHip", "x": 0.45, "y": 0.70, "confidence": 0.90},
+        {"name": "rightHip", "x": 0.55, "y": 0.70, "confidence": 0.90},
+        {"name": "leftKnee", "x": 0.43, "y": 0.85, "confidence": 0.87},
+        {"name": "rightKnee", "x": 0.57, "y": 0.85, "confidence": 0.87},
+        {"name": "leftAnkle", "x": 0.42, "y": 0.95, "confidence": 0.84},
+        {"name": "rightAnkle", "x": 0.58, "y": 0.95, "confidence": 0.84}
+      ],
+      "coordinateSpace": "IMAGE_NORMALIZED"
+    }
+  ]
 }
 ```
 

@@ -33,9 +33,17 @@ Tecnologia avanzata. Esperienza umana. Accessibilità.
 - **Database**: PostgreSQL (Neon Cloud)
 - **Porta di Ascolto**: 8082
 - **Versione**: 1.0.0-SNAPSHOT
-- **Ultimo Aggiornamento**: 30 Agosto 2026
+- **Ultimo Aggiornamento**: 13 Ottobre 2026
 
-### 1.2 Aggiornamenti Recenti (Agosto 2026)
+### 1.2 Aggiornamenti Recenti (Ottobre 2026)
+
+#### 13 Ottobre 2026 - Raw Pose Frames per Shot Events
+- **RawPoseFrame**: Nuovo DTO per rappresentare i frame pose grezzi associati a ogni tiro. Include timestampMs, keypoints (17 articolazioni con nome, x, y, confidence) e coordinateSpace (IMAGE_NORMALIZED o IMAGE_PIXELS).
+- **ShotEventRequest**: Aggiunto campo `rawPoseFrames` per ricevere i dati pose dal client durante il salvataggio dei tiri.
+- **ShotEventResponse**: Aggiunto campo `rawPoseFrames` per restituire i dati pose al client quando viene richiesto l'elenco dei tiri di una sessione.
+- **ShotEvent (Entità)**: Aggiunto campo `rawPoseFrames` (JSONB) per persistere i dati pose nel database.
+- **Migration V20261013**: Nuova migration SQL per aggiungere la colonna `raw_pose_frames` (jsonb) alla tabella `shot_events`.
+- **WorkoutService**: Aggiornato il metodo `addShotEvent` per salvare i rawPoseFrames dalla request nell'entità ShotEvent.
 
 #### 30 Agosto 2026 - Fix JSONB e ShotEvent
 - **JsonbConverter**: Nuovo convertitore JPA per la validazione dei dati JSONB prima del salvataggio nel database. Implementa `AttributeConverter<String, String>` con validazione tramite Jackson ObjectMapper per garantire l'integrità dei dati JSON.
@@ -253,6 +261,7 @@ classDiagram
         +String videoClipPath
         +String shotZone
         +Integer releaseTimeMs
+        +List<RawPoseFrame> rawPoseFrames
     }
     class PlayerCv {
         +UUID id
@@ -406,6 +415,7 @@ Tabella `shot_events`. Ogni singolo tiro registrato all'interno di una sessione 
 - `videoClipPath`: `String` (percorso dello storage cloud del clip video del tiro)
 - `shotZone`: `String` (Zona di tiro calcolata: `PAINT`, `MID_RANGE`, `THREE_POINT`, `CORNER`)
 - `releaseTimeMs`: `Integer` (tempo complessivo impiegato per il rilascio della palla)
+- `rawPoseFrames`: `List<RawPoseFrame>` (JSONB, array di frame pose grezzi con 17 keypoints per il calcolo della qualità della pose)
 - `createdAt`: `OffsetDateTime` (impostato automaticamente a `OffsetDateTime.now()` durante la creazione)
 
 #### CourtCalibration
@@ -648,6 +658,20 @@ DTO per la standardizzazione delle risposte di calibrazione del campo da basket.
 - **Utilizzo**: Restituito dagli endpoint di calibrazione per fornire una rappresentazione pulita e serializzabile dei dati geometrici del campo
 - **Note**: Aggiunto nel giugno 2026 per standardizzare le risposte API per la calibrazione del campo
 
+### 5.2 RawPoseFrame
+DTO per rappresentare i frame pose grezzi associati a ogni tiro per il calcolo della qualità della pose.
+- **Campi**:
+  - `timestampMs`: `Long` - timestamp del frame in millisecondi
+  - `keypoints`: `List<PoseKeypoint>` - array di 17 keypoints (nose, eyes, shoulders, elbows, wrists, hips, knees, ankles)
+  - `coordinateSpace`: `String` - tipo di spazio di coordinate (`IMAGE_NORMALIZED` o `IMAGE_PIXELS`)
+- **PoseKeypoint (Inner Class)**:
+  - `name`: `String` - nome del keypoint (es. "nose", "leftShoulder", "rightWrist")
+  - `x`: `Double` - coordinata X
+  - `y`: `Double` - coordinata Y
+  - `confidence`: `Double` - livello di confidenza del rilevamento (0.0-1.0)
+- **Utilizzo**: Utilizzato in `ShotEventRequest` per ricevere i dati pose dal client e in `ShotEventResponse` per restituirli al client
+- **Note**: Aggiunto nell'ottobre 2026 per supportare il calcolo del punteggio della qualità della pose (angolo del gomito, allineamento spalle, confidenza media)
+
 ---
 
 ## 6. Sicurezza e Controllo Accessi (RBAC)
@@ -734,9 +758,9 @@ Tutti gli endpoint rispondono sotto il path base dell'applicazione. Di seguito s
 
 ### 7.4 Eventi Tiro e Calibrazione (`/api/workouts`)
 
-- **`GET /api/workouts/sessions/{sessionId}/shots`**: Ritorna tutti i tiri eseguiti nella sessione.
+- **`GET /api/workouts/sessions/{sessionId}/shots`**: Ritorna tutti i tiri eseguiti nella sessione, inclusi i rawPoseFrames per il calcolo della qualità della pose.
 - **`POST /api/workouts/sessions/{sessionId}/shots`**: Aggiunge manualmente o via AI un evento tiro alla sessione.
-  - *Request*: `{"timestampMs": 123456, "shotResult": "MADE", "courtX": 4.5, "courtY": 6.2, "distanceFromHoop": 6.75, "releaseAngle": 48.0, "releaseVelocity": 12.1, "detectionConfidence": 0.94}`
+  - *Request*: `{"timestampMs": 123456, "shotResult": "MADE", "courtX": 4.5, "courtY": 6.2, "distanceFromHoop": 6.75, "releaseAngle": 48.0, "releaseVelocity": 12.1, "detectionConfidence": 0.94, "rawPoseFrames": [{"timestampMs": 1791914820000, "keypoints": [{"name": "nose", "x": 0.5, "y": 0.3, "confidence": 0.95}, ...], "coordinateSpace": "IMAGE_NORMALIZED"}]}`
 - **`POST /api/workouts/sessions/{sessionId}/calibration`**: Salva le coordinate pixel del canestro e delle linee rilevate sul campo per impostare l'omografia.
 
 ### 7.5 Analytics e Statistiche (`/api/workouts`)
