@@ -76,7 +76,7 @@ public class ShotEvent {
     private Integer releaseTimeMs;
 
     @Convert(converter = RawPoseFrameConverter.class)
-    @Column(name = "raw_pose_frames", columnDefinition = "jsonb")
+    @Column(name = "raw_pose_frames", columnDefinition = "text")
     private List<RawPoseFrame> rawPoseFrames;
 
     @Column(name = "created_at", nullable = false)
