@@ -1,6 +1,7 @@
 package com.mvpiq.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.mvpiq.converter.RawPoseFrameConverter;
 import com.mvpiq.dto.RawPoseFrame;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -74,6 +75,7 @@ public class ShotEvent {
     @Column(name = "release_time_ms")
     private Integer releaseTimeMs;
 
+    @Convert(converter = RawPoseFrameConverter.class)
     @Column(name = "raw_pose_frames", columnDefinition = "jsonb")
     private List<RawPoseFrame> rawPoseFrames;
 
