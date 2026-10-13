@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -29,6 +30,7 @@ public class ShotEventResponse {
     private Double detectionConfidence;
     private String trackingData;
     private String videoClipPath;
+    private List<RawPoseFrame> rawPoseFrames;
     private OffsetDateTime createdAt;
     
     public static ShotEventResponse from(com.mvpiq.model.ShotEvent shot) {
@@ -47,6 +49,7 @@ public class ShotEventResponse {
                 .detectionConfidence(shot.getDetectionConfidence())
                 .trackingData(shot.getTrackingData())
                 .videoClipPath(shot.getVideoClipPath())
+                .rawPoseFrames(shot.getRawPoseFrames())
                 .createdAt(shot.getCreatedAt())
                 .build();
     }

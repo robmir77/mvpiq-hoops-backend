@@ -1,6 +1,7 @@
 package com.mvpiq.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.mvpiq.dto.RawPoseFrame;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -71,6 +73,9 @@ public class ShotEvent {
 
     @Column(name = "release_time_ms")
     private Integer releaseTimeMs;
+
+    @Column(name = "raw_pose_frames", columnDefinition = "jsonb")
+    private List<RawPoseFrame> rawPoseFrames;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();

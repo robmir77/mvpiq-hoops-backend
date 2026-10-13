@@ -150,6 +150,7 @@ public class WorkoutService {
                 .detectionConfidence(request.getDetectionConfidence())
                 .trackingData(trackingData)
                 .videoClipPath(request.getVideoClipPath())
+                .rawPoseFrames(request.getRawPoseFrames())
                 .createdAt(OffsetDateTime.now())
                 .build();
 

@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,4 +26,5 @@ public class ShotEventRequest {
     private Double detectionConfidence;
     private String trackingData;
     private String videoClipPath;
+    private List<RawPoseFrame> rawPoseFrames;
 }
