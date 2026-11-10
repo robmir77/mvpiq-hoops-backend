@@ -1,6 +1,7 @@
 package com.mvpiq.dto;
 
 import com.mvpiq.model.WorkoutSession;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,6 +19,9 @@ public class WorkoutSessionRequest {
     private Integer fps;
     private Integer cameraResolutionWidth;
     private Integer cameraResolutionHeight;
+    @Pattern(regexp = "back|front", message = "Camera position must be 'back' or 'front'")
+    private String cameraPosition;
+    private String cameraDeviceId;
     private String poseResolution;
     private String yoloModelId;
     private String moveNetModelId;
