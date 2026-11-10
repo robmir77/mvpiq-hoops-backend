@@ -87,6 +87,12 @@ public class WorkoutSession {
     @Column(name = "camera_resolution_height")
     private Integer cameraResolutionHeight;
 
+    @Column(name = "camera_position", length = 10)
+    private String cameraPosition;
+
+    @Column(name = "camera_device_id", length = 255)
+    private String cameraDeviceId;
+
     @Column(name = "pose_resolution")
     private String poseResolution;
 

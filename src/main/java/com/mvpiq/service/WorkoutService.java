@@ -82,6 +82,8 @@ public class WorkoutService {
                 .fps(request.getFps())
                 .cameraResolutionWidth(request.getCameraResolutionWidth())
                 .cameraResolutionHeight(request.getCameraResolutionHeight())
+                .cameraPosition(request.getCameraPosition())
+                .cameraDeviceId(request.getCameraDeviceId())
                 .poseResolution(request.getPoseResolution())
                 .yoloModelId(request.getYoloModelId())
                 .moveNetModelId(request.getMoveNetModelId())

@@ -38,6 +38,8 @@ public class WorkoutSessionResponse {
     private Integer fps;
     private Integer cameraResolutionWidth;
     private Integer cameraResolutionHeight;
+    private String cameraPosition;
+    private String cameraDeviceId;
     private String poseResolution;
     private String yoloModelId;
     private String moveNetModelId;
@@ -77,6 +79,8 @@ public class WorkoutSessionResponse {
                 .fps(session.getFps())
                 .cameraResolutionWidth(session.getCameraResolutionWidth())
                 .cameraResolutionHeight(session.getCameraResolutionHeight())
+                .cameraPosition(session.getCameraPosition())
+                .cameraDeviceId(session.getCameraDeviceId())
                 .poseResolution(session.getPoseResolution())
                 .yoloModelId(session.getYoloModelId())
                 .moveNetModelId(session.getMoveNetModelId())
